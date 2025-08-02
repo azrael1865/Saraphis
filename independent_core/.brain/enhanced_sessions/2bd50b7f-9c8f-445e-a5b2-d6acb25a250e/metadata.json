@@ -1,0 +1,36 @@
+{
+  "session_id": "2bd50b7f-9c8f-445e-a5b2-d6acb25a250e",
+  "session_name": "concurrent_mathematics",
+  "domain_name": "mathematics",
+  "created_at": "2025-07-20T07:51:51.153273",
+  "started_at": "2025-07-20T07:51:51.154589",
+  "completed_at": "2025-07-20T07:51:51.455519",
+  "last_active": "2025-07-20T07:51:51.455521",
+  "training_config": {
+    "epochs": 3,
+    "checkpoint_frequency": 5,
+    "enable_monitoring": true
+  },
+  "progress": {
+    "current_epoch": 3,
+    "total_epochs": 3,
+    "current_batch": 1,
+    "total_batches": 1,
+    "percentage": 133.33333333333331,
+    "estimated_remaining": null,
+    "samples_processed": 3000,
+    "total_samples": 0
+  },
+  "peak_memory_usage": 0.0,
+  "total_compute_time": 0.0,
+  "checkpoint_count": 1,
+  "recovery_count": 0,
+  "best_metrics": {},
+  "final_metrics": {
+    "final_loss": 0.8299863499310332,
+    "final_accuracy": 0.5905156824405202,
+    "best_val_accuracy": 0.5905156824405202,
+    "training_time": 0.3005959987640381,
+    "epochs_completed": 3
+  }
+}

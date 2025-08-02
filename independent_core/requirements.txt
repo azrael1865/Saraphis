@@ -1,0 +1,129 @@
+# Core Dependencies for Saraphis Independent Core
+# Complete requirements file with versions and optional dependencies
+
+# ============================================================================
+# CORE DEPENDENCIES (Required)
+# ============================================================================
+
+# Brain System Core
+numpy>=1.21.0
+torch>=1.11.0
+pathlib2>=2.3.6; python_version < "3.4"
+
+# Data Processing
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# Configuration and Data Formats
+pyyaml>=6.0
+pydantic>=1.8.0
+
+# Logging and Monitoring
+psutil>=5.8.0
+
+# ============================================================================
+# ACCURACY TRACKING DEPENDENCIES
+# ============================================================================
+
+# JWT Authentication
+PyJWT>=2.4.0
+
+# Configuration Formats
+toml>=0.10.2
+
+# Cryptography (for secure operations)
+cryptography>=3.4.8
+
+# Web Framework (for API)
+fastapi>=0.68.0
+uvicorn>=0.15.0
+
+# HTTP Client
+httpx>=0.24.0
+requests>=2.28.0
+
+# ============================================================================
+# OPTIONAL DEPENDENCIES (Enhanced functionality)
+# ============================================================================
+
+# Database Support
+sqlalchemy>=1.4.0
+sqlite3; python_version >= "3.0"  # Built-in but listed for clarity
+
+# Advanced Encryption
+bcrypt>=3.2.0
+passlib>=1.7.4
+
+# API Documentation
+fastapi[all]>=0.68.0
+
+# Testing Framework
+pytest>=6.0.0
+pytest-asyncio>=0.15.0
+
+# Development Tools
+black>=21.0.0
+flake8>=3.9.0
+mypy>=0.910
+
+# Performance Monitoring
+prometheus-client>=0.11.0
+
+# ============================================================================
+# SYSTEM-SPECIFIC DEPENDENCIES
+# ============================================================================
+
+# Linux/Unix specific
+pyinotify>=0.9.6; sys_platform == "linux"
+
+# Windows specific  
+pywin32>=227; sys_platform == "win32"
+
+# ============================================================================
+# DEVELOPMENT DEPENDENCIES (Optional)
+# ============================================================================
+
+# Jupyter Notebooks
+jupyter>=1.0.0
+jupyterlab>=3.0.0
+
+# Documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
+
+# Code Quality
+pre-commit>=2.15.0
+bandit>=1.7.0
+
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+
+# Install core dependencies only:
+# pip install -r requirements.txt --no-deps
+# pip install numpy torch pyyaml psutil PyJWT toml
+
+# Install all dependencies:
+# pip install -r requirements.txt
+
+# Install for development:
+# pip install -r requirements.txt
+# pip install -e .
+
+# ============================================================================
+# VERSION COMPATIBILITY
+# ============================================================================
+
+# Python 3.7+ required
+# Tested on Python 3.7, 3.8, 3.9, 3.10, 3.11
+
+# ============================================================================
+# DEPENDENCY GROUPS (for pip-tools or poetry)
+# ============================================================================
+
+# Core group: numpy, torch, pyyaml, psutil
+# Auth group: PyJWT, cryptography
+# Config group: toml, pydantic
+# API group: fastapi, uvicorn, httpx
+# Dev group: pytest, black, mypy
+# Docs group: sphinx, jupyter

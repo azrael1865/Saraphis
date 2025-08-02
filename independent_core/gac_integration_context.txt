@@ -1,0 +1,56 @@
+# GAC INTEGRATION CONTEXT - TRAINING MANAGER
+
+## GAC SYSTEM IMPORTS:
+from .gac_system.gradient_ascent_clipping import GACSystem, create_gac_system
+from .gac_system.gac_components import create_default_components
+from .gac_system.gac_config import create_default_config
+
+## GAC SYSTEM INITIALIZATION:
+def __init__(self, config: TrainingConfig = None):
+    # ... existing code ...
+    
+    # Initialize GAC system
+    self.gac_system = create_gac_system()
+    self.gac_config = create_default_config()
+    
+    # Register default GAC components
+    default_components = create_default_components()
+    for component in default_components:
+        self.gac_system.register_component(component, group="training")
+
+## GAC INTEGRATION IN TRAINING LOOP:
+async def _train_epoch(self, model, train_loader, optimizer, criterion, epoch):
+    # ... existing training code ...
+    
+    for batch_idx, (data, target) in enumerate(train_loader):
+        # ... existing forward pass ...
+        
+        # Apply GAC gradient processing before optimizer step
+        if hasattr(self, 'gac_system') and self.gac_system:
+            context = {
+                'epoch': epoch,
+                'batch': batch_idx,
+                'loss': loss.item(),
+                'model_name': model.__class__.__name__
+            }
+            processed_gradients = await self.gac_system.process_gradient(
+                loss.grad, context
+            )
+            # Replace gradients with processed ones
+            for param, grad in zip(model.parameters(), processed_gradients):
+                if param.grad is not None:
+                    param.grad.copy_(grad)
+        
+        # ... existing optimizer step ...
+
+## GAC COMPONENTS TO USE:
+# - GradientClippingComponent: Adaptive gradient clipping
+# - GradientNoiseComponent: Controlled noise for regularization  
+# - GradientNormalizationComponent: Gradient normalization
+# - GradientMonitoringComponent: Performance monitoring
+
+## GAC CONFIGURATION:
+# Use create_default_config() for basic settings
+# Mode: BALANCED
+# Components: All default components enabled
+# Monitoring: Basic performance tracking 

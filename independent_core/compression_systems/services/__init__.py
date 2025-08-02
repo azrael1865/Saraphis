@@ -1,0 +1,1 @@
+"""Compression service framework interfaces"""

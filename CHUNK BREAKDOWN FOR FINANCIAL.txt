@@ -1,0 +1,116 @@
+CHUNK BREAKDOWN FOR FINANCIAL_FRAUD_DOMAIN MODULES:
+CHUNK 1: Relative Import Issues
+					CHUNK 1A: Main Orchestrator
+					Files: accuracy_tracking_orchestrator.py
+					Issue: Relative import problems with accuracy_dataset_manager and enhanced_fraud_core_exceptions
+					Focus: Fix relative import statements to absolute imports	
+					CHUNK 1B: Database and Monitoring Core
+					Files: accuracy_tracking_db.py, enhanced_fraud_core_monitoring.py
+					Issue: Relative import problems with enhanced_fraud_core_exceptions
+					Focus: Fix relative import statements to absolute imports
+					CHUNK 1C: Diagnostics Module
+					Files: accuracy_tracking_diagnostics.py
+					Issue: Relative import problems with enhanced_fraud_core_monitoring
+					Focus: Fix relative import statements to absolute imports
+					This breaks the 4 files into 3 manageable chunks:
+					CHUNK 1A: 1 file (212KB orchestrator)
+					CHUNK 1B: 2 files (database and monitoring core)
+					CHUNK 1C: 1 file (diagnostics module)
+				Each chunk focuses on related modules and their import dependencies, making them easier to upload and fix individually.
+
+					CHUNK 2: Missing Dependencies
+					Files: accuracy_tracking_api.py, accuracy_tracking_config_loader.py
+					Issue: Missing 'jwt' and 'toml' modules
+					Focus: Install missing dependencies or provide alternatives
+
+					CHUNK 3: Missing Classes and Definitions
+					Files: enhanced_fraud_core_exceptions.py, accuracy_analytics_reporter.py
+					Issue: FraudCoreError class not defined but being imported
+					Focus: Add missing FraudCoreError class or fix import statements
+
+CHUNK 4: Integration Testing
+Files: All working modules + fixed modules
+Issue: Test integration between modules after fixes
+Focus: Ensure all modules can work together for accuracy tracking
+
+CHUNK 5: Brain System Integration
+Files: All financial_fraud_domain modules + independent_core modules
+Issue: Test integration with core Brain system
+Focus: Ensure accuracy tracking works with Brain training pipeline
+
+CHUNK 6: Full Train-Test Cycle
+Files: Complete system
+Issue: Execute full train-test with live accuracy tracking
+Focus: End-to-end testing of complete system
+Each chunk builds on the previous one, fixing issues systematically before moving to integration testing.
+
+CHUNK 4: Integration Testing - GRANULAR BREAKDOWN
+CHUNK 4A: Core Module Integration Testing
+Files to Upload:
+financial_fraud_domain/accuracy_tracking_orchestrator.py (fixed)
+financial_fraud_domain/accuracy_tracking_db.py (fixed)
+test_core_integration.py (new)
+Focus: Test core accuracy tracking modules can work together
+Implementation:
+Module import testing between orchestrator and database
+Basic data flow validation
+Connection establishment and basic operations
+Error handling between core components
+CHUNK 4B: Monitoring Integration Testing
+Files to Upload:
+financial_fraud_domain/enhanced_fraud_core_monitoring.py (fixed)
+financial_fraud_domain/accuracy_tracking_diagnostics.py (fixed)
+test_monitoring_integration.py (new)
+Focus: Test monitoring components integration
+Implementation:
+Real-time data collection integration
+Metric aggregation testing
+Alert system integration
+Performance monitoring integration
+CHUNK 4C: Analytics and Reporting Integration
+Files to Upload:
+financial_fraud_domain/accuracy_analytics_reporter.py (fixed)
+financial_fraud_domain/enhanced_fraud_core_exceptions.py (fixed)
+test_analytics_integration.py (new)
+Focus: Test analytics and reporting functionality
+Implementation:
+Report generation from accuracy data
+Data visualization integration
+Trend analysis testing
+Export functionality validation
+CHUNK 4D: Brain System Integration
+Files to Upload:
+independent_core/brain.py (enhancement)
+independent_core/training_manager.py (enhancement)
+test_brain_integration.py (new)
+Focus: Test integration with existing Brain system
+Implementation:
+Training loop integration with accuracy tracking
+Session management integration
+Error handling integration
+Performance integration
+CHUNK 4E: End-to-End Workflow Testing
+Files to Upload:
+test_end_to_end_workflow.py (new)
+All previously tested modules (reference only)
+Focus: Test complete accuracy tracking workflow
+Implementation:
+Complete training session with accuracy tracking
+Real-time monitoring during training
+Report generation after completion
+Performance and scalability testing
+PARALLEL DEVELOPMENT STRATEGY
+Phase 1: Core Integration (Sequential)
+4A → 4B (Core modules first, then monitoring)
+Phase 2: Parallel Integration
+4C (Analytics) - Independent
+4D (Brain Integration) - Independent
+Phase 3: Final Integration
+4E (End-to-End) - Depends on all previous chunks
+DEPENDENCY MAP
+Apply to brain.py
+Total Chunks: 5 manageable chunks
+Files per Chunk: 2-3 files maximum
+Parallel Development: 2 chunks can run simultaneously
+Sequential Dependencies: 3 chunks require previous completion
+This is much more manageable - each chunk focuses on a specific integration area with a reasonable number of files to upload.

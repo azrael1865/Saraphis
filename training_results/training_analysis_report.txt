@@ -1,0 +1,62 @@
+PRODUCTION TRAINING ANALYSIS REPORT
+====================================================================================================
+
+EXECUTIVE SUMMARY
+--------------------------------------------------
+Training Duration: 0.03 hours
+Start Time: 2025-07-22T07:03:54.652892
+End Time: 2025-07-22T07:05:50.305626
+Status: Success
+
+CONFIGURATION
+--------------------------------------------------
+epochs: 10
+batch_size: 32
+learning_rate: 0.001
+validation_split: 0.2
+device: cuda
+use_gac_system: True
+gac_mode: adaptive
+gac_components: ['clipping', 'monitoring', 'normalization']
+gac_threshold_adaptation: True
+gac_noise_enabled: False
+optimizer: adam
+scheduler: reduce_on_plateau
+gradient_clip_value: 1.0
+early_stopping_enabled: True
+early_stopping_patience: 5
+checkpoint_frequency: 1
+mixed_precision: False
+num_workers: 0
+log_frequency: 10
+save_training_history: True
+normalize_features: True
+handle_missing_values: True
+
+DATASET INFORMATION
+--------------------------------------------------
+training_samples: 472432
+features: 431
+fraud_rate: 0.03498916246147594
+fraud_cases: 16530
+validation_samples: 118108
+load_time_seconds: 1.2217204570770264
+memory_mb: 776.7417602539062
+
+TRAINING RESULTS
+--------------------------------------------------
+success: 1.000000
+domain_name: fraud_detection
+session_id: dc2ad0cd-914e-41f5-aaf8-8b24d18f07d8
+training_time: 114.999336
+best_performance: 0.029478
+protection_applied: 0.000000
+degradation_detected: 0.000000
+details: {'epochs_completed': 10}
+proof_verification: {'verified': True, 'confidence_score': 0.99, 'algebraic_enforcement_applied': True, 'gradient_corrections': 0, 'proof_metrics': {}, 'verification_timestamp': '2025-07-22T07:05:50.295984', 'proofs_generated': 0, 'proofs_verified': 0, 'confidence_intervals': [], 'rule_violations': [], 'proof_system_active': False, 'confidence_tracking_active': True}
+session_lifecycle: {'state': 'completed', 'checkpoints_created': 1, 'session_duration': "<bound method SessionMetadata.total_duration of SessionMetadata(session_id='dc2ad0cd-914e-41f5-aaf8-8b24d18f07d8', session_name='session_dc2ad0cd', domain_name='fraud_detection', created_at=datetime.datetime(2025, 7, 22, 7, 3, 54, 653814), started_at=datetime.datetime(2025, 7, 22, 7, 3, 54, 655444), completed_at=None, last_active=datetime.datetime(2025, 7, 22, 7, 5, 50, 304881), training_config={'epochs': 10, 'batch_size': 32, 'learning_rate': 0.001, 'validation_split': 0.2, 'early_stopping_patience': 5, 'checkpoint_interval': 5, 'max_recovery_attempts': 3, 'enable_monitoring': True, 'log_interval': 10, 'optimizer': 'adam', 'optimizer_params': {'weight_decay': 1e-05}, 'scheduler': 'reduce_on_plateau', 'scheduler_params': {'patience': 5, 'factor': 0.5}, 'dropout_rate': 0.2, 'l1_regularization': 0.0, 'l2_regularization': 0.01, 'gradient_clip_value': 1.0, 'use_gac_system': True, 'gac_mode': 'adaptive', 'gac_components': ['clipping', 'monitoring', 'normalization'], 'gac_threshold_adaptation': True, 'gac_noise_enabled': False, 'proof_system_config': {'enable_proof_system': True, 'proof_verification_frequency': 1, 'confidence_tracking_enabled': True, 'algebraic_enforcement_enabled': True, 'fraud_detection_rules': {'transaction_limits': {'max_amount': 10000, 'max_daily_amount': 50000, 'max_daily_transactions': 100}, 'velocity_rules': {'max_transactions_per_hour': 20, 'max_amount_per_hour': 20000}, 'geographical_rules': {'max_distance_km_per_hour': 1000, 'suspicious_location_patterns': True}}, 'confidence_interval_config': {'confidence_level': 0.95, 'window_size': 100, 'update_frequency': 10}, 'algebraic_rules_config': {'gradient_bounds': {'min': -10.0, 'max': 10.0}, 'lipschitz_constant': 1.0, 'enforce_monotonicity': False, 'max_gradient_norm': 5.0}}, 'device': 'cuda', 'enable_resource_monitoring': True, 'resource_limits': {'max_memory_gb': 8.0, 'max_cpu_percent': 80.0}, 'early_stopping_enabled': True, 'early_stopping_min_delta': 0.0001, 'gradient_accumulation_steps': 1, 'mixed_precision': False, 'checkpoint_frequency': 1, 'max_checkpoints': 5, 'warmup_epochs': 0, 'warmup_learning_rate': 1e-05, 'label_smoothing': 0.0, 'auto_augment': False, 'max_memory_mb': 1024, 'max_training_time_hours': 24.0, 'num_workers': 0, 'log_frequency': 10, 'metric_names': ['loss', 'accuracy'], 'save_training_history': True, 'normalize_features': True, 'handle_missing_values': True, 'missing_value_strategy': 'median', 'encode_categorical': True, 'categorical_encoding': 'auto', 'enable_recovery': True, 'progress_config': {'enable_visualization': True, 'enable_monitoring': True, 'enable_alerts': True, 'memory_warning_mb': 819.2, 'memory_critical_mb': 972.8}}, progress=SessionProgress(current_epoch=0, total_epochs=10, current_batch=0, total_batches=0, percentage=0.0, estimated_remaining=None, samples_processed=0, total_samples=0), peak_memory_usage=0.0, total_compute_time=0.0, checkpoint_count=1, recovery_count=0, best_metrics={}, final_metrics={})>"}
+use_enhanced_session: 1.000000
+checkpoints_created: 1.000000
+progress_report: {'session_id': 'dc2ad0cd-914e-41f5-aaf8-8b24d18f07d8', 'status': 'session_not_found', 'message': 'Session ID provided but no active session found', 'suggestion': 'Session may have completed or been cleaned up'}
+
+END OF REPORT

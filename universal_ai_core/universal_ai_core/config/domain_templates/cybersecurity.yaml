@@ -1,0 +1,738 @@
+# Cybersecurity Domain Configuration Template
+# ==========================================
+# 
+# This configuration template provides comprehensive settings for cybersecurity applications
+# using the Universal AI Core system. Adapted from existing security analysis patterns.
+
+# Environment Configuration
+environment_config:
+  environment: "production"  # development, staging, production
+  debug_mode: false
+  log_level: "WARNING"
+  enable_monitoring: true
+  max_memory_gb: 32.0
+  cache_size_mb: 4096
+  worker_threads: 16
+
+# Security Configuration
+security_config:
+  enable_encryption: true
+  require_authentication: true
+  session_timeout_minutes: 15
+  max_login_attempts: 3
+  encryption_algorithm: "AES-256"
+  hash_algorithm: "SHA-256"
+  secure_headers: true
+
+# Performance Configuration
+performance_config:
+  enable_caching: true
+  cache_ttl_seconds: 1800
+  batch_size: 128
+  parallel_processing: true
+  memory_limit_mb: 8192
+  request_timeout_seconds: 60
+  retry_attempts: 2
+
+# Plugin-Specific Configurations
+plugin_configs:
+  
+  # Feature Extractor Configuration
+  feature_extractors:
+    security:
+      # Network Traffic Analysis
+      network_analysis:
+        packet_capture_enabled: true
+        deep_packet_inspection: true
+        flow_analysis: true
+        protocol_analysis:
+          - "tcp"
+          - "udp"
+          - "icmp"
+          - "http"
+          - "https"
+          - "dns"
+          - "ftp"
+          - "smtp"
+        
+        # Traffic Features
+        statistical_features:
+          - "packet_count"
+          - "byte_count"
+          - "flow_duration"
+          - "inter_arrival_time"
+          - "packet_size_stats"
+          - "flow_rate"
+          - "protocol_distribution"
+        
+        behavioral_features:
+          - "connection_patterns"
+          - "communication_frequency"
+          - "data_transfer_patterns"
+          - "timing_patterns"
+          - "port_usage_patterns"
+      
+      # Malware Analysis
+      malware_analysis:
+        static_analysis:
+          - "file_hash_analysis"
+          - "pe_header_analysis"
+          - "entropy_analysis"
+          - "string_analysis"
+          - "import_analysis"
+          - "section_analysis"
+          - "signature_analysis"
+        
+        dynamic_analysis:
+          - "api_call_monitoring"
+          - "file_system_activity"
+          - "registry_monitoring"
+          - "network_activity"
+          - "process_monitoring"
+          - "memory_analysis"
+        
+        # Sandbox Configuration
+        sandbox_settings:
+          timeout_seconds: 300
+          enable_network: true
+          enable_file_system: true
+          capture_screenshots: true
+          vm_snapshots: true
+      
+      # Log Analysis
+      log_analysis:
+        log_sources:
+          - "system_logs"
+          - "application_logs"
+          - "security_logs"
+          - "network_logs"
+          - "firewall_logs"
+          - "ids_logs"
+          - "web_server_logs"
+        
+        # Pattern Extraction
+        pattern_extraction:
+          - "ip_addresses"
+          - "domain_names"
+          - "user_agents"
+          - "error_codes"
+          - "request_patterns"
+          - "authentication_events"
+          - "anomalous_activities"
+        
+        # Temporal Analysis
+        temporal_features:
+          - "event_frequency"
+          - "time_series_patterns"
+          - "seasonal_patterns"
+          - "burst_detection"
+          - "trend_analysis"
+      
+      # Threat Intelligence
+      threat_intelligence:
+        ioc_extraction:
+          - "ip_addresses"
+          - "domain_names"
+          - "file_hashes"
+          - "email_addresses"
+          - "urls"
+          - "certificates"
+          - "registry_keys"
+        
+        # Reputation Scoring
+        reputation_sources:
+          - "virustotal"
+          - "threatcrowd"
+          - "alienvault_otx"
+          - "malware_bazaar"
+          - "urlvoid"
+        
+        enrichment_apis:
+          virustotal:
+            enabled: true
+            api_key: ""
+            rate_limit: 4
+          
+          threatcrowd:
+            enabled: true
+            base_url: "https://www.threatcrowd.org/searchApi/v2"
+          
+          alienvault_otx:
+            enabled: false
+            api_key: ""
+      
+      # Caching Configuration
+      enable_caching: true
+      cache_size: 50000
+      cache_ttl_hours: 12
+      
+      # Error Handling
+      error_handling:
+        skip_invalid_data: true
+        log_analysis_errors: true
+        continue_on_api_failure: true
+        max_processing_time: 120
+  
+  # Model Configuration
+  models:
+    security:
+      # Model Types for Security Classification
+      model_types:
+        - "random_forest"
+        - "xgboost"
+        - "neural_network"
+        - "isolation_forest"
+        - "one_class_svm"
+      
+      ensemble_method: "voting"  # voting, stacking, weighted
+      anomaly_detection: true
+      
+      # Security-Specific Parameters
+      classification_threshold: 0.7
+      anomaly_threshold: 0.1
+      confidence_threshold: 0.8
+      
+      # Cross-Validation Settings
+      cross_validation:
+        folds: 5
+        stratified: true
+        shuffle: true
+        random_state: 42
+        scoring_metric: "f1_macro"
+      
+      # Hyperparameter Optimization
+      hyperparameter_optimization:
+        enabled: true
+        method: "random_search"
+        n_trials: 50
+        n_jobs: -1
+        cv_folds: 3
+        scoring: "f1_macro"
+      
+      # Model-Specific Parameters
+      random_forest:
+        n_estimators: [100, 200, 300]
+        max_depth: [10, 20, null]
+        min_samples_split: [2, 5, 10]
+        min_samples_leaf: [1, 2, 4]
+        class_weight: ["balanced", "balanced_subsample"]
+      
+      xgboost:
+        n_estimators: [100, 200, 300]
+        max_depth: [3, 6, 9]
+        learning_rate: [0.01, 0.1, 0.2]
+        scale_pos_weight: [1, 5, 10]
+        reg_alpha: [0, 0.1, 1]
+        reg_lambda: [1, 1.5, 2]
+      
+      neural_network:
+        hidden_layers: [[64, 32], [128, 64, 32], [256, 128, 64]]
+        activation: ["relu", "tanh"]
+        learning_rate: [0.001, 0.01]
+        batch_size: [32, 64, 128]
+        epochs: [50, 100, 200]
+        dropout_rate: [0.2, 0.3, 0.5]
+        early_stopping_patience: 10
+      
+      isolation_forest:
+        contamination: [0.05, 0.1, 0.15]
+        max_features: [0.5, 0.75, 1.0]
+        n_estimators: [100, 200]
+      
+      # Data Preprocessing
+      data_preprocessing:
+        feature_scaling: "robust"  # standard, minmax, robust, none
+        handle_imbalanced_data: true
+        sampling_strategy: "auto"  # auto, minority, majority, not_majority, not_minority
+        feature_selection: true
+        feature_selection_method: "rfe"
+        max_features: 500
+        remove_low_variance: true
+        variance_threshold: 0.001
+      
+      # Training Configuration
+      training:
+        test_size: 0.2
+        validation_size: 0.1
+        random_state: 42
+        shuffle: true
+        save_models: true
+        model_directory: "models/security"
+        checkpoint_frequency: 5
+      
+      # Real-time Detection
+      real_time_detection:
+        enabled: true
+        batch_inference: true
+        prediction_threshold: 0.5
+        alert_threshold: 0.8
+        max_latency_ms: 100
+
+  # Proof Language Configuration
+  proof_languages:
+    security:
+      # Proof System Settings
+      logic_system: "temporal"  # propositional, first_order, temporal
+      proof_timeout: 180
+      max_proof_depth: 30
+      enable_proof_caching: true
+      
+      # Security Rule Types
+      enabled_rule_types:
+        - "firewall_rules"
+        - "access_control_rules"
+        - "intrusion_detection_rules"
+        - "malware_signatures"
+        - "network_policies"
+        - "compliance_rules"
+        - "behavioral_rules"
+        - "threat_hunting_rules"
+      
+      # Firewall Rules
+      firewall_rules:
+        default_policy: "deny"
+        log_blocked_connections: true
+        rate_limiting: true
+        geo_blocking: true
+        port_scanning_detection: true
+      
+      # Access Control Rules
+      access_control:
+        require_authentication: true
+        multi_factor_authentication: true
+        role_based_access: true
+        least_privilege_principle: true
+        session_management: true
+        account_lockout_policy: true
+        password_complexity: true
+      
+      # Intrusion Detection Rules
+      intrusion_detection:
+        signature_based: true
+        anomaly_based: true
+        protocol_analysis: true
+        statistical_analysis: true
+        behavioral_analysis: true
+        
+        # Detection Thresholds
+        thresholds:
+          failed_login_attempts: 5
+          connection_rate_limit: 100
+          data_exfiltration_threshold: 1048576  # 1MB
+          port_scan_threshold: 10
+          brute_force_threshold: 50
+      
+      # Malware Detection Rules
+      malware_detection:
+        hash_based_detection: true
+        signature_based_detection: true
+        heuristic_analysis: true
+        behavioral_analysis: true
+        machine_learning_detection: true
+        
+        # File Analysis
+        file_analysis:
+          max_file_size_mb: 100
+          scan_archives: true
+          emulation_timeout: 60
+          yara_rules_enabled: true
+          custom_signatures: true
+      
+      # Compliance Rules
+      compliance_rules:
+        frameworks:
+          - "nist_cybersecurity_framework"
+          - "iso_27001"
+          - "pci_dss"
+          - "gdpr"
+          - "hipaa"
+          - "sox"
+        
+        audit_logging: true
+        data_retention_policy: true
+        encryption_requirements: true
+        access_logging: true
+      
+      # Threat Hunting Rules
+      threat_hunting:
+        ioc_matching: true
+        behavioral_indicators: true
+        network_indicators: true
+        file_indicators: true
+        registry_indicators: true
+        process_indicators: true
+      
+      # Verification Settings
+      verification:
+        require_digital_signatures: true
+        validate_certificates: true
+        check_reputation: true
+        sandbox_analysis: true
+
+  # Knowledge Base Configuration
+  knowledge_bases:
+    security:
+      # Database Settings
+      database_type: "postgresql"  # sqlite, postgresql, mongodb
+      database_config:
+        host: "localhost"
+        port: 5432
+        database: "security_kb"
+        username: "security_user"
+        password: ""
+        pool_size: 20
+      
+      # Threat Intelligence Sources
+      threat_intel_sources:
+        - "mitre_att&ck"
+        - "cve_database"
+        - "threat_feeds"
+        - "malware_samples"
+        - "ioc_feeds"
+        - "security_advisories"
+      
+      # Knowledge Categories
+      knowledge_categories:
+        - "vulnerabilities"
+        - "threats"
+        - "attack_patterns"
+        - "indicators_of_compromise"
+        - "security_controls"
+        - "incident_reports"
+        - "forensic_artifacts"
+      
+      # Search Configuration
+      search_config:
+        enable_full_text_search: true
+        enable_similarity_search: true
+        enable_temporal_search: true
+        similarity_threshold: 0.75
+        max_search_results: 500
+        search_timeout: 30
+      
+      # Data Enrichment
+      enrichment:
+        auto_enrich_iocs: true
+        reputation_scoring: true
+        geolocation_data: true
+        whois_data: true
+        dns_data: true
+        ssl_certificate_data: true
+      
+      # Data Quality
+      data_quality:
+        validate_ioc_format: true
+        check_false_positives: true
+        confidence_scoring: true
+        source_reliability: true
+        temporal_relevance: true
+
+# Logging Configuration
+logging:
+  version: 1
+  disable_existing_loggers: false
+  
+  formatters:
+    security:
+      format: "%(asctime)s [%(levelname)s] %(name)s - %(funcName)s:%(lineno)d - %(message)s"
+    audit:
+      format: "%(asctime)s [AUDIT] %(name)s - User:%(user)s - Action:%(action)s - Result:%(result)s"
+  
+  handlers:
+    console:
+      class: "logging.StreamHandler"
+      level: "WARNING"
+      formatter: "security"
+      stream: "ext://sys.stdout"
+    
+    security_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "INFO"
+      formatter: "security"
+      filename: "logs/security_analysis.log"
+      maxBytes: 20971520  # 20MB
+      backupCount: 10
+    
+    audit_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "INFO"
+      formatter: "audit"
+      filename: "logs/security_audit.log"
+      maxBytes: 10485760  # 10MB
+      backupCount: 20
+    
+    alerts_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "ERROR"
+      formatter: "security"
+      filename: "logs/security_alerts.log"
+      maxBytes: 5242880  # 5MB
+      backupCount: 30
+  
+  loggers:
+    security_analyzer:
+      level: "INFO"
+      handlers: ["security_file", "alerts_file"]
+      propagate: false
+    
+    security_audit:
+      level: "INFO"
+      handlers: ["audit_file"]
+      propagate: false
+    
+    threat_detection:
+      level: "WARNING"
+      handlers: ["console", "security_file", "alerts_file"]
+      propagate: false
+  
+  root:
+    level: "WARNING"
+    handlers: ["console", "security_file"]
+
+# Monitoring and Alerting
+monitoring:
+  enabled: true
+  metrics_collection_interval: 30  # seconds
+  
+  metrics:
+    security_metrics:
+      - "threats_detected"
+      - "alerts_generated"
+      - "false_positive_rate"
+      - "detection_accuracy"
+      - "response_time"
+      - "blocked_connections"
+      - "quarantined_files"
+    
+    system_metrics:
+      - "cpu_usage"
+      - "memory_usage"
+      - "disk_usage"
+      - "network_io"
+      - "log_ingestion_rate"
+    
+    performance_metrics:
+      - "analysis_throughput"
+      - "detection_latency"
+      - "false_positive_rate"
+      - "model_accuracy"
+  
+  alerting:
+    enabled: true
+    alert_channels:
+      - "email"
+      - "sms"
+      - "slack"
+      - "syslog"
+    
+    alert_rules:
+      high_threat_detected:
+        condition: "threat_score > 0.9"
+        severity: "critical"
+        immediate: true
+      
+      multiple_failed_logins:
+        condition: "failed_logins > 10 in 5min"
+        severity: "high"
+        immediate: false
+      
+      system_resource_usage:
+        condition: "cpu_usage > 0.9 or memory_usage > 0.9"
+        severity: "medium"
+        immediate: false
+      
+      detection_accuracy_drop:
+        condition: "detection_accuracy < 0.8"
+        severity: "high"
+        immediate: true
+  
+  dashboards:
+    enabled: true
+    refresh_interval: 10  # seconds
+    include_charts:
+      - "threat_timeline"
+      - "detection_statistics"
+      - "system_health"
+      - "alert_summary"
+
+# Incident Response
+incident_response:
+  enabled: true
+  
+  # Automated Response
+  automated_response:
+    enabled: true
+    quarantine_suspicious_files: true
+    block_malicious_ips: true
+    isolate_infected_systems: true
+    notify_administrators: true
+    
+    # Response Thresholds
+    thresholds:
+      auto_quarantine: 0.9
+      auto_block: 0.8
+      auto_isolate: 0.95
+      manual_review: 0.7
+  
+  # Playbooks
+  playbooks:
+    malware_detection:
+      steps:
+        - "isolate_system"
+        - "collect_artifacts"
+        - "analyze_malware"
+        - "update_signatures"
+        - "notify_stakeholders"
+    
+    data_breach:
+      steps:
+        - "contain_breach"
+        - "assess_impact"
+        - "notify_authorities"
+        - "forensic_analysis"
+        - "remediation"
+    
+    ddos_attack:
+      steps:
+        - "activate_mitigation"
+        - "analyze_traffic"
+        - "block_sources"
+        - "scale_resources"
+        - "monitor_recovery"
+  
+  # Forensics
+  forensics:
+    enabled: true
+    evidence_collection: true
+    chain_of_custody: true
+    timeline_analysis: true
+    artifact_preservation: true
+
+# Integration Settings
+integrations:
+  # SIEM Integration
+  siem_integration:
+    enabled: true
+    siem_type: "splunk"  # splunk, elasticsearch, qradar, arcsight
+    connection:
+      host: "localhost"
+      port: 8089
+      username: ""
+      password: ""
+      ssl_verify: true
+  
+  # Threat Intelligence Feeds
+  threat_feeds:
+    commercial_feeds:
+      - name: "threatconnect"
+        enabled: false
+        api_key: ""
+        feed_type: "json"
+      
+      - name: "recorded_future"
+        enabled: false
+        api_key: ""
+        feed_type: "stix"
+    
+    open_source_feeds:
+      - name: "misp"
+        enabled: true
+        url: "https://misp.example.com"
+        api_key: ""
+      
+      - name: "otx_alienvault"
+        enabled: true
+        api_key: ""
+  
+  # Vulnerability Scanners
+  vulnerability_scanners:
+    nessus:
+      enabled: false
+      host: "localhost"
+      port: 8834
+      username: ""
+      password: ""
+    
+    openvas:
+      enabled: false
+      host: "localhost"
+      port: 9392
+      username: ""
+      password: ""
+  
+  # Network Security Tools
+  network_tools:
+    nmap:
+      enabled: true
+      aggressive_scan: false
+      timing_template: 3
+    
+    wireshark:
+      enabled: true
+      capture_interface: "eth0"
+      capture_filter: ""
+    
+    suricata:
+      enabled: true
+      rules_path: "/etc/suricata/rules"
+      config_path: "/etc/suricata/suricata.yaml"
+
+# Data Management
+data_management:
+  # Data Retention
+  retention_policies:
+    logs: "90 days"
+    alerts: "1 year"
+    threats: "2 years"
+    forensic_data: "7 years"
+    audit_trails: "7 years"
+  
+  # Data Classification
+  classification:
+    public: "no_encryption"
+    internal: "encryption_at_rest"
+    confidential: "encryption_at_rest_and_transit"
+    restricted: "full_encryption_and_access_control"
+  
+  # Backup and Recovery
+  backup:
+    enabled: true
+    frequency: "hourly"
+    retention_days: 30
+    encryption: true
+    offsite_backup: true
+    recovery_testing: true
+
+# Compliance and Audit
+compliance:
+  # Regulatory Frameworks
+  frameworks:
+    nist_csf:
+      enabled: true
+      assessment_frequency: "quarterly"
+      controls_mapping: true
+    
+    iso_27001:
+      enabled: false
+      certification_body: ""
+      audit_frequency: "annually"
+    
+    pci_dss:
+      enabled: false
+      merchant_level: ""
+      qsa_company: ""
+  
+  # Audit Settings
+  audit:
+    enabled: true
+    audit_all_access: true
+    audit_configuration_changes: true
+    audit_privilege_escalation: true
+    audit_data_access: true
+    audit_system_events: true
+    
+    # Audit Log Protection
+    log_integrity: true
+    log_encryption: true
+    log_forwarding: true
+    tamper_detection: true

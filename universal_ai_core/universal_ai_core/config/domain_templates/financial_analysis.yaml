@@ -1,0 +1,846 @@
+# Financial Analysis Domain Configuration Template
+# =============================================
+# 
+# This configuration template provides comprehensive settings for financial analysis applications
+# using the Universal AI Core system. Adapted from existing financial analysis patterns.
+
+# Environment Configuration
+environment_config:
+  environment: "production"  # development, staging, production
+  debug_mode: false
+  log_level: "INFO"
+  enable_monitoring: true
+  max_memory_gb: 64.0
+  cache_size_mb: 8192
+  worker_threads: 32
+
+# Security Configuration
+security_config:
+  enable_encryption: true
+  require_authentication: true
+  session_timeout_minutes: 30
+  max_login_attempts: 5
+  encryption_algorithm: "AES-256"
+  hash_algorithm: "SHA-256"
+  secure_headers: true
+
+# Performance Configuration
+performance_config:
+  enable_caching: true
+  cache_ttl_seconds: 3600
+  batch_size: 256
+  parallel_processing: true
+  memory_limit_mb: 16384
+  request_timeout_seconds: 300
+  retry_attempts: 3
+
+# Plugin-Specific Configurations
+plugin_configs:
+  
+  # Feature Extractor Configuration
+  feature_extractors:
+    financial:
+      # Technical Indicators Configuration
+      technical_indicators:
+        # Moving Averages
+        moving_averages:
+          sma_periods: [5, 10, 20, 50, 100, 200]
+          ema_periods: [5, 10, 20, 50, 100, 200]
+          wma_periods: [5, 10, 20, 50]
+          tema_periods: [10, 20, 50]
+          dema_periods: [10, 20, 50]
+        
+        # Momentum Indicators
+        momentum_indicators:
+          rsi_period: 14
+          stoch_k_period: 14
+          stoch_d_period: 3
+          williams_r_period: 14
+          cci_period: 20
+          mfi_period: 14
+          roc_period: 12
+          macd_fast: 12
+          macd_slow: 26
+          macd_signal: 9
+        
+        # Volatility Indicators
+        volatility_indicators:
+          bollinger_period: 20
+          bollinger_std: 2
+          atr_period: 14
+          adx_period: 14
+          keltner_period: 20
+          donchian_period: 20
+        
+        # Volume Indicators
+        volume_indicators:
+          obv_enabled: true
+          ad_line_enabled: true
+          cmf_period: 20
+          fi_period: 13
+          nvi_enabled: true
+          pvi_enabled: true
+        
+        # Pattern Recognition
+        pattern_recognition:
+          candlestick_patterns: true
+          chart_patterns: true
+          support_resistance: true
+          trend_lines: true
+          fibonacci_retracements: true
+      
+      # Risk Analysis Configuration
+      risk_analysis:
+        # Value at Risk (VaR)
+        var_analysis:
+          confidence_levels: [0.95, 0.99]
+          time_horizons: [1, 5, 10, 22]  # days
+          methods: ["historical", "parametric", "monte_carlo"]
+          portfolio_var: true
+          component_var: true
+        
+        # Risk Metrics
+        risk_metrics:
+          volatility_measures:
+            - "historical_volatility"
+            - "garch_volatility"
+            - "ewma_volatility"
+            - "parkinson_volatility"
+            - "garman_klass_volatility"
+          
+          correlation_measures:
+            - "pearson_correlation"
+            - "spearman_correlation"
+            - "kendall_tau"
+            - "rolling_correlation"
+          
+          drawdown_measures:
+            - "maximum_drawdown"
+            - "average_drawdown"
+            - "drawdown_duration"
+            - "calmar_ratio"
+        
+        # Stress Testing
+        stress_testing:
+          historical_scenarios: true
+          monte_carlo_scenarios: 10000
+          custom_scenarios: true
+          correlation_breakdown: true
+          liquidity_stress: true
+      
+      # Market Microstructure Analysis
+      microstructure_analysis:
+        order_book_analysis:
+          bid_ask_spread: true
+          market_depth: true
+          order_imbalance: true
+          price_impact: true
+        
+        transaction_analysis:
+          trade_size_distribution: true
+          volume_weighted_price: true
+          implementation_shortfall: true
+          market_impact_models: true
+        
+        high_frequency_features:
+          tick_data_analysis: true
+          microstructure_noise: true
+          lead_lag_relationships: true
+          volatility_clustering: true
+      
+      # Fundamental Analysis
+      fundamental_analysis:
+        financial_ratios:
+          profitability_ratios:
+            - "roa"  # Return on Assets
+            - "roe"  # Return on Equity
+            - "gross_margin"
+            - "operating_margin"
+            - "net_margin"
+            - "ebitda_margin"
+          
+          liquidity_ratios:
+            - "current_ratio"
+            - "quick_ratio"
+            - "cash_ratio"
+            - "operating_cash_flow_ratio"
+          
+          leverage_ratios:
+            - "debt_to_equity"
+            - "debt_to_assets"
+            - "interest_coverage"
+            - "debt_service_coverage"
+          
+          efficiency_ratios:
+            - "asset_turnover"
+            - "inventory_turnover"
+            - "receivables_turnover"
+            - "working_capital_turnover"
+          
+          valuation_ratios:
+            - "pe_ratio"
+            - "pb_ratio"
+            - "peg_ratio"
+            - "ev_ebitda"
+            - "price_to_sales"
+        
+        # Economic Indicators
+        economic_indicators:
+          macro_indicators:
+            - "gdp_growth"
+            - "inflation_rate"
+            - "unemployment_rate"
+            - "interest_rates"
+            - "exchange_rates"
+          
+          market_indicators:
+            - "vix"
+            - "yield_curve"
+            - "credit_spreads"
+            - "commodity_prices"
+      
+      # Caching Configuration
+      enable_caching: true
+      cache_size: 100000
+      cache_ttl_hours: 6
+      
+      # Data Sources
+      data_sources:
+        yahoo_finance:
+          enabled: true
+          rate_limit: 2000  # requests per hour
+          timeout: 30
+        
+        alpha_vantage:
+          enabled: false
+          api_key: ""
+          rate_limit: 500
+        
+        quandl:
+          enabled: false
+          api_key: ""
+          rate_limit: 300
+        
+        bloomberg:
+          enabled: false
+          host: ""
+          port: 8194
+      
+      # Error Handling
+      error_handling:
+        skip_invalid_data: true
+        interpolate_missing_data: true
+        handle_splits_dividends: true
+        max_calculation_time: 300
+  
+  # Model Configuration
+  models:
+    financial:
+      # Model Types for Financial Prediction
+      model_types:
+        - "lstm"
+        - "transformer"
+        - "xgboost"
+        - "random_forest"
+        - "svm"
+        - "linear_regression"
+      
+      ensemble_method: "weighted"  # voting, stacking, weighted
+      ensemble_weights: "performance_based"
+      
+      # Financial-Specific Parameters
+      prediction_horizon: 1  # days ahead
+      lookback_window: 60  # days of historical data
+      feature_selection: true
+      walk_forward_analysis: true
+      
+      # Cross-Validation Settings
+      cross_validation:
+        method: "time_series_split"  # time_series_split, purged_cv
+        folds: 5
+        gap_size: 5  # days between train and test
+        embargo_size: 2  # days after test for embargo
+        purging: true
+      
+      # Hyperparameter Optimization
+      hyperparameter_optimization:
+        enabled: true
+        method: "bayesian"  # grid_search, random_search, bayesian
+        n_trials: 200
+        n_jobs: -1
+        cv_folds: 3
+        scoring: "sharpe_ratio"
+      
+      # Model-Specific Parameters
+      lstm:
+        hidden_sizes: [[50], [100], [50, 25], [100, 50]]
+        num_layers: [1, 2, 3]
+        dropout: [0.1, 0.2, 0.3]
+        learning_rate: [0.001, 0.01]
+        batch_size: [32, 64, 128]
+        epochs: [100, 200, 300]
+        sequence_length: [30, 60, 90]
+        bidirectional: [true, false]
+      
+      transformer:
+        d_model: [64, 128, 256]
+        nhead: [4, 8, 16]
+        num_layers: [2, 4, 6]
+        dim_feedforward: [256, 512, 1024]
+        dropout: [0.1, 0.2]
+        learning_rate: [0.0001, 0.001]
+        batch_size: [16, 32, 64]
+        max_seq_length: [100, 200]
+      
+      xgboost:
+        n_estimators: [100, 200, 500, 1000]
+        max_depth: [3, 6, 10, 15]
+        learning_rate: [0.01, 0.1, 0.2]
+        subsample: [0.8, 0.9, 1.0]
+        colsample_bytree: [0.8, 0.9, 1.0]
+        reg_alpha: [0, 0.1, 1, 10]
+        reg_lambda: [0, 0.1, 1, 10]
+      
+      # Financial Loss Functions
+      loss_functions:
+        regression: ["mse", "mae", "huber", "quantile"]
+        classification: ["log_loss", "focal_loss", "balanced_log_loss"]
+        ranking: ["listwise", "pairwise", "pointwise"]
+      
+      # Performance Metrics
+      performance_metrics:
+        regression_metrics:
+          - "rmse"
+          - "mae"
+          - "mape"
+          - "r2_score"
+          - "explained_variance"
+        
+        financial_metrics:
+          - "sharpe_ratio"
+          - "sortino_ratio"
+          - "calmar_ratio"
+          - "max_drawdown"
+          - "profit_factor"
+          - "win_rate"
+          - "average_win_loss"
+          - "tail_ratio"
+        
+        risk_metrics:
+          - "var_95"
+          - "cvar_95"
+          - "volatility"
+          - "skewness"
+          - "kurtosis"
+          - "beta"
+      
+      # Training Configuration
+      training:
+        train_ratio: 0.7
+        validation_ratio: 0.15
+        test_ratio: 0.15
+        rolling_window: true
+        rebalance_frequency: "monthly"  # daily, weekly, monthly, quarterly
+        save_models: true
+        model_directory: "models/financial"
+        checkpoint_frequency: 10
+      
+      # Real-time Prediction
+      real_time_prediction:
+        enabled: true
+        update_frequency: "1min"  # 1min, 5min, 15min, 1h, 1d
+        model_refresh_frequency: "daily"
+        confidence_intervals: true
+        uncertainty_quantification: true
+
+  # Proof Language Configuration
+  proof_languages:
+    financial:
+      # Proof System Settings
+      logic_system: "temporal"  # propositional, first_order, temporal
+      proof_timeout: 600
+      max_proof_depth: 100
+      enable_proof_caching: true
+      
+      # Financial Rule Types
+      enabled_rule_types:
+        - "basel_iii_rules"
+        - "mifid_ii_rules"
+        - "dodd_frank_rules"
+        - "solvency_ii_rules"
+        - "portfolio_theory_rules"
+        - "risk_management_rules"
+        - "trading_strategy_rules"
+        - "model_validation_rules"
+      
+      # Regulatory Compliance Rules
+      basel_iii_rules:
+        capital_requirements:
+          cet1_ratio_min: 0.045  # 4.5%
+          tier1_ratio_min: 0.06  # 6%
+          total_capital_ratio_min: 0.08  # 8%
+          leverage_ratio_min: 0.03  # 3%
+        
+        liquidity_requirements:
+          lcr_min: 1.0  # 100%
+          nsfr_min: 1.0  # 100%
+        
+        risk_weights:
+          sovereigns: 0.0
+          banks: 0.2
+          corporates: 1.0
+          retail: 0.75
+          residential_mortgages: 0.35
+      
+      mifid_ii_rules:
+        best_execution:
+          execution_venues: true
+          execution_factors: true
+          relative_importance: true
+          execution_criteria: true
+        
+        position_limits:
+          commodity_derivatives: true
+          ancillary_activity_test: true
+          position_management: true
+        
+        transparency:
+          pre_trade_transparency: true
+          post_trade_transparency: true
+          transaction_reporting: true
+      
+      # Portfolio Theory Rules
+      portfolio_theory:
+        modern_portfolio_theory:
+          efficient_frontier: true
+          capital_allocation_line: true
+          sharpe_ratio_optimization: true
+          risk_parity: true
+        
+        capm_model:
+          beta_calculation: true
+          expected_return: true
+          security_market_line: true
+          alpha_calculation: true
+        
+        factor_models:
+          fama_french_three_factor: true
+          fama_french_five_factor: true
+          arbitrage_pricing_theory: true
+      
+      # Risk Management Rules
+      risk_management:
+        var_rules:
+          confidence_levels: [0.95, 0.99]
+          backtesting_requirements: true
+          stress_testing: true
+          scenario_analysis: true
+        
+        concentration_limits:
+          single_issuer_limit: 0.05  # 5%
+          sector_limit: 0.20  # 20%
+          country_limit: 0.30  # 30%
+          currency_limit: 0.25  # 25%
+        
+        leverage_limits:
+          gross_leverage: 6.0
+          net_leverage: 3.0
+          sector_leverage: 2.0
+      
+      # Model Validation Rules
+      model_validation:
+        backtesting:
+          minimum_observations: 252  # 1 year daily data
+          out_of_sample_ratio: 0.2
+          rolling_window_validation: true
+          statistical_tests: true
+        
+        performance_tests:
+          kupiec_test: true
+          christoffersen_test: true
+          berkowitz_test: true
+          diebold_mariano_test: true
+        
+        stability_tests:
+          parameter_stability: true
+          forecast_stability: true
+          residual_analysis: true
+      
+      # Trading Strategy Validation
+      trading_strategy:
+        strategy_validation:
+          sharpe_ratio_min: 1.0
+          max_drawdown_max: 0.15  # 15%
+          win_rate_min: 0.45  # 45%
+          profit_factor_min: 1.2
+        
+        risk_controls:
+          position_sizing: true
+          stop_loss_rules: true
+          take_profit_rules: true
+          correlation_limits: true
+        
+        execution_rules:
+          slippage_modeling: true
+          transaction_costs: true
+          market_impact: true
+          liquidity_constraints: true
+
+  # Knowledge Base Configuration
+  knowledge_bases:
+    financial:
+      # Database Settings
+      database_type: "postgresql"
+      database_config:
+        host: "localhost"
+        port: 5432
+        database: "financial_kb"
+        username: "financial_user"
+        password: ""
+        pool_size: 50
+        connection_timeout: 30
+      
+      # Financial Data Sources
+      data_sources:
+        - "bloomberg"
+        - "refinitiv"
+        - "morningstar"
+        - "factset"
+        - "s&p_capital_iq"
+        - "regulatory_filings"
+        - "central_bank_data"
+        - "economic_statistics"
+      
+      # Knowledge Categories
+      knowledge_categories:
+        - "regulatory_rules"
+        - "market_data"
+        - "financial_instruments"
+        - "risk_models"
+        - "valuation_models"
+        - "economic_indicators"
+        - "company_fundamentals"
+        - "market_structure"
+      
+      # Regulatory Knowledge Management
+      regulatory_knowledge:
+        frameworks:
+          - "basel_iii"
+          - "mifid_ii"
+          - "dodd_frank"
+          - "solvency_ii"
+          - "ifrs"
+          - "gaap"
+          - "crd_iv"
+        
+        jurisdictions:
+          - "eu"
+          - "us"
+          - "uk"
+          - "asia_pacific"
+          - "global"
+        
+        update_frequency: "daily"
+        version_control: true
+        change_tracking: true
+      
+      # Market Intelligence
+      market_intelligence:
+        real_time_data: true
+        historical_data: true
+        alternative_data: true
+        sentiment_analysis: true
+        news_analytics: true
+        social_media_monitoring: true
+      
+      # Search and Retrieval
+      search_config:
+        full_text_search: true
+        semantic_search: true
+        time_series_search: true
+        similarity_threshold: 0.8
+        max_results: 1000
+        search_timeout: 60
+      
+      # Data Quality and Validation
+      data_quality:
+        real_time_validation: true
+        data_lineage: true
+        audit_trails: true
+        quality_scores: true
+        anomaly_detection: true
+        reconciliation: true
+
+# Logging Configuration
+logging:
+  version: 1
+  disable_existing_loggers: false
+  
+  formatters:
+    financial:
+      format: "%(asctime)s [%(levelname)s] %(name)s - %(funcName)s:%(lineno)d - %(message)s"
+    trading:
+      format: "%(asctime)s [TRADE] %(symbol)s - %(action)s - %(quantity)s @ %(price)s"
+    risk:
+      format: "%(asctime)s [RISK] %(portfolio)s - %(metric)s: %(value)s - %(threshold)s"
+  
+  handlers:
+    console:
+      class: "logging.StreamHandler"
+      level: "INFO"
+      formatter: "financial"
+      stream: "ext://sys.stdout"
+    
+    financial_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "DEBUG"
+      formatter: "financial"
+      filename: "logs/financial_analysis.log"
+      maxBytes: 52428800  # 50MB
+      backupCount: 20
+    
+    trading_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "INFO"
+      formatter: "trading"
+      filename: "logs/trading_activity.log"
+      maxBytes: 20971520  # 20MB
+      backupCount: 50
+    
+    risk_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "WARNING"
+      formatter: "risk"
+      filename: "logs/risk_monitoring.log"
+      maxBytes: 10485760  # 10MB
+      backupCount: 30
+  
+  loggers:
+    financial_analyzer:
+      level: "DEBUG"
+      handlers: ["financial_file"]
+      propagate: false
+    
+    trading_system:
+      level: "INFO"
+      handlers: ["trading_file", "financial_file"]
+      propagate: false
+    
+    risk_manager:
+      level: "WARNING"
+      handlers: ["risk_file", "console"]
+      propagate: false
+  
+  root:
+    level: "INFO"
+    handlers: ["console", "financial_file"]
+
+# Monitoring and Analytics
+monitoring:
+  enabled: true
+  metrics_collection_interval: 15  # seconds
+  
+  metrics:
+    trading_metrics:
+      - "pnl"
+      - "sharpe_ratio"
+      - "max_drawdown"
+      - "win_rate"
+      - "average_trade_duration"
+      - "profit_factor"
+      - "calmar_ratio"
+    
+    risk_metrics:
+      - "portfolio_var"
+      - "portfolio_volatility"
+      - "concentration_risk"
+      - "correlation_risk"
+      - "liquidity_risk"
+      - "market_risk"
+      - "credit_risk"
+    
+    performance_metrics:
+      - "prediction_accuracy"
+      - "model_latency"
+      - "data_processing_speed"
+      - "system_throughput"
+      - "memory_usage"
+      - "cpu_utilization"
+    
+    market_metrics:
+      - "market_volatility"
+      - "trading_volume"
+      - "bid_ask_spreads"
+      - "market_depth"
+      - "price_impact"
+  
+  dashboards:
+    enabled: true
+    refresh_interval: 5  # seconds
+    real_time_charts:
+      - "pnl_chart"
+      - "risk_metrics"
+      - "portfolio_composition"
+      - "market_overview"
+      - "trading_activity"
+  
+  alerting:
+    enabled: true
+    alert_channels:
+      - "email"
+      - "sms"
+      - "slack"
+      - "bloomberg_terminal"
+    
+    risk_alerts:
+      var_breach:
+        threshold: 1.1  # 110% of VaR limit
+        severity: "high"
+      
+      drawdown_alert:
+        threshold: 0.1  # 10% drawdown
+        severity: "medium"
+      
+      concentration_alert:
+        threshold: 0.15  # 15% concentration
+        severity: "medium"
+    
+    performance_alerts:
+      model_degradation:
+        threshold: 0.2  # 20% accuracy drop
+        severity: "high"
+      
+      system_latency:
+        threshold: 5000  # 5 seconds
+        severity: "medium"
+
+# Risk Management
+risk_management:
+  # Portfolio Risk Controls
+  portfolio_controls:
+    position_limits:
+      single_position_limit: 0.05  # 5%
+      sector_limit: 0.20  # 20%
+      country_limit: 0.30  # 30%
+      currency_limit: 0.25  # 25%
+    
+    risk_limits:
+      daily_var_limit: 0.02  # 2%
+      portfolio_volatility_limit: 0.15  # 15%
+      max_leverage: 3.0
+      correlation_limit: 0.8
+    
+    stop_loss_rules:
+      individual_stop_loss: 0.05  # 5%
+      portfolio_stop_loss: 0.1  # 10%
+      trailing_stop: true
+      time_based_stops: true
+  
+  # Model Risk Management
+  model_risk:
+    validation_frequency: "monthly"
+    backtesting_period: 252  # days
+    champion_challenger: true
+    model_approval_process: true
+    documentation_requirements: true
+  
+  # Operational Risk
+  operational_risk:
+    data_quality_checks: true
+    system_monitoring: true
+    backup_systems: true
+    disaster_recovery: true
+    business_continuity: true
+
+# Compliance and Reporting
+compliance:
+  # Regulatory Reporting
+  regulatory_reporting:
+    automated_reporting: true
+    report_formats: ["xml", "csv", "json"]
+    submission_schedules:
+      daily_reports: ["position_reports", "risk_reports"]
+      weekly_reports: ["var_backtesting", "liquidity_reports"]
+      monthly_reports: ["capital_adequacy", "stress_test_results"]
+      quarterly_reports: ["pillar_3_disclosures"]
+  
+  # Audit Trail
+  audit_trail:
+    transaction_logging: true
+    decision_logging: true
+    model_versioning: true
+    data_lineage: true
+    change_management: true
+  
+  # Record Keeping
+  record_keeping:
+    retention_periods:
+      trade_records: "7 years"
+      risk_reports: "5 years"
+      model_documentation: "10 years"
+      regulatory_reports: "7 years"
+    
+    storage_requirements:
+      encryption: true
+      immutable_storage: true
+      geographic_distribution: true
+      access_controls: true
+
+# Integration Settings
+integrations:
+  # Market Data Providers
+  market_data:
+    bloomberg:
+      enabled: false
+      host: ""
+      port: 8194
+      securities: ["equity", "fixed_income", "derivatives"]
+    
+    refinitiv:
+      enabled: false
+      api_key: ""
+      endpoint: "https://api.refinitiv.com"
+    
+    alpha_vantage:
+      enabled: true
+      api_key: ""
+      rate_limit: 500
+  
+  # Trading Systems
+  trading_systems:
+    oms:  # Order Management System
+      enabled: false
+      provider: ""
+      endpoint: ""
+      api_key: ""
+    
+    ems:  # Execution Management System
+      enabled: false
+      provider: ""
+      endpoint: ""
+      api_key: ""
+  
+  # Risk Systems
+  risk_systems:
+    risk_engine:
+      enabled: true
+      real_time_monitoring: true
+      risk_calculations: ["var", "stress_tests", "scenario_analysis"]
+    
+    portfolio_analytics:
+      enabled: true
+      attribution_analysis: true
+      performance_measurement: true
+  
+  # Regulatory Systems
+  regulatory_systems:
+    trade_reporting:
+      enabled: false
+      mifid_ii_reporting: true
+      emir_reporting: true
+      dodd_frank_reporting: false
+    
+    best_execution:
+      enabled: false
+      venue_analysis: true
+      execution_quality: true

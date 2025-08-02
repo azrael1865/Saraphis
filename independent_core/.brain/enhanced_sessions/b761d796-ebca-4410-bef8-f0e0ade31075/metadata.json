@@ -1,0 +1,30 @@
+{
+  "session_id": "b761d796-ebca-4410-bef8-f0e0ade31075",
+  "session_name": "cleanup_test_1",
+  "domain_name": "general",
+  "created_at": "2025-07-20T07:48:28.750368",
+  "started_at": null,
+  "completed_at": null,
+  "last_active": "2025-07-20T07:48:28.750369",
+  "training_config": {
+    "epochs": 5,
+    "checkpoint_frequency": 5,
+    "enable_monitoring": true
+  },
+  "progress": {
+    "current_epoch": 0,
+    "total_epochs": 5,
+    "current_batch": 0,
+    "total_batches": 0,
+    "percentage": 0.0,
+    "estimated_remaining": null,
+    "samples_processed": 0,
+    "total_samples": 0
+  },
+  "peak_memory_usage": 0.0,
+  "total_compute_time": 0.0,
+  "checkpoint_count": 0,
+  "recovery_count": 0,
+  "best_metrics": {},
+  "final_metrics": {}
+}

@@ -1,0 +1,28 @@
+{
+  "load_timestamp": "2025-07-21T21:35:38.203552",
+  "feature_count": 431,
+  "sample_count": 590540,
+  "fraud_rate": 0.03499000914417313,
+  "preprocessing_steps": [
+    "transaction_load",
+    "identity_load",
+    "merge",
+    "feature_engineering",
+    "missing_value_handling"
+  ],
+  "data_quality_metrics": {
+    "identity_match_rate": 0.2442391709283029,
+    "final_missing_rate": 0,
+    "constant_features": 0,
+    "inf_values_found": 0,
+    "nan_values_found": 0,
+    "unique_values_per_feature_stats": {
+      "min": 3,
+      "max": 115656,
+      "mean": 1679.308584686775
+    },
+    "missing_value_rate": 0,
+    "memory_usage_mb": 1018.09096,
+    "feature_dtype": "float32"
+  }
+}

@@ -1,0 +1,488 @@
+{
+  "version": "1.1.0",
+  "timestamp": "2025-07-21T18:10:34.121829",
+  "config": {
+    "shared_memory_size": 10000,
+    "knowledge_persistence": true,
+    "knowledge_path": "/home/will-casterlin/Desktop/Saraphis/.brain/knowledge/brain_core.json",
+    "reasoning_depth": 5,
+    "context_window_size": 2048,
+    "enable_caching": true,
+    "cache_size": 1000,
+    "thread_safe": true,
+    "enable_uncertainty": true,
+    "uncertainty_history_size": 1000,
+    "confidence_threshold": 0.7,
+    "reliability_window": 100,
+    "log_level": "INFO",
+    "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "shared_state": {
+    "knowledge_base": {
+      "training_management": {
+        "training_session_fraud_detection_1753008312769": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 2,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto"
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-20T06:45:12.770199",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753008542019": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 1,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto"
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-20T06:49:02.020145",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753008565760": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 1,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto"
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-20T06:49:25.761962",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_integration_test_1753010572461": {
+          "value": {
+            "domain": "integration_test",
+            "config": {
+              "epochs": 100,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto"
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-20T07:22:52.462842",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753075617699": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 100,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T01:26:57.700823",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753134953120": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 100,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T17:55:53.122006",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        }
+      }
+    },
+    "reasoning_patterns": {},
+    "cross_domain_insights": [],
+    "metadata": {
+      "created_at": "2025-07-21T18:10:34.105532",
+      "version": "1.0.0",
+      "total_domains": 1,
+      "last_updated": "2025-07-21T17:55:53.122120"
+    }
+  },
+  "knowledge_index": {},
+  "text_search_index": {},
+  "knowledge_relationships": {},
+  "uncertainty_history": [],
+  "prediction_accuracy_history": [],
+  "domain_confidence_scores": {},
+  "uncertainty_calibration_data": {
+    "predictions": [],
+    "true_values": [],
+    "confidence_intervals": []
+  },
+  "statistics": {
+    "total_predictions": 0,
+    "cache_size": 0,
+    "memory_estimate_mb": 0.00925445556640625
+  },
+  "cache_metadata": {
+    "enabled": true,
+    "size": 0,
+    "max_size": 1000,
+    "keys_sample": []
+  }
+}

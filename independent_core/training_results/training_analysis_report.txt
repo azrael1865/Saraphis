@@ -1,0 +1,55 @@
+PRODUCTION TRAINING ANALYSIS REPORT
+====================================================================================================
+
+EXECUTIVE SUMMARY
+--------------------------------------------------
+Training Duration: 0.00 hours
+Start Time: 2025-07-23T06:13:50.561002
+End Time: 2025-07-23T06:13:50.567355
+Status: Success
+
+CONFIGURATION
+--------------------------------------------------
+epochs: 20
+batch_size: 128
+learning_rate: 0.001
+validation_split: 0.2
+device: cuda
+use_gac_system: True
+gac_mode: adaptive
+gac_components: ['clipping', 'monitoring', 'normalization']
+gac_threshold_adaptation: True
+gac_noise_enabled: False
+optimizer: adam
+scheduler: reduce_on_plateau
+gradient_clip_value: 1.0
+early_stopping_enabled: True
+early_stopping_patience: 5
+checkpoint_frequency: 1
+mixed_precision: False
+num_workers: 0
+log_frequency: 10
+save_training_history: True
+normalize_features: True
+handle_missing_values: True
+
+DATASET INFORMATION
+--------------------------------------------------
+training_samples: 472432
+features: 431
+fraud_rate: 0.03498916246147594
+fraud_cases: 16530
+validation_samples: 118108
+load_time_seconds: 1.1922104358673096
+memory_mb: 776.7417602539062
+
+TRAINING RESULTS
+--------------------------------------------------
+success: 0.000000
+error: Session d73850b6-1a14-412c-9ea9-7b49c837b623 not found
+session_lifecycle: {'state': 'failed', 'error': 'Session d73850b6-1a14-412c-9ea9-7b49c837b623 not found'}
+session_id: d73850b6-1a14-412c-9ea9-7b49c837b623
+use_enhanced_session: 1.000000
+progress_report: {'error': 'Identifier d73850b6-1a14-412c-9ea9-7b49c837b623 not found'}
+
+END OF REPORT

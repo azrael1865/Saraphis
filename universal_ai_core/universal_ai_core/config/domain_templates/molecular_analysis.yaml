@@ -1,0 +1,474 @@
+# Molecular Analysis Domain Configuration Template
+# ===============================================
+# 
+# This configuration template provides comprehensive settings for molecular analysis applications
+# using the Universal AI Core system. Adapted from existing Saraphis molecular analysis patterns.
+
+# Environment Configuration
+environment_config:
+  environment: "development"  # development, staging, production
+  debug_mode: true
+  log_level: "INFO"
+  enable_monitoring: false
+  max_memory_gb: 16.0
+  cache_size_mb: 2048
+  worker_threads: 8
+
+# Security Configuration
+security_config:
+  enable_encryption: true
+  require_authentication: false
+  session_timeout_minutes: 60
+  max_login_attempts: 5
+  encryption_algorithm: "AES-256"
+  hash_algorithm: "SHA-256"
+  secure_headers: true
+
+# Performance Configuration
+performance_config:
+  enable_caching: true
+  cache_ttl_seconds: 7200
+  batch_size: 64
+  parallel_processing: true
+  memory_limit_mb: 4096
+  request_timeout_seconds: 120
+  retry_attempts: 3
+
+# Plugin-Specific Configurations
+plugin_configs:
+  
+  # Feature Extractor Configuration
+  feature_extractors:
+    molecular:
+      # Descriptor Calculation Settings
+      descriptor_types:
+        - "constitutional"
+        - "topological"
+        - "geometric"
+        - "electronic"
+        - "pharmacophore"
+        - "fragment"
+        - "fingerprint"
+      
+      # RDKit Configuration
+      rdkit_config:
+        max_atoms: 1000
+        include_hydrogens: true
+        sanitize_molecules: true
+        remove_salts: true
+        standardize_tautomers: true
+        timeout_seconds: 30
+      
+      # Descriptor Calculation Options
+      constitutional_descriptors:
+        molecular_weight: true
+        num_atoms: true
+        num_bonds: true
+        num_rings: true
+        num_aromatic_rings: true
+        num_rotatable_bonds: true
+        num_hbd: true  # Hydrogen bond donors
+        num_hba: true  # Hydrogen bond acceptors
+        logp: true
+        tpsa: true  # Topological polar surface area
+      
+      topological_descriptors:
+        zagreb_indices: true
+        connectivity_indices: true
+        kappa_indices: true
+        balaban_j: true
+        wiener_index: true
+        graph_descriptors: true
+      
+      geometric_descriptors:
+        asphericity: true
+        eccentricity: true
+        radius_of_gyration: true
+        inertia_moments: true
+        surface_area: true
+        volume: true
+      
+      # Caching Configuration
+      enable_caching: true
+      cache_size: 10000
+      cache_ttl_hours: 24
+      
+      # Error Handling
+      error_handling:
+        skip_invalid_molecules: true
+        log_calculation_errors: true
+        default_values_on_error: true
+        max_calculation_time: 60
+  
+  # Model Configuration
+  models:
+    molecular:
+      # Model Types and Ensemble Settings
+      model_types:
+        - "random_forest"
+        - "xgboost"
+        - "neural_network"
+        - "svm"
+      
+      ensemble_method: "weighted"  # voting, stacking, weighted
+      ensemble_weights: "auto"  # auto, uniform, or list of weights
+      
+      # Cross-Validation Settings
+      cross_validation:
+        folds: 5
+        stratified: true
+        shuffle: true
+        random_state: 42
+        scoring_metric: "r2"  # r2, rmse, mae, accuracy
+      
+      # Hyperparameter Optimization
+      hyperparameter_optimization:
+        enabled: true
+        method: "grid_search"  # grid_search, random_search, bayesian
+        n_trials: 100
+        n_jobs: -1
+        cv_folds: 3
+        scoring: "neg_mean_squared_error"
+      
+      # Model-Specific Parameters
+      random_forest:
+        n_estimators: [100, 200, 500]
+        max_depth: [null, 10, 20, 30]
+        min_samples_split: [2, 5, 10]
+        min_samples_leaf: [1, 2, 4]
+        max_features: ["auto", "sqrt", "log2"]
+        bootstrap: [true, false]
+      
+      xgboost:
+        n_estimators: [100, 200, 500]
+        max_depth: [3, 6, 10]
+        learning_rate: [0.01, 0.1, 0.2]
+        subsample: [0.8, 0.9, 1.0]
+        colsample_bytree: [0.8, 0.9, 1.0]
+        reg_alpha: [0, 0.1, 1]
+        reg_lambda: [0, 0.1, 1]
+      
+      neural_network:
+        hidden_layers: [[100], [100, 50], [200, 100, 50]]
+        activation: ["relu", "tanh"]
+        learning_rate: [0.001, 0.01, 0.1]
+        batch_size: [32, 64, 128]
+        epochs: [100, 200, 500]
+        dropout_rate: [0.0, 0.2, 0.5]
+        early_stopping_patience: 10
+      
+      # Data Processing
+      data_preprocessing:
+        feature_scaling: "standard"  # standard, minmax, robust, none
+        feature_selection: true
+        feature_selection_method: "univariate"  # univariate, rfe, from_model
+        max_features: 1000
+        remove_low_variance: true
+        variance_threshold: 0.01
+      
+      # Training Configuration
+      training:
+        test_size: 0.2
+        validation_size: 0.1
+        random_state: 42
+        shuffle: true
+        save_models: true
+        model_directory: "models/molecular"
+        checkpoint_frequency: 10
+      
+      # Performance Monitoring
+      performance_monitoring:
+        track_training_time: true
+        track_memory_usage: true
+        log_model_metrics: true
+        save_learning_curves: true
+        calculate_feature_importance: true
+
+  # Proof Language Configuration
+  proof_languages:
+    molecular:
+      # Proof System Settings
+      logic_system: "first_order"  # propositional, first_order, temporal
+      proof_timeout: 300  # seconds
+      max_proof_depth: 50
+      enable_proof_caching: true
+      
+      # Molecular Rule Types
+      enabled_rule_types:
+        - "lipinski_rule_of_five"
+        - "veber_rules"
+        - "ghose_filter"
+        - "egan_rules"
+        - "muegge_rules"
+        - "pfizer_3_75_rule"
+        - "gsk_4_400_rule"
+        - "reactive_groups"
+        - "pains_filters"
+        - "brenk_filters"
+      
+      # Drug-likeness Rules Configuration
+      lipinski_rule_of_five:
+        molecular_weight_max: 500
+        logp_max: 5
+        hbd_max: 5
+        hba_max: 10
+        violations_allowed: 1
+      
+      veber_rules:
+        rotatable_bonds_max: 10
+        psa_max: 140
+      
+      # ADMET Prediction Rules
+      admet_rules:
+        solubility_threshold: -4.0  # log S
+        permeability_threshold: -5.0  # log Papp
+        bioavailability_threshold: 0.3
+        bbb_penetration_threshold: 0.1
+        cyp_inhibition_threshold: 0.5
+        herg_toxicity_threshold: 0.1
+      
+      # Similarity Analysis
+      similarity_analysis:
+        fingerprint_type: "morgan"  # morgan, rdkit, maccs, topological
+        similarity_threshold: 0.7
+        max_similar_compounds: 100
+        tanimoto_coefficient: true
+        dice_coefficient: true
+      
+      # Proof Verification
+      verification:
+        require_chemical_validity: true
+        check_structural_alerts: true
+        validate_stereochemistry: true
+        confirm_molecular_formula: true
+      
+      # Error Handling
+      error_handling:
+        ignore_invalid_smiles: false
+        log_rule_violations: true
+        detailed_error_messages: true
+
+  # Knowledge Base Configuration
+  knowledge_bases:
+    molecular:
+      # Database Settings
+      database_type: "sqlite"  # sqlite, postgresql, mongodb
+      database_path: "knowledge/molecular.db"
+      enable_indexing: true
+      index_molecular_properties: true
+      
+      # Data Sources
+      data_sources:
+        - "pubchem"
+        - "chembl"
+        - "drugbank"
+        - "zinc"
+        - "custom_datasets"
+      
+      # Molecular Property Storage
+      stored_properties:
+        - "molecular_weight"
+        - "logp"
+        - "tpsa"
+        - "bioactivity"
+        - "toxicity"
+        - "admet_properties"
+        - "synthetic_accessibility"
+      
+      # Search Configuration
+      search_config:
+        enable_structure_search: true
+        enable_similarity_search: true
+        enable_substructure_search: true
+        similarity_threshold: 0.8
+        max_search_results: 1000
+        search_timeout: 60
+      
+      # Caching Strategy
+      caching:
+        enable_query_caching: true
+        cache_size_mb: 512
+        cache_ttl_hours: 48
+        preload_common_queries: true
+      
+      # Data Quality
+      data_quality:
+        validate_molecular_structures: true
+        check_duplicate_entries: true
+        verify_property_ranges: true
+        flag_outliers: true
+        confidence_scoring: true
+
+# Logging Configuration
+logging:
+  version: 1
+  disable_existing_loggers: false
+  
+  formatters:
+    standard:
+      format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    detailed:
+      format: "%(asctime)s [%(levelname)s] %(name)s - %(funcName)s:%(lineno)d - %(message)s"
+  
+  handlers:
+    console:
+      class: "logging.StreamHandler"
+      level: "INFO"
+      formatter: "standard"
+      stream: "ext://sys.stdout"
+    
+    file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "DEBUG"
+      formatter: "detailed"
+      filename: "logs/molecular_analysis.log"
+      maxBytes: 10485760  # 10MB
+      backupCount: 5
+    
+    error_file:
+      class: "logging.handlers.RotatingFileHandler"
+      level: "ERROR"
+      formatter: "detailed"
+      filename: "logs/molecular_errors.log"
+      maxBytes: 5242880  # 5MB
+      backupCount: 3
+  
+  loggers:
+    molecular_analyzer:
+      level: "DEBUG"
+      handlers: ["console", "file"]
+      propagate: false
+    
+    rdkit:
+      level: "WARNING"
+      handlers: ["console"]
+      propagate: false
+  
+  root:
+    level: "INFO"
+    handlers: ["console", "file"]
+
+# Monitoring and Metrics
+monitoring:
+  enabled: true
+  metrics_collection_interval: 60  # seconds
+  
+  metrics:
+    system_metrics:
+      - "cpu_usage"
+      - "memory_usage"
+      - "disk_usage"
+      - "network_io"
+    
+    application_metrics:
+      - "molecules_processed"
+      - "descriptors_calculated"
+      - "models_trained"
+      - "predictions_made"
+      - "errors_encountered"
+      - "cache_hit_rate"
+    
+    performance_metrics:
+      - "processing_time"
+      - "model_training_time"
+      - "prediction_latency"
+      - "throughput"
+  
+  alerting:
+    enabled: true
+    thresholds:
+      high_memory_usage: 0.9
+      high_cpu_usage: 0.8
+      high_error_rate: 0.1
+      low_cache_hit_rate: 0.5
+  
+  storage:
+    retention_days: 30
+    export_format: "json"
+    export_interval_hours: 24
+
+# Data Management
+data_management:
+  # Data Storage
+  storage:
+    input_data_path: "data/input"
+    processed_data_path: "data/processed"
+    output_data_path: "data/output"
+    temp_data_path: "data/temp"
+    backup_path: "data/backups"
+  
+  # Data Validation
+  validation:
+    validate_input_format: true
+    check_molecular_validity: true
+    verify_property_ranges: true
+    handle_missing_values: "impute"  # drop, impute, flag
+  
+  # Data Processing
+  processing:
+    chunk_size: 1000
+    parallel_processing: true
+    max_workers: 4
+    memory_efficient: true
+    checkpoint_frequency: 100
+  
+  # Backup Strategy
+  backup:
+    enabled: true
+    frequency: "daily"  # hourly, daily, weekly
+    retention_days: 30
+    compression: true
+    incremental: true
+
+# Integration Settings
+integrations:
+  # External APIs
+  external_apis:
+    pubchem:
+      enabled: true
+      api_key: ""
+      rate_limit: 5  # requests per second
+      timeout: 30
+    
+    chembl:
+      enabled: true
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      timeout: 30
+    
+    drugbank:
+      enabled: false
+      api_key: ""
+      timeout: 30
+  
+  # File Format Support
+  file_formats:
+    input_formats:
+      - "sdf"
+      - "mol"
+      - "smiles"
+      - "csv"
+      - "xlsx"
+    
+    output_formats:
+      - "csv"
+      - "json"
+      - "xlsx"
+      - "sdf"
+  
+  # Database Connections
+  databases:
+    postgresql:
+      enabled: false
+      host: "localhost"
+      port: 5432
+      database: "molecular_analysis"
+      username: ""
+      password: ""
+      pool_size: 10
+    
+    mongodb:
+      enabled: false
+      host: "localhost"
+      port: 27017
+      database: "molecular_analysis"
+      collection: "compounds"

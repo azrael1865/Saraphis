@@ -1,0 +1,429 @@
+			REMAINING CHUNKS FOR CORE BRAIN SYSTEM (UNRELATED TO FINANCIAL_FRAUD_DOMAIN):
+						CHUNK 4: Data Preprocessing Pipeline
+						Files: brain.py, training_manager.py
+						Issue: Raw pandas DataFrames need preprocessing for PyTorch tensors
+						Focus: Implement data preprocessing, categorical encoding, tensor conversion
+
+
+CHUNK 5: Training Execution and Monitoring
+							CHUNK 5A: Training Session Management
+							Files: brain.py, training_manager.py
+							Issue: Basic training execution without comprehensive session management
+							Focus: Implement training session lifecycle (creation, monitoring, cleanup, recovery)
+				
+							CHUNK 5B: Real-time Progress Reporting
+							Files: brain.py, training_manager.py
+							Issue: Limited progress reporting during training
+							Focus: Add real-time epoch/batch progress, metrics logging, performance alerts	
+				
+							CHUNK 5C: Error Recovery and Rollback
+							Files: brain.py, training_manager.py
+							Issue: Limited error recovery during training failures
+							Focus: Implement automatic rollback, checkpoint recovery, error handling
+				
+	CHUNK 5D: Resource Management
+	Files: brain.py, training_manager.py
+	Issue: No resource monitoring during training
+	Focus: Add memory/CPU/GPU monitoring, resource limits, optimization
+	
+	You're absolutely right! That was way too much for one chunk. Let me break it down into proper granular tasks and subtasks.
+
+# **CHUNK 5D: Resource Management - GRANULAR BREAKDOWN**
+
+## **CHUNK 5D-1: Core Resource Monitoring System**
+**Files:** `resource_manager.py`, `performance_monitor.py` (enhancement)
+**Focus:** Build basic resource monitoring infrastructure
+**Reuse:** Existing performance monitoring (70%)
+
+**Subtasks:**
+1. **5D-1A:** Create `ResourceManager` base class with CPU/memory monitoring
+2. **5D-1B:** Add GPU monitoring and device detection
+3. **5D-1C:** Implement real-time resource data collection
+4. **5D-1D:** Add resource trend analysis and prediction
+5. **5D-1E:** Create resource alert system for thresholds
+
+## **CHUNK 5D-2: Memory Management System**
+**Files:** `memory_manager.py`, `training_manager.py` (enhancement)
+**Focus:** Implement dynamic memory management for training
+**Reuse:** Existing training loop (80%)
+
+**Subtasks:**
+1. **5D-2A:** Create `MemoryManager` class with dynamic batch size adjustment
+2. **5D-2B:** Implement gradient accumulation for large models
+3. **5D-2C:** Add memory cleanup between epochs
+4. **5D-2D:** Create memory leak detection and prevention
+5. **5D-2E:** Add GPU memory optimization with mixed precision
+
+## **CHUNK 5D-3: Resource Limits and Constraints**
+**Files:** `resource_limits.py`, `brain.py` (enhancement)
+**Focus:** Implement resource constraints and graceful degradation
+**Reuse:** Existing configuration management (75%)
+
+**Subtasks:**
+1. **5D-3A:** Create `ResourceLimits` class with configurable ceilings
+2. **5D-3B:** Implement automatic throttling when limits approached
+3. **5D-3C:** Add graceful degradation strategies
+4. **5D-3D:** Create resource reservation for system stability
+5. **5D-3E:** Implement dynamic limit adjustment based on system load
+
+## **CHUNK 5D-4: Performance Optimization Engine**
+**Files:** `resource_optimizer.py`, `training_manager.py` (enhancement)
+**Focus:** Build automatic optimization based on available resources
+**Reuse:** Existing hyperparameter management (60%)
+
+**Subtasks:**
+1. **5D-4A:** Create `ResourceOptimizer` class with automatic hyperparameter tuning
+2. **5D-4B:** Implement model architecture optimization for available hardware
+3. **5D-4C:** Add training strategy adaptation (distributed, mixed precision)
+4. **5D-4D:** Create resource-efficient algorithm selection
+5. **5D-4E:** Add performance profiling and bottleneck identification
+
+## **CHUNK 5D-5: Integration with Training Systems**
+**Files:** `training_manager.py`, `brain.py` (enhancement)
+**Focus:** Integrate resource management into existing training infrastructure
+**Reuse:** Existing training loop (85%)
+
+**Subtasks:**
+1. **5D-5A:** Extend `TrainingManager._train_epoch()` with resource monitoring
+2. **5D-5B:** Add resource-aware checkpointing to session management
+3. **5D-5C:** Integrate with existing error recovery system
+4. **5D-5D:** Connect to existing progress tracking for resource metrics
+5. **5D-5E:** Enhance `Brain.start_training()` with resource validation
+
+## **CHUNK 5D-6: Resource Dashboard and Analytics**
+**Files:** `resource_dashboard.py`, `resource_analytics.py`
+**Focus:** Create monitoring interface and analytics
+**Reuse:** Existing visualization (50%)
+
+**Subtasks:**
+1. **5D-6A:** Create live resource usage display
+2. **5D-6B:** Implement resource trend visualization
+3. **5D-6C:** Add alert notifications for resource issues
+4. **5D-6D:** Create performance recommendations
+5. **5D-6E:** Add resource optimization suggestions
+
+## **CHUNK 5D-7: Testing and Validation**
+**Files:** `test_resource_management.py`, `resource_stress_test.py`
+**Focus:** Comprehensive testing of resource management system
+**Reuse:** Existing test infrastructure (70%)
+
+**Subtasks:**
+1. **5D-7A:** Create resource limit testing with constrained environments
+2. **5D-7B:** Implement memory leak detection tests
+3. **5D-7C:** Add performance regression testing
+4. **5D-7D:** Create resource optimization validation
+5. **5D-7E:** Add stress testing with limited resources
+
+---
+
+## **PARALLEL DEVELOPMENT STRATEGY**
+
+### **Phase 1: Foundation (Sequential)**
+- **5D-1** → **5D-2** (Core monitoring and memory management)
+
+### **Phase 2: Core Systems (Parallel)**
+- **5D-3** (Resource Limits) - Independent
+- **5D-4** (Performance Optimization) - Independent
+
+### **Phase 3: Integration (Sequential)**
+- **5D-5** (Training Integration) - Depends on 5D-1, 5D-2, 5D-3, 5D-4
+
+### **Phase 4: User Interface (Parallel)**
+- **5D-6** (Dashboard) - Independent
+- **5D-7** (Testing) - Independent
+
+---
+
+
+## **DEPENDENCY MAP**
+
+```
+5D-1 ──┐
+5D-2 ──┼── 5D-5 ──┐
+5D-3 ──┤           ├── 5D-6 (Parallel)
+5D-4 ──┘           ├── 5D-7 (Parallel)
+```
+
+**Total Chunks:** 7 major chunks
+**Total Subtasks:** 35 atomic subtasks
+**Parallel Development:** 4 chunks can be developed simultaneously
+**Sequential Dependencies:** 3 chunks require previous completion
+
+Each chunk is now **manageable** and **focused** on a specific aspect of resource management, allowing for proper parallel development while maintaining system coherence.
+
+Should I give you the detailed prompt for **CHUNK 5D-1: Core Resource Monitoring System** to start with?
+	
+	CHUNK 5E: Training Validation and Testing
+	Files: brain.py, training_manager.py
+	Issue: No validation during training
+	Focus: Add validation set evaluation, overfitting detection, early stopping
+	
+	CHUNK 5F: Performance Metrics Enhancement
+	Files: brain.py, training_manager.py
+	Issue: Basic training metrics
+	Focus: Add comprehensive accuracy/loss tracking, trend analysis, convergence detection
+	This breaks the large training execution task into 6 manageable chunks, each focusing on a specific aspect of training management and 
+	monitoring.
+
+CHUNK 6: Gradient Switching System Integration
+Files: brain.py, training_manager.py, gradient_plan.txt
+Issue: Integrate gradient ascent/descent switching during training
+Focus: Implement gradient direction detection and switching logic
+	CHUNK 6A: Gradient Direction Detection Algorithms
+	CHUNK 6B: Switching Decision Logic
+	CHUNK 6C: Training Loop Integration
+	CHUNK 6D: Performance Monitoring and Optimization
+	CHUNK 6E: State Management and Error Handling
+
+CHUNK 7: DomainConfig and Component Integration
+Files: brain.py, domain_registry.py
+Issue: DomainConfig parameter mismatches and registration logic
+Focus: Fix domain_type vs type parameters, registration state handling
+
+CHUNK 8: Full System Integration Testing
+Files: All independent_core modules
+Issue: Test complete Brain system with all components
+Focus: End-to-end testing of Brain system before adding financial_fraud_domain
+
+CHUNK 9: Complete Train-Test Cycle
+Files: Complete system (independent_core + financial_fraud_domain)
+Issue: Execute full train-test with IEEE dataset and accuracy tracking
+Focus: Final end-to-end testing of complete system
+These chunks focus on the core Brain system issues we identified earlier, separate from the financial_fraud_domain module problems.
+
+
+
+DYNAMIC MEMORY MANAGEMENT TASKS AND SUBTASKS
+CHUNK 4B: Dynamic Memory Management System
+TASK: Implement dynamic memory management to automatically handle memory limits
+FILES: training_manager.py, brain.py
+SUBTASKS:
+SUBTASK 4B.1: System Memory Detection
+Add psutil import for system memory detection
+Create method to get available system memory
+Calculate safe memory limit (80-90% of available)
+SUBTASK 4B.2: Data Size Estimation
+Enhance DataValidator to estimate memory requirements
+Add memory estimation for pandas DataFrames, numpy arrays, dictionaries
+Calculate memory needed for preprocessing, model, and training
+SUBTASK 4B.3: Dynamic Limit Calculation
+Create method to calculate optimal memory limit
+Consider data size, system memory, and safety buffer
+Auto-adjust TrainingConfig.max_memory_mb dynamically
+SUBTASK 4B.4: Memory-Efficient Processing
+Add batch processing for large datasets
+Implement memory monitoring during processing
+Add fallback to disk-based processing if needed
+SUBTASK 4B.5: Integration with Brain System
+Update Brain's train_domain method to use dynamic limits
+Add memory-aware domain configuration
+Implement memory monitoring in Brain system
+
+
+## UPDATED CHUNKED TASKS: Error Recovery and Rollback Implementation (With Reuse Strategy)
+
+### CHUNK 5C-1: Enhanced Error Classification System
+**Files:** training_manager.py, brain.py, error_classifier.py
+**Focus:** Enhance existing error handling with classification system
+**Reuse:** Existing error handling infrastructure (50% reusable)
+
+**Subtasks:**
+1. **5C-1A:** Create ErrorClassifier class with pattern matching
+   - Extend existing error handling in training_manager.py
+   - Implement regex patterns for common error types
+   - Add error type categorization (memory, gradient, data, hardware, convergence)
+   - Create recoverable vs non-recoverable determination logic
+
+2. **5C-1B:** Enhance existing logging system
+   - Extend logging_manager.py for error trend analysis
+   - Add error frequency tracking to existing monitoring
+   - Create error reporting system integrated with existing analytics
+
+3. **5C-1C:** Integrate with existing training loop
+   - Enhance _train_epoch method in training_manager.py
+   - Implement error context capture using existing session management
+   - Add error classification to existing session management
+
+### CHUNK 5C-2: Enhanced Checkpoint Recovery System
+**Files:** training_manager.py, training_session_manager.py, checkpoint_recovery.py
+**Focus:** Enhance existing checkpoint system with recovery mechanisms
+**Reuse:** Existing checkpoint system (60% reusable), session management (90% reusable)
+
+**Subtasks:**
+1. **5C-2A:** Enhance CheckpointRecovery class
+   - Extend existing checkpoint creation in training_manager.py
+   - Add checkpoint integrity verification (checksums)
+   - Integrate with existing session management for metadata
+
+2. **5C-2B:** Implement automatic rollback mechanisms
+   - Use existing session state management for rollback points
+   - Implement checkpoint selection logic using existing session data
+   - Create rollback validation system with existing validation utils
+
+3. **5C-2C:** Add session recovery capabilities
+   - Extend existing session management for recovery
+   - Add cross-session recovery using existing state_synchronizer.py
+   - Create recovery point cleanup integrated with existing session cleanup
+
+### CHUNK 5C-3: Gradient Switching System (New)
+**Files:** gradient_switching.py, training_manager.py, brain.py
+**Focus:** Build new gradient switching system from scratch
+**Reuse:** Existing training loop integration (85% reusable)
+
+**Subtasks:**
+1. **5C-3A:** Create GradientSwitchingManager class
+   - Build new gradient switching decision logic
+   - Implement gradient direction detection (CUSUM, PELT, Kalman)
+   - Create switching validation integrated with existing monitoring
+
+2. **5C-3B:** Implement switching triggers and detection
+   - Add local minima detection (∇L ≈ 0, ∇²L > 0)
+   - Implement plateau detection using existing progress tracking
+   - Create oscillation detection integrated with existing metrics
+
+3. **5C-3C:** Add adaptive learning rate management
+   - Extend existing learning rate management in training_manager.py
+   - Implement different learning rates for ascent/descent
+   - Create learning rate validation using existing validation utils
+
+### CHUNK 5C-4: Recovery Strategies with Existing Infrastructure
+**Files:** training_manager.py, brain.py, recovery_strategies.py
+**Focus:** Implement recovery strategies using existing monitoring
+**Reuse:** Existing monitoring systems (70% reusable), performance monitoring (80% reusable)
+
+**Subtasks:**
+1. **5C-4A:** Memory error recovery
+   - Use existing performance_monitor.py for memory monitoring
+   - Implement batch size reduction (B → B/2)
+   - Add cache clearing mechanisms integrated with existing monitoring
+
+2. **5C-4B:** Gradient error recovery with switching
+   - Extend existing gradient monitoring in training_manager.py
+   - Add gradient switching as recovery strategy
+   - Create gradient monitoring using existing real_time_accuracy_monitor.py
+
+3. **5C-4C:** Data and hardware error recovery
+   - Use existing validation_engine.py for data validation
+   - Add hardware failure detection using existing monitoring
+   - Create fallback mechanisms integrated with existing error handling
+
+### CHUNK 5C-5: Enhanced State Rollback System
+**Files:** state_manager.py, state_synchronizer.py, training_manager.py
+**Focus:** Enhance existing state management with rollback capabilities
+**Reuse:** Existing state management (40% reusable), state synchronization (60% reusable)
+
+**Subtasks:**
+1. **5C-5A:** Enhance StateRollback class
+   - Extend existing state_manager.py for rollback capabilities
+   - Add rollback point creation with metadata
+   - Create state serialization using existing serialization_utils.py
+
+2. **5C-5B:** Implement rollback validation
+   - Use existing validation_utils.py for state integrity checks
+   - Implement rollback verification integrated with existing validation
+   - Create rollback success/failure reporting using existing logging
+
+3. **5C-5C:** Add state recovery integration
+   - Integrate with existing session management
+   - Add state recovery to existing error handling
+   - Create state cleanup using existing session cleanup mechanisms
+
+### CHUNK 5C-6: Integration with Existing Brain System
+**Files:** brain.py, training_manager.py, test files
+**Focus:** Integrate all components with existing Brain system
+**Reuse:** Existing Brain system integration (85% reusable), configuration management (90% reusable)
+
+**Subtasks:**
+1. **5C-6A:** Integrate error recovery into existing training loop
+   - Extend existing _train_epoch method in training_manager.py
+   - Add recovery point creation using existing session management
+   - Implement automatic recovery attempts integrated with existing monitoring
+
+2. **5C-6B:** Enhance existing Brain.start_training method
+   - Extend existing enable_enhanced_training() method
+   - Add session recovery capabilities using existing session management
+   - Implement cross-component error handling using existing integration
+
+3. **5C-6C:** Create testing using existing test infrastructure
+   - Use existing test_suite.py for testing framework
+   - Add simulated failure testing integrated with existing tests
+   - Create comprehensive error scenario testing
+
+### CHUNK 5C-7: Enhanced Monitoring and Reporting
+**Files:** real_time_accuracy_monitor.py, performance_monitor.py, monitoring_operations_engine.py
+**Focus:** Enhance existing monitoring for error recovery
+**Reuse:** Existing monitoring systems (70% reusable), analytics (80% reusable)
+
+**Subtasks:**
+1. **5C-7A:** Enhance existing recovery monitoring
+   - Extend real_time_accuracy_monitor.py for recovery tracking
+   - Add recovery success rate tracking to existing performance monitoring
+   - Create recovery performance metrics integrated with existing metrics
+
+2. **5C-7B:** Add gradient switching monitoring
+   - Extend monitoring_operations_engine.py for switching tracking
+   - Add switching frequency tracking to existing monitoring
+   - Create gradient direction trend analysis using existing analytics
+
+3. **5C-7C:** Enhance existing reporting and analytics
+   - Extend existing analytics for error recovery reports
+   - Implement trend analysis using existing statistical_analysis_engine.py
+   - Add proactive error prevention alerts to existing monitoring
+
+### CHUNK 5C-8: Advanced Gradient Switching Features (New)
+**Files:** gradient_switching.py, training_manager.py
+**Focus:** Build advanced gradient switching capabilities
+**Reuse:** Existing training loop integration (85% reusable)
+
+**Subtasks:**
+1. **5C-8A:** Implement CUSUM trend detection
+   - Build new CUSUM calculation for loss trends
+   - Implement change point detection integrated with existing monitoring
+   - Create trend-based switching triggers
+
+2. **5C-8B:** Implement PELT change point detection
+   - Build new optimal change point finding algorithm
+   - Implement segment cost calculation
+   - Create penalty-based change point selection
+
+3. **5C-8C:** Implement Kalman filtering for prediction
+   - Build new state prediction for gradient direction
+   - Implement uncertainty quantification
+   - Create prediction-based switching decisions
+
+### CHUNK 5C-9: User Notification System
+**Files:** training_manager.py, brain.py, notification_system.py
+**Focus:** Add user-friendly notifications using existing infrastructure
+**Reuse:** Existing logging system (95% reusable), configuration management (90% reusable)
+
+**Subtasks:**
+1. **5C-9A:** Implement error notifications
+   - Extend existing logging_manager.py for real-time alerts
+   - Create user-friendly error messages using existing configuration
+   - Implement notification preferences using existing config_manager.py
+
+2. **5C-9B:** Add recovery status updates
+   - Extend existing progress tracking for recovery reporting
+   - Add switching status notifications to existing monitoring
+   - Create recovery completion alerts integrated with existing alerts
+
+3. **5C-9C:** Add user control and override
+   - Extend existing configuration management for user controls
+   - Add manual recovery triggers integrated with existing controls
+   - Create recovery strategy selection interface using existing UI patterns
+
+**DEPENDENCY ORDER:**
+- 5C-1 must be completed first (enhance existing error handling)
+- 5C-2 and 5C-3 can be developed in parallel (enhance existing vs build new)
+- 5C-4 depends on 5C-3 completion (gradient switching)
+- 5C-5 depends on 5C-2 completion (enhance existing state management)
+- 5C-6 depends on all previous chunks (integration)
+- 5C-7 and 5C-8 can be developed alongside 5C-6 (enhance existing monitoring)
+- 5C-9 depends on 5C-6 completion (user interface)
+
+**REUSE STRATEGY SUMMARY:**
+- **High Reuse (80-95%):** Session management, logging, configuration, Brain integration
+- **Medium Reuse (50-70%):** Checkpoints, monitoring, state management, validation
+- **Low Reuse (0-40%):** Gradient switching (new), advanced error classification (enhancement)
+
+Each chunk leverages existing infrastructure while building new capabilities, maximizing reuse and minimizing development time.

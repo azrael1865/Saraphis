@@ -1,0 +1,70 @@
+{
+  "save_time": "2025-07-30T18:42:38.896603",
+  "brain_version": "1.0.0",
+  "domains": [
+    {
+      "name": "general",
+      "status": "registered",
+      "type": "core",
+      "version": "1.0.0",
+      "description": "General purpose reasoning and knowledge",
+      "registered_at": "2025-07-22T19:40:33.276918",
+      "activation_count": 0,
+      "error_count": 0,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "name": "mathematics",
+      "status": "registered",
+      "type": "specialized",
+      "version": "1.0.0",
+      "description": "Mathematical computations and reasoning",
+      "registered_at": "2025-07-22T19:40:33.277261",
+      "activation_count": 0,
+      "error_count": 0,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "name": "language",
+      "status": "registered",
+      "type": "specialized",
+      "version": "1.0.0",
+      "description": "Natural language processing and understanding",
+      "registered_at": "2025-07-22T19:40:33.277580",
+      "activation_count": 0,
+      "error_count": 0,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "name": "fraud_detection",
+      "status": "registered",
+      "type": "specialized",
+      "version": "1.0.0",
+      "description": "IEEE fraud detection with cryptographic proof generation",
+      "registered_at": "2025-07-22T19:40:33.277867",
+      "activation_count": 0,
+      "error_count": 0,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "name": "golf_gambling",
+      "status": "registered",
+      "type": "specialized",
+      "version": "1.0.0",
+      "description": "Golf gambling lineup optimization with neural networks and reinforcement learning",
+      "registered_at": "2025-07-30T18:41:21.905899",
+      "activation_count": 0,
+      "error_count": 0,
+      "dependencies": [],
+      "dependents": []
+    }
+  ],
+  "configuration": {
+    "brain_config": {
+      "shared_memory_size": 10000,
+      "knowledge_persistence": true,
+      "knowledge_path": 

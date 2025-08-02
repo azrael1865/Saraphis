@@ -1,0 +1,66 @@
+{
+  "session_id": "error_recovery_test_1753021098608",
+  "timestamp": "2025-07-20T10:18:19.449872",
+  "configuration": {
+    "enable_visualization": true,
+    "enable_monitoring": true,
+    "log_interval": 10,
+    "visualization_interval": 50,
+    "monitoring_interval": 5,
+    "loss_stagnation_epochs": 5,
+    "loss_explosion_threshold": 10.0,
+    "gradient_explosion_threshold": 100.0,
+    "memory_warning_mb": 6000,
+    "memory_critical_mb": 7500,
+    "gpu_warning_percent": 85,
+    "gpu_critical_percent": 95,
+    "total_epochs": 3,
+    "batches_per_epoch": 2,
+    "batch_size": 32
+  },
+  "current_state": {
+    "epoch": 1,
+    "batch": 1,
+    "total_epochs": 3,
+    "total_batches_per_epoch": 2
+  },
+  "metrics_history": [
+    {
+      "epoch": 1,
+      "timestamp": "2025-07-20T10:18:19.447179",
+      "duration": 0.32203125953674316,
+      "metrics": {
+        "val_loss_mean": Infinity,
+        "val_loss_std": NaN,
+        "val_loss_min": Infinity,
+        "val_loss_max": Infinity,
+        "val_accuracy_mean": 0.0,
+        "val_accuracy_std": 0.0,
+        "val_accuracy_min": 0.0,
+        "val_accuracy_max": 0.0
+      },
+      "validation_metrics": {
+        "loss": Infinity,
+        "accuracy": 0.0
+      }
+    }
+  ],
+  "best_metrics": {
+    "loss": Infinity,
+    "loss_epoch": 1,
+    "accuracy": 0.0,
+    "accuracy_epoch": 1
+  },
+  "alerts": [],
+  "resource_history": [
+    {
+      "timestamp": 1753021098.6140978,
+      "metrics": {
+        "memory_mb": 0,
+        "cpu_percent": 0,
+        "gpu_percent": 0,
+        "gpu_memory_mb": 0
+      }
+    }
+  ]
+}

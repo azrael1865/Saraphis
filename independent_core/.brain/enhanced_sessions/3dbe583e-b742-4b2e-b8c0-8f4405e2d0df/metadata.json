@@ -1,0 +1,36 @@
+{
+  "session_id": "3dbe583e-b742-4b2e-b8c0-8f4405e2d0df",
+  "session_name": "cleanup_test_0",
+  "domain_name": "general",
+  "created_at": "2025-07-20T08:50:01.420018",
+  "started_at": "2025-07-20T08:50:01.422260",
+  "completed_at": "2025-07-20T08:50:01.436055",
+  "last_active": "2025-07-20T08:50:01.436056",
+  "training_config": {
+    "epochs": 5,
+    "checkpoint_frequency": 5,
+    "enable_monitoring": true
+  },
+  "progress": {
+    "current_epoch": 5,
+    "total_epochs": 5,
+    "current_batch": 1,
+    "total_batches": 1,
+    "percentage": 120.0,
+    "estimated_remaining": null,
+    "samples_processed": 500,
+    "total_samples": 0
+  },
+  "peak_memory_usage": 0.0,
+  "total_compute_time": 0.0,
+  "checkpoint_count": 2,
+  "recovery_count": 0,
+  "best_metrics": {},
+  "final_metrics": {
+    "final_loss": 0.6824215799570084,
+    "final_accuracy": 0.61,
+    "best_val_accuracy": 0.61,
+    "training_time": 0.013679027557373047,
+    "epochs_completed": 5
+  }
+}

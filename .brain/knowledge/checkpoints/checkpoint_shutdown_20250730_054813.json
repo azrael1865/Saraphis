@@ -1,0 +1,3546 @@
+{
+  "version": "1.1.0",
+  "timestamp": "2025-07-30T05:48:13.545618",
+  "config": {
+    "shared_memory_size": 10000,
+    "knowledge_persistence": true,
+    "knowledge_path": "/Users/will/Desktop/trueSaraphis/Saraphis/.brain/knowledge/brain_core.json",
+    "reasoning_depth": 5,
+    "context_window_size": 2048,
+    "enable_caching": true,
+    "cache_size": 1000,
+    "thread_safe": true,
+    "enable_uncertainty": true,
+    "uncertainty_history_size": 1000,
+    "confidence_threshold": 0.7,
+    "reliability_window": 100,
+    "log_level": "INFO",
+    "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "shared_state": {
+    "knowledge_base": {
+      "training_management": {
+        "training_session_fraud_detection_1753138361090": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": 100,
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T18:52:41.091098",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753139057950": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 5,
+                  "batch_size": 128,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10,
+                  "optimizer": "adam",
+                  "optimizer_params": {
+                    "weight_decay": 1e-05
+                  },
+                  "scheduler": "reduce_on_plateau",
+                  "scheduler_params": {
+                    "patience": 5,
+                    "factor": 0.5
+                  },
+                  "dropout_rate": 0.2,
+                  "l1_regularization": 0.0,
+                  "l2_regularization": 0.01,
+                  "gradient_clip_value": 1.0,
+                  "use_gac_system": true,
+                  "gac_mode": "adaptive",
+                  "gac_components": [
+                    "clipping",
+                    "monitoring",
+                    "normalization"
+                  ],
+                  "gac_threshold_adaptation": true,
+                  "gac_noise_enabled": false,
+                  "proof_system_config": {
+                    "enable_proof_system": true,
+                    "proof_verification_frequency": 1,
+                    "confidence_tracking_enabled": true,
+                    "algebraic_enforcement_enabled": true,
+                    "fraud_detection_rules": {
+                      "transaction_limits": {
+                        "max_amount": 10000,
+                        "max_daily_amount": 50000,
+                        "max_daily_transactions": 100
+                      },
+                      "velocity_rules": {
+                        "max_transactions_per_hour": 20,
+                        "max_amount_per_hour": 20000
+                      },
+                      "geographical_rules": {
+                        "max_distance_km_per_hour": 1000,
+                        "suspicious_location_patterns": true
+                      }
+                    },
+                    "confidence_interval_config": {
+                      "confidence_level": 0.95,
+                      "window_size": 100,
+                      "update_frequency": 10
+                    },
+                    "algebraic_rules_config": {
+                      "gradient_bounds": {
+                        "min": -10.0,
+                        "max": 10.0
+                      },
+                      "lipschitz_constant": 1.0,
+                      "enforce_monotonicity": false,
+                      "max_gradient_norm": 5.0
+                    }
+                  },
+                  "device": "cpu",
+                  "enable_resource_monitoring": true,
+                  "resource_limits": {
+                    "max_memory_gb": 8.0,
+                    "max_cpu_percent": 80.0
+                  },
+                  "early_stopping_enabled": true,
+                  "early_stopping_min_delta": 0.0001,
+                  "gradient_accumulation_steps": 1,
+                  "mixed_precision": false,
+                  "checkpoint_frequency": 1,
+                  "max_checkpoints": 5,
+                  "warmup_epochs": 0,
+                  "warmup_learning_rate": 1e-05,
+                  "label_smoothing": 0.0,
+                  "auto_augment": false,
+                  "max_memory_mb": 1024,
+                  "max_training_time_hours": 24.0,
+                  "num_workers": 0,
+                  "log_frequency": 10,
+                  "metric_names": [
+                    "loss",
+                    "accuracy"
+                  ],
+                  "save_training_history": true,
+                  "normalize_features": true,
+                  "handle_missing_values": true,
+                  "missing_value_strategy": "median",
+                  "encode_categorical": true,
+                  "categorical_encoding": "auto",
+                  "enable_recovery": true,
+                  "progress_config": {
+                    "enable_visualization": true,
+                    "enable_monitoring": true,
+                    "enable_alerts": true,
+                    "memory_warning_mb": 819.2,
+                    "memory_critical_mb": 972.8
+                  }
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:04:17.952213",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753139642114": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 5,
+                  "batch_size": 128,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:14:02.115775",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753139791798": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 5,
+                  "batch_size": 128,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:16:31.800087",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753139921632": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 5,
+                  "batch_size": 128,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:18:41.633989",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753140039316": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 5,
+                  "batch_size": 128,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:20:39.317252",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753141706447": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "model_type": "neural_network",
+                "config": {
+                  "epochs": 3,
+                  "batch_size": 32,
+                  "learning_rate": 0.001,
+                  "validation_split": 0.2,
+                  "early_stopping_patience": 5,
+                  "checkpoint_interval": 5,
+                  "max_recovery_attempts": 3,
+                  "enable_monitoring": true,
+                  "log_interval": 10
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T19:48:26.450355",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753142421522": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:00:21.524640",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753144172781": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10,
+                "optimizer": "adam",
+                "optimizer_params": {
+                  "weight_decay": 1e-05
+                },
+                "scheduler": "reduce_on_plateau",
+                "scheduler_params": {
+                  "patience": 5,
+                  "factor": 0.5
+                },
+                "dropout_rate": 0.2,
+                "l1_regularization": 0.0,
+                "l2_regularization": 0.01,
+                "gradient_clip_value": 1.0,
+                "use_gac_system": true,
+                "gac_mode": "adaptive",
+                "gac_components": [
+                  "clipping",
+                  "monitoring",
+                  "normalization"
+                ],
+                "gac_threshold_adaptation": true,
+                "gac_noise_enabled": false,
+                "proof_system_config": {
+                  "enable_proof_system": true,
+                  "proof_verification_frequency": 1,
+                  "confidence_tracking_enabled": true,
+                  "algebraic_enforcement_enabled": true,
+                  "fraud_detection_rules": {
+                    "transaction_limits": {
+                      "max_amount": 10000,
+                      "max_daily_amount": 50000,
+                      "max_daily_transactions": 100
+                    },
+                    "velocity_rules": {
+                      "max_transactions_per_hour": 20,
+                      "max_amount_per_hour": 20000
+                    },
+                    "geographical_rules": {
+                      "max_distance_km_per_hour": 1000,
+                      "suspicious_location_patterns": true
+                    }
+                  },
+                  "confidence_interval_config": {
+                    "confidence_level": 0.95,
+                    "window_size": 100,
+                    "update_frequency": 10
+                  },
+                  "algebraic_rules_config": {
+                    "gradient_bounds": {
+                      "min": -10.0,
+                      "max": 10.0
+                    },
+                    "lipschitz_constant": 1.0,
+                    "enforce_monotonicity": false,
+                    "max_gradient_norm": 5.0
+                  }
+                },
+                "device": "cpu",
+                "enable_resource_monitoring": true,
+                "resource_limits": {
+                  "max_memory_gb": 8.0,
+                  "max_cpu_percent": 80.0
+                },
+                "early_stopping_enabled": true,
+                "early_stopping_min_delta": 0.0001,
+                "gradient_accumulation_steps": 1,
+                "mixed_precision": false,
+                "checkpoint_frequency": 1,
+                "max_checkpoints": 5,
+                "warmup_epochs": 0,
+                "warmup_learning_rate": 1e-05,
+                "label_smoothing": 0.0,
+                "auto_augment": false,
+                "max_memory_mb": 1024,
+                "max_training_time_hours": 24.0,
+                "num_workers": 0,
+                "log_frequency": 10,
+                "metric_names": [
+                  "loss",
+                  "accuracy"
+                ],
+                "save_training_history": true,
+                "normalize_features": true,
+                "handle_missing_values": true,
+                "missing_value_strategy": "median",
+                "encode_categorical": true,
+                "categorical_encoding": "auto",
+                "enable_recovery": true,
+                "progress_config": {
+                  "enable_visualization": true,
+                  "enable_monitoring": true,
+                  "enable_alerts": true,
+                  "memory_warning_mb": 819.2,
+                  "memory_critical_mb": 972.8
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:29:32.784336",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753144692218": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10,
+                "optimizer": "adam",
+                "optimizer_params": {
+                  "weight_decay": 1e-05
+                },
+                "scheduler": "reduce_on_plateau",
+                "scheduler_params": {
+                  "patience": 5,
+                  "factor": 0.5
+                },
+                "dropout_rate": 0.2,
+                "l1_regularization": 0.0,
+                "l2_regularization": 0.01,
+                "gradient_clip_value": 1.0,
+                "use_gac_system": true,
+                "gac_mode": "adaptive",
+                "gac_components": [
+                  "clipping",
+                  "monitoring",
+                  "normalization"
+                ],
+                "gac_threshold_adaptation": true,
+                "gac_noise_enabled": false,
+                "proof_system_config": {
+                  "enable_proof_system": true,
+                  "proof_verification_frequency": 1,
+                  "confidence_tracking_enabled": true,
+                  "algebraic_enforcement_enabled": true,
+                  "fraud_detection_rules": {
+                    "transaction_limits": {
+                      "max_amount": 10000,
+                      "max_daily_amount": 50000,
+                      "max_daily_transactions": 100
+                    },
+                    "velocity_rules": {
+                      "max_transactions_per_hour": 20,
+                      "max_amount_per_hour": 20000
+                    },
+                    "geographical_rules": {
+                      "max_distance_km_per_hour": 1000,
+                      "suspicious_location_patterns": true
+                    }
+                  },
+                  "confidence_interval_config": {
+                    "confidence_level": 0.95,
+                    "window_size": 100,
+                    "update_frequency": 10
+                  },
+                  "algebraic_rules_config": {
+                    "gradient_bounds": {
+                      "min": -10.0,
+                      "max": 10.0
+                    },
+                    "lipschitz_constant": 1.0,
+                    "enforce_monotonicity": false,
+                    "max_gradient_norm": 5.0
+                  }
+                },
+                "device": "cpu",
+                "enable_resource_monitoring": true,
+                "resource_limits": {
+                  "max_memory_gb": 8.0,
+                  "max_cpu_percent": 80.0
+                },
+                "early_stopping_enabled": true,
+                "early_stopping_min_delta": 0.0001,
+                "gradient_accumulation_steps": 1,
+                "mixed_precision": false,
+                "checkpoint_frequency": 1,
+                "max_checkpoints": 5,
+                "warmup_epochs": 0,
+                "warmup_learning_rate": 1e-05,
+                "label_smoothing": 0.0,
+                "auto_augment": false,
+                "max_memory_mb": 1024,
+                "max_training_time_hours": 24.0,
+                "num_workers": 0,
+                "log_frequency": 10,
+                "metric_names": [
+                  "loss",
+                  "accuracy"
+                ],
+                "save_training_history": true,
+                "normalize_features": true,
+                "handle_missing_values": true,
+                "missing_value_strategy": "median",
+                "encode_categorical": true,
+                "categorical_encoding": "auto",
+                "enable_recovery": true,
+                "progress_config": {
+                  "enable_visualization": true,
+                  "enable_monitoring": true,
+                  "enable_alerts": true,
+                  "memory_warning_mb": 819.2,
+                  "memory_critical_mb": 972.8
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:38:12.221244",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753144872206": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10,
+                "optimizer": "adam",
+                "optimizer_params": {
+                  "weight_decay": 1e-05
+                },
+                "scheduler": "reduce_on_plateau",
+                "scheduler_params": {
+                  "patience": 5,
+                  "factor": 0.5
+                },
+                "dropout_rate": 0.2,
+                "l1_regularization": 0.0,
+                "l2_regularization": 0.01,
+                "gradient_clip_value": 1.0,
+                "use_gac_system": true,
+                "gac_mode": "adaptive",
+                "gac_components": [
+                  "clipping",
+                  "monitoring",
+                  "normalization"
+                ],
+                "gac_threshold_adaptation": true,
+                "gac_noise_enabled": false,
+                "proof_system_config": {
+                  "enable_proof_system": true,
+                  "proof_verification_frequency": 1,
+                  "confidence_tracking_enabled": true,
+                  "algebraic_enforcement_enabled": true,
+                  "fraud_detection_rules": {
+                    "transaction_limits": {
+                      "max_amount": 10000,
+                      "max_daily_amount": 50000,
+                      "max_daily_transactions": 100
+                    },
+                    "velocity_rules": {
+                      "max_transactions_per_hour": 20,
+                      "max_amount_per_hour": 20000
+                    },
+                    "geographical_rules": {
+                      "max_distance_km_per_hour": 1000,
+                      "suspicious_location_patterns": true
+                    }
+                  },
+                  "confidence_interval_config": {
+                    "confidence_level": 0.95,
+                    "window_size": 100,
+                    "update_frequency": 10
+                  },
+                  "algebraic_rules_config": {
+                    "gradient_bounds": {
+                      "min": -10.0,
+                      "max": 10.0
+                    },
+                    "lipschitz_constant": 1.0,
+                    "enforce_monotonicity": false,
+                    "max_gradient_norm": 5.0
+                  }
+                },
+                "device": "cpu",
+                "enable_resource_monitoring": true,
+                "resource_limits": {
+                  "max_memory_gb": 8.0,
+                  "max_cpu_percent": 80.0
+                },
+                "early_stopping_enabled": true,
+                "early_stopping_min_delta": 0.0001,
+                "gradient_accumulation_steps": 1,
+                "mixed_precision": false,
+                "checkpoint_frequency": 1,
+                "max_checkpoints": 5,
+                "warmup_epochs": 0,
+                "warmup_learning_rate": 1e-05,
+                "label_smoothing": 0.0,
+                "auto_augment": false,
+                "max_memory_mb": 1024,
+                "max_training_time_hours": 24.0,
+                "num_workers": 0,
+                "log_frequency": 10,
+                "metric_names": [
+                  "loss",
+                  "accuracy"
+                ],
+                "save_training_history": true,
+                "normalize_features": true,
+                "handle_missing_values": true,
+                "missing_value_strategy": "median",
+                "encode_categorical": true,
+                "categorical_encoding": "auto",
+                "enable_recovery": true,
+                "progress_config": {
+                  "enable_visualization": true,
+                  "enable_monitoring": true,
+                  "enable_alerts": true,
+                  "memory_warning_mb": 819.2,
+                  "memory_critical_mb": 972.8
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:41:12.209285",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753145362317": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10,
+                "optimizer": "adam",
+                "optimizer_params": {
+                  "weight_decay": 1e-05
+                },
+                "scheduler": "reduce_on_plateau",
+                "scheduler_params": {
+                  "patience": 5,
+                  "factor": 0.5
+                },
+                "dropout_rate": 0.2,
+                "l1_regularization": 0.0,
+                "l2_regularization": 0.01,
+                "gradient_clip_value": 1.0,
+                "use_gac_system": true,
+                "gac_mode": "adaptive",
+                "gac_components": [
+                  "clipping",
+                  "monitoring",
+                  "normalization"
+                ],
+                "gac_threshold_adaptation": true,
+                "gac_noise_enabled": false,
+                "proof_system_config": {
+                  "enable_proof_system": true,
+                  "proof_verification_frequency": 1,
+                  "confidence_tracking_enabled": true,
+                  "algebraic_enforcement_enabled": true,
+                  "fraud_detection_rules": {
+                    "transaction_limits": {
+                      "max_amount": 10000,
+                      "max_daily_amount": 50000,
+                      "max_daily_transactions": 100
+                    },
+                    "velocity_rules": {
+                      "max_transactions_per_hour": 20,
+                      "max_amount_per_hour": 20000
+                    },
+                    "geographical_rules": {
+                      "max_distance_km_per_hour": 1000,
+                      "suspicious_location_patterns": true
+                    }
+                  },
+                  "confidence_interval_config": {
+                    "confidence_level": 0.95,
+                    "window_size": 100,
+                    "update_frequency": 10
+                  },
+                  "algebraic_rules_config": {
+                    "gradient_bounds": {
+                      "min": -10.0,
+                      "max": 10.0
+                    },
+                    "lipschitz_constant": 1.0,
+                    "enforce_monotonicity": false,
+                    "max_gradient_norm": 5.0
+                  }
+                },
+                "device": "cpu",
+                "enable_resource_monitoring": true,
+                "resource_limits": {
+                  "max_memory_gb": 8.0,
+                  "max_cpu_percent": 80.0
+                },
+                "early_stopping_enabled": true,
+                "early_stopping_min_delta": 0.0001,
+                "gradient_accumulation_steps": 1,
+                "mixed_precision": false,
+                "checkpoint_frequency": 1,
+                "max_checkpoints": 5,
+                "warmup_epochs": 0,
+                "warmup_learning_rate": 1e-05,
+                "label_smoothing": 0.0,
+                "auto_augment": false,
+                "max_memory_mb": 1024,
+                "max_training_time_hours": 24.0,
+                "num_workers": 0,
+                "log_frequency": 10,
+                "metric_names": [
+                  "loss",
+                  "accuracy"
+                ],
+                "save_training_history": true,
+                "normalize_features": true,
+                "handle_missing_values": true,
+                "missing_value_strategy": "median",
+                "encode_categorical": true,
+                "categorical_encoding": "auto",
+                "enable_recovery": true,
+                "progress_config": {
+                  "enable_visualization": true,
+                  "enable_monitoring": true,
+                  "enable_alerts": true,
+                  "memory_warning_mb": 819.2,
+                  "memory_critical_mb": 972.8
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:49:22.320513",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753145662012": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10,
+                "batch_size": 32,
+                "learning_rate": 0.001,
+                "validation_split": 0.2,
+                "early_stopping_patience": 5,
+                "checkpoint_interval": 5,
+                "max_recovery_attempts": 3,
+                "enable_monitoring": true,
+                "log_interval": 10,
+                "optimizer": "adam",
+                "optimizer_params": {
+                  "weight_decay": 1e-05
+                },
+                "scheduler": "reduce_on_plateau",
+                "scheduler_params": {
+                  "patience": 5,
+                  "factor": 0.5
+                },
+                "dropout_rate": 0.2,
+                "l1_regularization": 0.0,
+                "l2_regularization": 0.01,
+                "gradient_clip_value": 1.0,
+                "use_gac_system": true,
+                "gac_mode": "adaptive",
+                "gac_components": [
+                  "clipping",
+                  "monitoring",
+                  "normalization"
+                ],
+                "gac_threshold_adaptation": true,
+                "gac_noise_enabled": false,
+                "proof_system_config": {
+                  "enable_proof_system": true,
+                  "proof_verification_frequency": 1,
+                  "confidence_tracking_enabled": true,
+                  "algebraic_enforcement_enabled": true,
+                  "fraud_detection_rules": {
+                    "transaction_limits": {
+                      "max_amount": 10000,
+                      "max_daily_amount": 50000,
+                      "max_daily_transactions": 100
+                    },
+                    "velocity_rules": {
+                      "max_transactions_per_hour": 20,
+                      "max_amount_per_hour": 20000
+                    },
+                    "geographical_rules": {
+                      "max_distance_km_per_hour": 1000,
+                      "suspicious_location_patterns": true
+                    }
+                  },
+                  "confidence_interval_config": {
+                    "confidence_level": 0.95,
+                    "window_size": 100,
+                    "update_frequency": 10
+                  },
+                  "algebraic_rules_config": {
+                    "gradient_bounds": {
+                      "min": -10.0,
+                      "max": 10.0
+                    },
+                    "lipschitz_constant": 1.0,
+                    "enforce_monotonicity": false,
+                    "max_gradient_norm": 5.0
+                  }
+                },
+                "device": "cpu",
+                "enable_resource_monitoring": true,
+                "resource_limits": {
+                  "max_memory_gb": 8.0,
+                  "max_cpu_percent": 80.0
+                },
+                "early_stopping_enabled": true,
+                "early_stopping_min_delta": 0.0001,
+                "gradient_accumulation_steps": 1,
+                "mixed_precision": false,
+                "checkpoint_frequency": 1,
+                "max_checkpoints": 5,
+                "warmup_epochs": 0,
+                "warmup_learning_rate": 1e-05,
+                "label_smoothing": 0.0,
+                "auto_augment": false,
+                "max_memory_mb": 1024,
+                "max_training_time_hours": 24.0,
+                "num_workers": 0,
+                "log_frequency": 10,
+                "metric_names": [
+                  "loss",
+                  "accuracy"
+                ],
+                "save_training_history": true,
+                "normalize_features": true,
+                "handle_missing_values": true,
+                "missing_value_strategy": "median",
+                "encode_categorical": true,
+                "categorical_encoding": "auto",
+                "enable_recovery": true,
+                "progress_config": {
+                  "enable_visualization": true,
+                  "enable_monitoring": true,
+                  "enable_alerts": true,
+                  "memory_warning_mb": 819.2,
+                  "memory_critical_mb": 972.8
+                }
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T20:54:22.015026",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753146095231": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T21:01:35.234562",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753146713688": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 5
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T21:11:53.691630",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753147197402": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 5
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T21:19:57.406085",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753148245223": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 1
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T21:37:25.227036",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753148700165": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-21T21:45:00.168210",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753178227863": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T05:57:07.867021",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753178318328": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cpu",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T05:58:38.330914",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753178717241": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T06:05:17.243351",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753179597666": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T06:19:57.669156",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753181619325": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T06:53:39.328899",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753181802389": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T06:56:42.392535",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753182086009": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T07:01:26.011351",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        },
+        "training_session_fraud_detection_1753182234658": {
+          "value": {
+            "domain": "fraud_detection",
+            "config": {
+              "epochs": {
+                "epochs": 10
+              },
+              "batch_size": 32,
+              "learning_rate": 0.001,
+              "validation_split": 0.2,
+              "optimizer": "adam",
+              "optimizer_params": {
+                "weight_decay": 1e-05
+              },
+              "scheduler": "reduce_on_plateau",
+              "scheduler_params": {
+                "patience": 5,
+                "factor": 0.5
+              },
+              "dropout_rate": 0.2,
+              "l1_regularization": 0.0,
+              "l2_regularization": 0.01,
+              "gradient_clip_value": 1.0,
+              "use_gac_system": true,
+              "gac_mode": "adaptive",
+              "gac_components": [
+                "clipping",
+                "monitoring"
+              ],
+              "gac_threshold_adaptation": true,
+              "gac_noise_enabled": false,
+              "proof_system_config": {
+                "enable_proof_system": true,
+                "proof_verification_frequency": 1,
+                "confidence_tracking_enabled": true,
+                "algebraic_enforcement_enabled": true,
+                "fraud_detection_rules": {
+                  "transaction_limits": {
+                    "max_amount": 10000,
+                    "max_daily_amount": 50000,
+                    "max_daily_transactions": 100
+                  },
+                  "velocity_rules": {
+                    "max_transactions_per_hour": 20,
+                    "max_amount_per_hour": 20000
+                  },
+                  "geographical_rules": {
+                    "max_distance_km_per_hour": 1000,
+                    "suspicious_location_patterns": true
+                  }
+                },
+                "confidence_interval_config": {
+                  "confidence_level": 0.95,
+                  "window_size": 100,
+                  "update_frequency": 10
+                },
+                "algebraic_rules_config": {
+                  "gradient_bounds": {
+                    "min": -10.0,
+                    "max": 10.0
+                  },
+                  "lipschitz_constant": 1.0,
+                  "enforce_monotonicity": false,
+                  "max_gradient_norm": 5.0
+                }
+              },
+              "device": "cuda",
+              "enable_resource_monitoring": true,
+              "resource_limits": {
+                "max_memory_gb": 8.0,
+                "max_cpu_percent": 80.0
+              },
+              "early_stopping_enabled": true,
+              "early_stopping_patience": 10,
+              "early_stopping_min_delta": 0.0001,
+              "gradient_accumulation_steps": 1,
+              "mixed_precision": false,
+              "checkpoint_frequency": 10,
+              "max_checkpoints": 5,
+              "warmup_epochs": 0,
+              "warmup_learning_rate": 1e-05,
+              "label_smoothing": 0.0,
+              "auto_augment": false,
+              "max_memory_mb": 1024,
+              "max_training_time_hours": 24.0,
+              "num_workers": 0,
+              "log_frequency": 10,
+              "metric_names": [
+                "loss",
+                "accuracy"
+              ],
+              "save_training_history": true,
+              "normalize_features": true,
+              "handle_missing_values": true,
+              "missing_value_strategy": "median",
+              "encode_categorical": true,
+              "categorical_encoding": "auto",
+              "enable_recovery": true,
+              "progress_config": null
+            },
+            "status": "preparing"
+          },
+          "domain": "training_management",
+          "timestamp": "2025-07-22T07:03:54.661894",
+          "metadata": {},
+          "access_count": 0,
+          "last_accessed": null
+        }
+      }
+    },
+    "reasoning_patterns": {},
+    "cross_domain_insights": [],
+    "metadata": {
+      "created_at": "2025-07-30T05:48:08.118547",
+      "version": "1.0.0",
+      "total_domains": 0,
+      "last_updated": "2025-07-22T07:03:54.662177"
+    }
+  },
+  "knowledge_index": {},
+  "text_search_index": {},
+  "knowledge_relationships": {},
+  "uncertainty_history": [],
+  "prediction_accuracy_history": [],
+  "domain_confidence_scores": {},
+  "uncertainty_calibration_data": {
+    "predictions": [],
+    "true_values": [],
+    "confidence_intervals": []
+  },
+  "statistics": {
+    "total_predictions": 0,
+    "cache_size": 0,
+    "memory_estimate_mb": 0.07149028778076172
+  },
+  "cache_metadata": {
+    "enabled": true,
+    "size": 0,
+    "max_size": 1000,
+    "keys_sample": []
+  }
+}

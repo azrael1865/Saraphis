@@ -1,0 +1,23 @@
+{
+  "audit_id": "HARDENING_VERIFY_1753868790",
+  "name": "Security Hardening Verification",
+  "description": "Audit to verify implementation of security hardening measures",
+  "audit_type": "configuration",
+  "audit_scope": "system",
+  "target_systems": [],
+  "compliance_standards": [],
+  "test_procedures": [
+    "Verify hardening rule implementation",
+    "Check configuration compliance",
+    "Validate security controls"
+  ],
+  "expected_duration": 240,
+  "automated": true,
+  "priority": 5,
+  "prerequisites": [],
+  "tools_required": [],
+  "permissions_required": [],
+  "created_date": "2025-07-30T09:46:30.836811",
+  "scheduled_date": null,
+  "metadata": {}
+}

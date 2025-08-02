@@ -1,0 +1,15 @@
+{
+  "generated_at": "2025-07-20T10:18:21.234954",
+  "statistics": {
+    "total_errors": 0,
+    "total_recoveries": 0,
+    "successful_recoveries": 0,
+    "failed_recoveries": 0,
+    "recovery_strategies_used": {},
+    "error_types_seen": {},
+    "average_recovery_time": 0.0,
+    "recovery_success_rate": 0.0
+  },
+  "error_history": [],
+  "checkpoints": []
+}

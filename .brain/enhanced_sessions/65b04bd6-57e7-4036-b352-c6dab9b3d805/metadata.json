@@ -1,0 +1,29 @@
+{
+  "session_id": "65b04bd6-57e7-4036-b352-c6dab9b3d805",
+  "session_name": "session_65b04bd6",
+  "domain_name": "fraud_detection",
+  "created_at": "2025-07-24T21:18:57.969611",
+  "started_at": "2025-07-24T21:18:57.969963",
+  "completed_at": null,
+  "last_active": "2025-07-24T21:18:57.969964",
+  "training_config": {
+    "epochs": 100,
+    "session_id": "c915c66d-42b1-46bd-a4fe-f68d1896405c"
+  },
+  "progress": {
+    "current_epoch": 0,
+    "total_epochs": 100,
+    "current_batch": 0,
+    "total_batches": 0,
+    "percentage": 0.0,
+    "estimated_remaining": null,
+    "samples_processed": 0,
+    "total_samples": 0
+  },
+  "peak_memory_usage": 0.0,
+  "total_compute_time": 0.0,
+  "checkpoint_count": 0,
+  "recovery_count": 0,
+  "best_metrics": {},
+  "final_metrics": {}
+}

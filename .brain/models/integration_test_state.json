@@ -1,0 +1,57 @@
+{
+  "domain_name": "integration_test",
+  "created_at": "2025-07-23T06:41:52.680621",
+  "last_updated": "2025-07-23T06:41:52.680621",
+  "version": 1,
+  "model_parameters": {
+    "layer_0": {
+      "weights": null,
+      "biases": null,
+      "activation": "relu"
+    },
+    "layer_1": {
+      "weights": null,
+      "biases": null,
+      "activation": "relu"
+    },
+    "layer_2": {
+      "weights": null,
+      "biases": null,
+      "activation": "relu"
+    }
+  },
+  "learning_state": {
+    "optimizer_state": {},
+    "learning_rate_schedule": [],
+    "gradient_history": [],
+    "loss_history": []
+  },
+  "performance_metrics": {
+    "accuracy": 0.0,
+    "loss": Infinity,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "confusion_matrix": null
+  },
+  "training_history": [],
+  "configuration": {
+    "domain_type": "specialized",
+    "version": "1.0.0",
+    "max_memory_mb": 512,
+    "hidden_layers": [
+      256,
+      128,
+      64
+    ],
+    "activation_function": "relu",
+    "learning_rate": 0.001,
+    "dropout_rate": 0.2
+  },
+  "knowledge_base": {},
+  "checkpoints": [],
+  "total_training_steps": 0,
+  "total_predictions": 0,
+  "best_performance": 0.0,
+  "state_size_bytes": 0
+}

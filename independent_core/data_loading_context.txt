@@ -1,0 +1,102 @@
+# DATA LOADING CONTEXT - IEEE FRAUD DETECTION
+
+## EXISTING PREPROCESSING METHODS:
+
+### training_manager.py _preprocess_ieee_fraud_data method:
+def _preprocess_ieee_fraud_data(self, data: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+    """Specialized preprocessing for IEEE fraud detection dataset."""
+    import pandas as pd
+    
+    transactions = data.get('transactions', {})
+    identities = data.get('identities', {})
+    
+    # Convert to DataFrames
+    if hasattr(transactions, 'values'):  # pandas DataFrame
+        trans_df = transactions
+    else:
+        trans_df = pd.DataFrame(transactions)
+    
+    if hasattr(identities, 'values'):  # pandas DataFrame
+        id_df = identities
+    else:
+        id_df = pd.DataFrame(identities) if identities else pd.DataFrame()
+    
+    # Extract labels
+    if 'isFraud' in trans_df.columns:
+        y = trans_df['isFraud'].values.astype(np.int64)
+        trans_df = trans_df.drop(['isFraud'], axis=1)
+    else:
+        y = np.zeros(len(trans_df), dtype=np.int64)
+    
+    # Merge data
+    if not id_df.empty and 'TransactionID' in trans_df.columns and 'TransactionID' in id_df.columns:
+        merged_df = trans_df.merge(id_df, on='TransactionID', how='left')
+    else:
+        merged_df = trans_df
+    
+    # Remove non-feature columns
+    drop_columns = ['TransactionID', 'TransactionDT']
+    merged_df = merged_df.drop([col for col in drop_columns if col in merged_df.columns], axis=1)
+    
+    # Feature engineering for IEEE dataset
+    X = self._engineer_ieee_features(merged_df)
+    
+    return X, y
+
+### brain.py _prepare_fraud_detection_data method:
+def _prepare_fraud_detection_data(self, data: Dict[str, Any]) -> Tuple[Any, Any]:
+    """Prepare fraud detection data for training."""
+    import numpy as np
+    import pandas as pd
+    
+    transactions = data.get('transactions', {})
+    identities = data.get('identities', {})
+    
+    # Convert to pandas DataFrames if not already
+    if isinstance(transactions, pd.DataFrame):
+        trans_df = transactions
+    else:
+        trans_df = pd.DataFrame(transactions)
+    
+    if isinstance(identities, pd.DataFrame):
+        id_df = identities
+    else:
+        id_df = pd.DataFrame(identities) if identities else pd.DataFrame()
+    
+    # Extract labels first
+    if 'isFraud' in trans_df.columns:
+        y = trans_df['isFraud'].values.astype(np.int64)
+        trans_df = trans_df.drop(['isFraud'], axis=1)
+    else:
+        y = np.zeros(len(trans_df), dtype=np.int64)
+    
+    # Merge transactions with identities if available
+    if not id_df.empty and 'TransactionID' in trans_df.columns and 'TransactionID' in id_df.columns:
+        merged_df = trans_df.merge(id_df, on='TransactionID', how='left')
+    else:
+        merged_df = trans_df
+    
+    return merged_df, y
+
+## DATA FILE STRUCTURE:
+# training_data/ieee-fraud-detection/
+# ├── train_transaction.csv (main transaction data with isFraud column)
+# ├── train_identity.csv (identity data, optional)
+# ├── test_transaction.csv
+# └── test_identity.csv
+
+## EXPECTED OUTPUT FORMAT:
+# Return tuple: (X, y) where:
+# X = numpy array of features (float32)
+# y = numpy array of labels (int64 for classification)
+
+## KEY COLUMNS:
+# - TransactionID: Primary key
+# - isFraud: Target variable (0/1)
+# - TransactionAmt: Transaction amount
+# - ProductCD: Product code
+# - card1-card6: Card information
+# - V1-V339: Vesta engineered features
+# - C1-C14: Counting features
+# - D1-D15: Timedelta features
+# - M1-M9: Match features 

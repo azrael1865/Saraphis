@@ -1,0 +1,37 @@
+{
+  "session_id": "bced0ad5-a8ac-43be-9a49-57004a7c5b82",
+  "session_name": "test_lifecycle_session",
+  "domain_name": "general",
+  "created_at": "2025-07-20T07:56:26.795566",
+  "started_at": "2025-07-20T07:56:26.798621",
+  "completed_at": "2025-07-20T07:56:27.802070",
+  "last_active": "2025-07-20T07:56:27.802075",
+  "training_config": {
+    "epochs": 10,
+    "batch_size": 32,
+    "checkpoint_frequency": 2,
+    "enable_monitoring": true
+  },
+  "progress": {
+    "current_epoch": 10,
+    "total_epochs": 10,
+    "current_batch": 1,
+    "total_batches": 1,
+    "percentage": 110.00000000000001,
+    "estimated_remaining": null,
+    "samples_processed": 10000,
+    "total_samples": 0
+  },
+  "peak_memory_usage": 0.0,
+  "total_compute_time": 0.0,
+  "checkpoint_count": 6,
+  "recovery_count": 0,
+  "best_metrics": {},
+  "final_metrics": {
+    "final_loss": 0.3818019198746991,
+    "final_accuracy": 0.95,
+    "best_val_accuracy": 0.95,
+    "training_time": 1.0033018589019775,
+    "epochs_completed": 10
+  }
+}

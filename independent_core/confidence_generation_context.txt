@@ -1,0 +1,210 @@
+# CONFIDENCE GENERATION CONTEXT
+
+## EXISTING UNCERTAINTY CALCULATION METHODS:
+
+### From brain_core.py - UncertaintyMetrics:
+@dataclass
+class UncertaintyMetrics:
+    mean: float
+    variance: float
+    std: float
+    confidence_interval: Tuple[float, float]
+    prediction_interval: Tuple[float, float]
+    epistemic_uncertainty: float
+    aleatoric_uncertainty: float
+    model_confidence: float
+    credible_regions: Dict[str, Tuple[float, float]]
+    entropy: float
+    mutual_information: float
+    reliability_score: float
+
+### From brain_core.py - calculate_uncertainty method:
+def calculate_uncertainty(self, prediction_data: Dict[str, Any]) -> UncertaintyMetrics:
+    # ... existing uncertainty calculation code ...
+    
+    # Calculate confidence and prediction intervals
+    confidence_level = 0.95
+    z_score = 1.96  # For 95% confidence
+    
+    # Confidence interval (epistemic uncertainty only)
+    ci_lower = mean - z_score * epistemic_uncertainty
+    ci_upper = mean + z_score * epistemic_uncertainty
+    
+    # Prediction interval (total uncertainty)
+    pi_lower = mean - z_score * total_uncertainty
+    pi_upper = mean + z_score * total_uncertainty
+    
+    # Calculate credible regions for different confidence levels
+    credible_regions = {}
+    for level in [0.5, 0.68, 0.80, 0.90, 0.95, 0.99]:
+        z = self._get_z_score(level)
+        credible_regions[f"{level:.0%}"] = (
+            mean - z * total_uncertainty,
+            mean + z * total_uncertainty
+        )
+
+### From model_evaluation_system.py - calculate_confidence_intervals:
+def calculate_confidence_intervals(self, 
+                                 performance_metrics: Dict[str, float],
+                                 confidence_level: float = 0.95,
+                                 n_samples: Optional[int] = None,
+                                 method: str = 'bootstrap') -> Dict[str, Dict[str, float]]:
+    # ... existing confidence interval calculation code ...
+    
+    if method == 'analytical' and n_samples:
+        # Use analytical methods for proportion-based metrics
+        if metric_name in ['accuracy', 'precision', 'recall', 'f1_score']:
+            # Wilson score interval for proportions
+            z = stats.norm.ppf(1 - alpha/2)
+            denominator = 1 + z**2/n_samples
+            center = (metric_value + z**2/(2*n_samples)) / denominator
+            margin = z * np.sqrt(metric_value*(1-metric_value)/n_samples + z**2/(4*n_samples**2)) / denominator
+
+## PROOF CONFIDENCE GENERATOR STRUCTURE:
+
+### ProofConfidenceGenerator Class:
+class ProofConfidenceGenerator:
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        self.logger = logging.getLogger(f"{__name__}.ProofConfidenceGenerator")
+        
+        # Confidence calculation methods
+        self.confidence_methods = {
+            'bootstrap': self._bootstrap_confidence,
+            'analytical': self._analytical_confidence,
+            'bayesian': self._bayesian_confidence,
+            'proof_based': self._proof_based_confidence
+        }
+        
+        # Confidence level presets
+        self.confidence_levels = [0.5, 0.68, 0.80, 0.90, 0.95, 0.99]
+        
+        # History for trend analysis
+        self.confidence_history = []
+        self.max_history_size = 1000
+
+### Real-Time Confidence Generation:
+def generate_training_confidence(self, 
+                               model_outputs: torch.Tensor,
+                               targets: torch.Tensor,
+                               gradients: List[torch.Tensor],
+                               epoch: int,
+                               batch_idx: int) -> Dict[str, Any]:
+    """Generate real-time confidence intervals during training"""
+    try:
+        # Calculate base confidence metrics
+        base_confidence = self._calculate_base_confidence(model_outputs, targets)
+        
+        # Calculate uncertainty components
+        epistemic_uncertainty = self._calculate_epistemic_uncertainty(model_outputs, gradients)
+        aleatoric_uncertainty = self._calculate_aleatoric_uncertainty(model_outputs, targets)
+        
+        # Generate confidence intervals
+        confidence_intervals = {}
+        for level in self.confidence_levels:
+            ci = self._calculate_confidence_interval(
+                base_confidence, epistemic_uncertainty, aleatoric_uncertainty, level
+            )
+            confidence_intervals[f"{level:.0%}"] = ci
+        
+        # Calculate proof-based confidence adjustment
+        proof_confidence = self._calculate_proof_confidence(gradients, epoch, batch_idx)
+        
+        # Combine all confidence measures
+        final_confidence = self._combine_confidence_measures(
+            base_confidence, proof_confidence, epistemic_uncertainty, aleatoric_uncertainty
+        )
+        
+        # Update history
+        self._update_confidence_history(final_confidence, epoch, batch_idx)
+        
+        return {
+            'confidence': final_confidence,
+            'confidence_intervals': confidence_intervals,
+            'epistemic_uncertainty': epistemic_uncertainty,
+            'aleatoric_uncertainty': aleatoric_uncertainty,
+            'proof_confidence': proof_confidence,
+            'confidence_trend': self._calculate_confidence_trend(),
+            'epoch': epoch,
+            'batch': batch_idx,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        self.logger.error(f"Confidence generation failed: {e}")
+        return self._get_default_confidence()
+
+### Bootstrap Confidence Calculation:
+def _bootstrap_confidence(self, data: np.ndarray, confidence_level: float = 0.95) -> Tuple[float, float]:
+    """Calculate bootstrap confidence intervals"""
+    try:
+        n_bootstrap = self.config.get('bootstrap_iterations', 1000)
+        bootstrap_samples = []
+        
+        for _ in range(n_bootstrap):
+            # Resample with replacement
+            indices = np.random.choice(len(data), size=len(data), replace=True)
+            bootstrap_sample = data[indices]
+            bootstrap_samples.append(np.mean(bootstrap_sample))
+        
+        # Calculate confidence interval
+        alpha = 1 - confidence_level
+        lower = np.percentile(bootstrap_samples, alpha/2 * 100)
+        upper = np.percentile(bootstrap_samples, (1 - alpha/2) * 100)
+        
+        return float(lower), float(upper)
+        
+    except Exception as e:
+        self.logger.error(f"Bootstrap confidence calculation failed: {e}")
+        return 0.0, 1.0
+
+### Proof-Based Confidence:
+def _calculate_proof_confidence(self, gradients: List[torch.Tensor], epoch: int, batch_idx: int) -> float:
+    """Calculate confidence based on proof system verification"""
+    try:
+        # Calculate gradient statistics
+        gradient_norms = [torch.norm(grad).item() for grad in gradients if grad is not None]
+        
+        if not gradient_norms:
+            return 0.5
+        
+        avg_gradient_norm = np.mean(gradient_norms)
+        gradient_stability = 1.0 - np.std(gradient_norms) / (avg_gradient_norm + 1e-8)
+        
+        # Normalize gradient stability to confidence
+        proof_confidence = max(0.1, min(0.99, gradient_stability))
+        
+        return proof_confidence
+        
+    except Exception as e:
+        self.logger.error(f"Proof confidence calculation failed: {e}")
+        return 0.5
+
+## INTEGRATION WITH EXISTING SYSTEMS:
+
+### Integration with Proof System:
+# Use proof verification results to adjust confidence
+# Incorporate proof system metrics into confidence calculation
+# Provide confidence feedback to proof system
+
+### Integration with Training Loop:
+# Generate confidence intervals during each batch
+# Update confidence metrics in training session
+# Include confidence in progress tracking
+
+### Integration with Brain System:
+# Use Brain system uncertainty calculation methods
+# Integrate with existing confidence tracking
+# Provide confidence metrics to Brain system
+
+## IEEE FRAUD DETECTION SPECIFIC:
+
+### Fraud-Specific Confidence:
+# Confidence in fraud detection predictions
+# Uncertainty in transaction classification
+# Confidence intervals for fraud probability scores
+
+### Real-Time Confidence Tracking:
+# Monitor confidence during training
+# Detect confidence degradation
+# Alert on low confidence predictions 

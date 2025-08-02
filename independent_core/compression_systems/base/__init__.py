@@ -1,0 +1,1 @@
+"""Base compression framework interfaces"""

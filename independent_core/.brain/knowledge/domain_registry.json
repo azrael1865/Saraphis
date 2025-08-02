@@ -1,0 +1,988 @@
+{
+  "version": "1.0.0",
+  "created": "2025-07-22T19:40:33.214505",
+  "updated": "2025-07-31T18:31:00.869066",
+  "statistics": {
+    "total_registrations": 5,
+    "total_removals": 0
+  },
+  "domains": {
+    "general": {
+      "name": "general",
+      "config": {
+        "domain_type": "core",
+        "description": "General purpose reasoning and knowledge",
+        "version": "1.0.0",
+        "max_memory_mb": 1024,
+        "max_cpu_percent": 30.0,
+        "priority": 5,
+        "hidden_layers": [
+          256,
+          128,
+          64
+        ],
+        "activation_function": "relu",
+        "dropout_rate": 0.2,
+        "learning_rate": 0.001,
+        "enable_caching": true,
+        "cache_size": 100,
+        "enable_logging": true,
+        "log_level": "INFO",
+        "shared_foundation_layers": 3,
+        "allow_cross_domain_access": false,
+        "dependencies": [],
+        "author": "",
+        "contact": "",
+        "tags": []
+      },
+      "status": "registered",
+      "registered_at": "2025-07-22T19:40:33.276918",
+      "last_updated": "2025-07-22T19:40:33.276919",
+      "last_accessed": "2025-07-30T18:42:38.886097",
+      "activation_count": 0,
+      "error_count": 0,
+      "total_predictions": 0,
+      "average_confidence": 0.0,
+      "resource_usage": {},
+      "error_messages": [],
+      "metadata": {}
+    },
+    "mathematics": {
+      "name": "mathematics",
+      "config": {
+        "domain_type": "specialized",
+        "description": "Mathematical computations and reasoning",
+        "version": "1.0.0",
+        "max_memory_mb": 512,
+        "max_cpu_percent": 20.0,
+        "priority": 7,
+        "hidden_layers": [
+          256,
+          128,
+          64
+        ],
+        "activation_function": "relu",
+        "dropout_rate": 0.2,
+        "learning_rate": 0.001,
+        "enable_caching": true,
+        "cache_size": 100,
+        "enable_logging": true,
+        "log_level": "INFO",
+        "shared_foundation_layers": 3,
+        "allow_cross_domain_access": false,
+        "dependencies": [],
+        "author": "",
+        "contact": "",
+        "tags": []
+      },
+      "status": "registered",
+      "registered_at": "2025-07-22T19:40:33.277261",
+      "last_updated": "2025-07-22T19:40:33.277261",
+      "last_accessed": "2025-07-30T18:42:38.888257",
+      "activation_count": 0,
+      "error_count": 0,
+      "total_predictions": 0,
+      "average_confidence": 0.0,
+      "resource_usage": {},
+      "error_messages": [],
+      "metadata": {}
+    },
+    "language": {
+      "name": "language",
+      "config": {
+        "domain_type": "specialized",
+        "description": "Natural language processing and understanding",
+        "version": "1.0.0",
+        "max_memory_mb": 768,
+        "max_cpu_percent": 25.0,
+        "priority": 8,
+        "hidden_layers": [
+          512,
+          256,
+          128
+        ],
+        "activation_function": "relu",
+        "dropout_rate": 0.2,
+        "learning_rate": 0.001,
+        "enable_caching": true,
+        "cache_size": 100,
+        "enable_logging": true,
+        "log_level": "INFO",
+        "shared_foundation_layers": 3,
+        "allow_cross_domain_access": false,
+        "dependencies": [],
+        "author": "",
+        "contact": "",
+        "tags": []
+      },
+      "status": "registered",
+      "registered_at": "2025-07-22T19:40:33.277580",
+      "last_updated": "2025-07-22T19:40:33.277580",
+      "last_accessed": "2025-07-30T18:42:38.890349",
+      "activation_count": 0,
+      "error_count": 0,
+      "total_predictions": 0,
+      "average_confidence": 0.0,
+      "resource_usage": {},
+      "error_messages": [],
+      "metadata": {}
+    },
+    "fraud_detection": {
+      "name": "fraud_detection",
+      "config": {
+        "domain_type": "specialized",
+        "description": "IEEE fraud detection with cryptographic proof generation",
+        "version": "1.0.0",
+        "max_memory_mb": 1024,
+        "max_cpu_percent": 40.0,
+        "priority": 9,
+        "hidden_layers": [
+          339,
+          256,
+          128,
+          64
+        ],
+        "activation_function": "relu",
+        "dropout_rate": 0.2,
+        "learning_rate": 0.001,
+        "enable_caching": true,
+        "cache_size": 100,
+        "enable_logging": true,
+        "log_level": "INFO",
+        "shared_foundation_layers": 3,
+        "allow_cross_domain_access": false,
+        "dependencies": [],
+        "author": "",
+        "contact": "",
+        "tags": []
+      },
+      "status": "registered",
+      "registered_at": "2025-07-22T19:40:33.277867",
+      "last_updated": "2025-07-22T19:40:33.277867",
+      "last_accessed": "2025-07-30T18:42:38.890980",
+      "activation_count": 0,
+      "error_count": 0,
+      "total_predictions": 0,
+      "average_confidence": 0.0,
+      "resource_usage": {},
+      "error_messages": [],
+      "metadata": {
+        "proof_system_enabled": true,
+        "feature_count": 339,
+        "fraud_types": [
+          "transaction",
+          "identity",
+          "payment",
+          "behavioral"
+        ],
+        "proof_rules": {
+          "transaction_limits": {
+            "max_amount": 10000,
+            "max_daily_amount": 50000,
+            "max_daily_transactions": 100
+          },
+          "velocity_rules": {
+            "max_transactions_per_hour": 20,
+            "max_amount_per_hour": 20000
+          },
+          "geographical_rules": {
+            "max_distance_km_per_hour": 1000,
+            "suspicious_location_patterns": true
+          },
+          "behavioral_rules": {
+            "unusual_time_patterns": true,
+            "device_fingerprint_analysis": true
+          }
+        },
+        "confidence_tracking": true,
+        "algebraic_enforcement": true,
+        "cryptographic_proofs": true
+      }
+    },
+    "golf_gambling": {
+      "name": "golf_gambling",
+      "config": {
+        "domain_type": "specialized",
+        "description": "Golf gambling lineup optimization with neural networks and reinforcement learning",
+        "version": "1.0.0",
+        "max_memory_mb": 2048,
+        "max_cpu_percent": 25.0,
+        "priority": 3,
+        "hidden_layers": [
+          512,
+          256,
+          128
+        ],
+        "activation_function": "relu",
+        "dropout_rate": 0.2,
+        "learning_rate": 0.001,
+        "enable_caching": true,
+        "cache_size": 100,
+        "enable_logging": true,
+        "log_level": "INFO",
+        "shared_foundation_layers": 3,
+        "allow_cross_domain_access": false,
+        "dependencies": [],
+        "author": "",
+        "contact": "",
+        "tags": []
+      },
+      "status": "registered",
+      "registered_at": "2025-07-30T18:41:21.905899",
+      "last_updated": "2025-07-30T18:41:21.905900",
+      "last_accessed": null,
+      "activation_count": 0,
+      "error_count": 0,
+      "total_predictions": 0,
+      "average_confidence": 0.0,
+      "resource_usage": {},
+      "error_messages": [],
+      "metadata": {
+        "domain_interface_class": "BrainGolfConnector",
+        "enhanced_core_class": "EnhancedGolfCore",
+        "neural_network_types": [
+          "standard",
+          "attention",
+          "ensemble"
+        ],
+        "capabilities": [
+          "lineup_optimization",
+          "player_projections",
+          "risk_analysis",
+          "tournament_prediction"
+        ],
+        "ensemble_models": {
+          "existing_rl_weight": 0.4,
+          "saraphis_neural_weight": 0.4,
+          "statistical_weight": 0.2
+        },
+        "brain_integration": {
+          "orchestrators_enabled": true,
+          "proof_strategies_enabled": true,
+          "uncertainty_quantification": true
+        },
+        "data_sources": [
+          "player_data",
+          "historical_results",
+          "course_data",
+          "weather_data"
+        ]
+      }
+    }
+  },
+  "domain_order": [
+    "general",
+    "mathematics",
+    "language",
+    "fraud_detection",
+    "golf_gambling"
+  ],
+  "dependencies": {
+    "general": [],
+    "mathematics": [],
+    "language": [],
+    "fraud_detection": [],
+    "golf_gambling": []
+  },
+  "dependents": {},
+  "isolation_data": {
+    "domain_states": {
+      "fraud_detection": {
+        "model_parameters": {
+          "layer_0": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_1": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_2": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_3": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          }
+        },
+        "learning_state": {
+          "optimizer_state": {},
+          "learning_rate_schedule": [],
+          "gradient_history": [],
+          "loss_history": []
+        },
+        "performance_metrics": {
+          "accuracy": 0.0,
+          "loss": Infinity,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": null
+        },
+        "last_loaded": "2025-07-31T18:31:00.864960",
+        "loaded_version": 1,
+        "last_updated": "2025-07-31T18:31:00.865001",
+        "size_bytes": 184
+      },
+      "general": {
+        "model_parameters": {
+          "layer_0": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_1": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_2": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          }
+        },
+        "learning_state": {
+          "optimizer_state": {},
+          "learning_rate_schedule": [],
+          "gradient_history": [],
+          "loss_history": []
+        },
+        "performance_metrics": {
+          "accuracy": 0.0,
+          "loss": Infinity,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": null
+        },
+        "last_loaded": "2025-07-31T18:31:00.863596",
+        "loaded_version": 1,
+        "last_updated": "2025-07-31T18:31:00.863639",
+        "size_bytes": 184
+      },
+      "mathematics": {
+        "model_parameters": {
+          "layer_0": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_1": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_2": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          }
+        },
+        "learning_state": {
+          "optimizer_state": {},
+          "learning_rate_schedule": [],
+          "gradient_history": [],
+          "loss_history": []
+        },
+        "performance_metrics": {
+          "accuracy": 0.0,
+          "loss": Infinity,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": null
+        },
+        "last_loaded": "2025-07-31T18:31:00.869024",
+        "loaded_version": 1,
+        "last_updated": "2025-07-31T18:31:00.869060",
+        "size_bytes": 184
+      },
+      "language": {
+        "model_parameters": {
+          "layer_0": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_1": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_2": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          }
+        },
+        "learning_state": {
+          "optimizer_state": {},
+          "learning_rate_schedule": [],
+          "gradient_history": [],
+          "loss_history": []
+        },
+        "performance_metrics": {
+          "accuracy": 0.0,
+          "loss": Infinity,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": null
+        },
+        "last_loaded": "2025-07-31T18:31:00.867628",
+        "loaded_version": 1,
+        "last_updated": "2025-07-31T18:31:00.867684",
+        "size_bytes": 184
+      },
+      "golf_gambling": {
+        "model_parameters": {
+          "layer_0": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_1": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          },
+          "layer_2": {
+            "weights": null,
+            "biases": null,
+            "activation": "relu"
+          }
+        },
+        "learning_state": {
+          "optimizer_state": {},
+          "learning_rate_schedule": [],
+          "gradient_history": [],
+          "loss_history": []
+        },
+        "performance_metrics": {
+          "accuracy": 0.0,
+          "loss": Infinity,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": null
+        },
+        "last_loaded": "2025-07-31T18:31:00.866390",
+        "loaded_version": 1,
+        "last_updated": "2025-07-31T18:31:00.866431",
+        "size_bytes": 184
+      }
+    },
+    "domain_knowledge": {
+      "fraud_detection": {
+        "facts": {},
+        "rules": {},
+        "patterns": {},
+        "embeddings": {},
+        "relationships": {},
+        "metadata": {
+          "total_items": 0,
+          "last_updated": "2025-07-22T19:40:34.518919",
+          "version": 1
+        }
+      },
+      "general": {
+        "facts": {},
+        "rules": {},
+        "patterns": {},
+        "embeddings": {},
+        "relationships": {},
+        "metadata": {
+          "total_items": 0,
+          "last_updated": "2025-07-30T18:42:38.884106",
+          "version": 1
+        }
+      },
+      "mathematics": {
+        "facts": {},
+        "rules": {},
+        "patterns": {},
+        "embeddings": {},
+        "relationships": {},
+        "metadata": {
+          "total_items": 0,
+          "last_updated": "2025-07-30T18:42:38.886893",
+          "version": 1
+        }
+      },
+      "language": {
+        "facts": {},
+        "rules": {},
+        "patterns": {},
+        "embeddings": {},
+        "relationships": {},
+        "metadata": {
+          "total_items": 0,
+          "last_updated": "2025-07-30T18:42:38.888836",
+          "version": 1
+        }
+      },
+      "golf_gambling": {
+        "facts": {},
+        "rules": {},
+        "patterns": {},
+        "embeddings": {},
+        "relationships": {},
+        "metadata": {
+          "total_items": 0,
+          "last_updated": "2025-07-30T18:42:38.893614",
+          "version": 1
+        }
+      }
+    },
+    "isolation_metadata": {
+      "fraud_detection": {
+        "created_at": "2025-07-22T19:40:34.518922",
+        "access_count": 0,
+        "last_accessed": null,
+        "violation_count": 0,
+        "cross_domain_access_allowed": false,
+        "resource_limits": {
+          "max_state_size_mb": 716.8,
+          "max_knowledge_items": 10000,
+          "max_embedding_dim": 1024
+        },
+        "backup_count": 12,
+        "integrity_checks": 0
+      },
+      "general": {
+        "created_at": "2025-07-30T18:42:38.884112",
+        "access_count": 0,
+        "last_accessed": null,
+        "violation_count": 0,
+        "cross_domain_access_allowed": false,
+        "resource_limits": {
+          "max_state_size_mb": 716.8,
+          "max_knowledge_items": 10000,
+          "max_embedding_dim": 1024
+        },
+        "backup_count": 12,
+        "integrity_checks": 0
+      },
+      "mathematics": {
+        "created_at": "2025-07-30T18:42:38.886896",
+        "access_count": 0,
+        "last_accessed": null,
+        "violation_count": 0,
+        "cross_domain_access_allowed": false,
+        "resource_limits": {
+          "max_state_size_mb": 358.4,
+          "max_knowledge_items": 10000,
+          "max_embedding_dim": 1024
+        },
+        "backup_count": 12,
+        "integrity_checks": 0
+      },
+      "language": {
+        "created_at": "2025-07-30T18:42:38.888839",
+        "access_count": 0,
+        "last_accessed": null,
+        "violation_count": 0,
+        "cross_domain_access_allowed": false,
+        "resource_limits": {
+          "max_state_size_mb": 537.5999999999999,
+          "max_knowledge_items": 10000,
+          "max_embedding_dim": 1024
+        },
+        "backup_count": 12,
+        "integrity_checks": 0
+      },
+      "golf_gambling": {
+        "created_at": "2025-07-30T18:42:38.893617",
+        "access_count": 0,
+        "last_accessed": null,
+        "violation_count": 0,
+        "cross_domain_access_allowed": false,
+        "resource_limits": {
+          "max_state_size_mb": 1433.6,
+          "max_knowledge_items": 10000,
+          "max_embedding_dim": 1024
+        },
+        "backup_count": 12,
+        "integrity_checks": 0
+      }
+    },
+    "domain_access_logs": {
+      "fraud_detection": [
+        {
+          "timestamp": "2025-07-31T06:26:48.261400",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:17.656146",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:43.861198",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:55:09.002484",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T16:42:41.831634",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T17:59:34.040007",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:05:38.140040",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:13.944961",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:29.574722",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:09:31.497527",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:29:51.362772",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:31:00.865003",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        }
+      ],
+      "general": [
+        {
+          "timestamp": "2025-07-31T06:26:48.260161",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:17.654740",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:43.859780",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:55:09.001307",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T16:42:41.829766",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T17:59:34.038383",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:05:38.138811",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:13.943638",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:29.573587",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:09:31.496238",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:29:51.361490",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:31:00.863641",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        }
+      ],
+      "mathematics": [
+        {
+          "timestamp": "2025-07-31T06:26:48.264542",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:17.658976",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:43.864258",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:55:09.005384",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T16:42:41.835178",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T17:59:34.044179",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:05:38.143802",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:13.948030",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:29.577509",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:09:31.501024",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:29:51.365954",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:31:00.869062",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        }
+      ],
+      "language": [
+        {
+          "timestamp": "2025-07-31T06:26:48.263496",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:17.658018",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:43.863270",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:55:09.004347",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T16:42:41.833944",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T17:59:34.042914",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:05:38.142507",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:13.946989",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:29.576593",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:09:31.499764",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:29:51.364851",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:31:00.867686",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        }
+      ],
+      "golf_gambling": [
+        {
+          "timestamp": "2025-07-31T06:26:48.262438",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:17.657150",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:48:43.862319",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T06:55:09.003484",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T16:42:41.832797",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T17:59:34.041137",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:05:38.141124",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:13.946059",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:07:29.575665",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:09:31.498760",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:29:51.363876",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        },
+        {
+          "timestamp": "2025-07-31T18:31:00.866433",
+          "accessing_entity": "system",
+          "operation": "set_state",
+          "success": true
+        }
+      ]
+    }
+  }
+}

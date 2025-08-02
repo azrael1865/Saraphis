@@ -1,0 +1,142 @@
+{
+  "session_id": "fraud_detection_1753073952777",
+  "timestamp": "2025-07-21T00:59:14.153650",
+  "configuration": {
+    "enable_visualization": true,
+    "enable_monitoring": true,
+    "log_interval": 10,
+    "visualization_interval": 50,
+    "monitoring_interval": 5,
+    "loss_stagnation_epochs": 5,
+    "loss_explosion_threshold": 10.0,
+    "gradient_explosion_threshold": 100.0,
+    "memory_warning_mb": 6000,
+    "memory_critical_mb": 7500,
+    "gpu_warning_percent": 85,
+    "gpu_critical_percent": 95,
+    "total_epochs": 1,
+    "batches_per_epoch": 2,
+    "batch_size": 32
+  },
+  "current_state": {
+    "epoch": 1,
+    "batch": 3,
+    "total_epochs": 1,
+    "total_batches_per_epoch": 2
+  },
+  "metrics_history": [
+    {
+      "epoch": 1,
+      "timestamp": "2025-07-21T00:59:14.081694",
+      "duration": 0.6941647529602051,
+      "metrics": {
+        "loss_mean": 0.6942709386348724,
+        "loss_std": 0.016649693250656128,
+        "loss_min": 0.6776212453842163,
+        "loss_max": 0.7109206318855286,
+        "loss_trend": -0.0332993865013123,
+        "accuracy_mean": 0.5,
+        "accuracy_std": 0.03125,
+        "accuracy_min": 0.46875,
+        "accuracy_max": 0.53125,
+        "accuracy_trend": 0.062499999999999896,
+        "learning_rate_mean": 0.001,
+        "learning_rate_std": 0.0,
+        "learning_rate_min": 0.001,
+        "learning_rate_max": 0.001,
+        "learning_rate_trend": -1.8978406740949281e-19,
+        "gradient_norm_mean": 0.29534186793631834,
+        "gradient_norm_std": 0.025737901412197617,
+        "gradient_norm_min": 0.2696039665241207,
+        "gradient_norm_max": 0.32107976934851595,
+        "gradient_norm_trend": -0.05147580282439523
+      },
+      "validation_metrics": null
+    },
+    {
+      "epoch": 1,
+      "timestamp": "2025-07-21T00:59:14.087175",
+      "duration": 0.6998639106750488,
+      "metrics": {
+        "loss_mean": 0.6925739049911499,
+        "loss_std": 0.014952659606933594,
+        "loss_min": 0.6776212453842163,
+        "loss_max": 0.7075265645980835,
+        "loss_trend": 0.029905319213867052,
+        "accuracy_mean": 0.453125,
+        "accuracy_std": 0.078125,
+        "accuracy_min": 0.375,
+        "accuracy_max": 0.53125,
+        "accuracy_trend": -0.15625000000000006,
+        "learning_rate_mean": 0.001,
+        "learning_rate_std": 0.0,
+        "learning_rate_min": 0.001,
+        "learning_rate_max": 0.001,
+        "learning_rate_trend": -1.8978406740949281e-19,
+        "gradient_norm_mean": 0.3509374250906243,
+        "gradient_norm_std": 0.08133345856650359,
+        "gradient_norm_min": 0.2696039665241207,
+        "gradient_norm_max": 0.4322708836571279,
+        "gradient_norm_trend": 0.1626669171330071
+      },
+      "validation_metrics": null
+    },
+    {
+      "epoch": 1,
+      "timestamp": "2025-07-21T00:59:14.087928",
+      "duration": 0.7005941867828369,
+      "metrics": {
+        "loss_mean": 0.6925739049911499,
+        "loss_std": 0.014952659606933594,
+        "loss_min": 0.6776212453842163,
+        "loss_max": 0.7075265645980835,
+        "loss_trend": 0.029905319213867052,
+        "accuracy_mean": 0.453125,
+        "accuracy_std": 0.078125,
+        "accuracy_min": 0.375,
+        "accuracy_max": 0.53125,
+        "accuracy_trend": -0.15625000000000006,
+        "learning_rate_mean": 0.001,
+        "learning_rate_std": 0.0,
+        "learning_rate_min": 0.001,
+        "learning_rate_max": 0.001,
+        "learning_rate_trend": -1.8978406740949281e-19,
+        "gradient_norm_mean": 0.3509374250906243,
+        "gradient_norm_std": 0.08133345856650359,
+        "gradient_norm_min": 0.2696039665241207,
+        "gradient_norm_max": 0.4322708836571279,
+        "gradient_norm_trend": 0.1626669171330071,
+        "val_loss_mean": 0.7039576768875122,
+        "val_loss_std": 0.0,
+        "val_loss_min": 0.7039576768875122,
+        "val_loss_max": 0.7039576768875122,
+        "val_accuracy_mean": 0.55,
+        "val_accuracy_std": 0.0,
+        "val_accuracy_min": 0.55,
+        "val_accuracy_max": 0.55
+      },
+      "validation_metrics": {
+        "loss": 0.7039576768875122,
+        "accuracy": 0.55
+      }
+    }
+  ],
+  "best_metrics": {
+    "loss": 0.7039576768875122,
+    "loss_epoch": 1,
+    "accuracy": 0.55,
+    "accuracy_epoch": 1
+  },
+  "alerts": [],
+  "resource_history": [
+    {
+      "timestamp": 1753073952.7909458,
+      "metrics": {
+        "memory_mb": 0,
+        "cpu_percent": 0,
+        "gpu_percent": 0,
+        "gpu_memory_mb": 0
+      }
+    }
+  ]
+}

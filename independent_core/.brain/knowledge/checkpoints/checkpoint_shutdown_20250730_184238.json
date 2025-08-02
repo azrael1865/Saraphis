@@ -1,0 +1,53 @@
+{
+  "version": "1.1.0",
+  "timestamp": "2025-07-30T18:42:38.895750",
+  "config": {
+    "shared_memory_size": 10000,
+    "knowledge_persistence": true,
+    "knowledge_path": "/Users/will/Desktop/trueSaraphis/Saraphis/independent_core/.brain/knowledge/brain_core.json",
+    "reasoning_depth": 5,
+    "context_window_size": 2048,
+    "enable_caching": true,
+    "cache_size": 1000,
+    "thread_safe": true,
+    "enable_uncertainty": true,
+    "uncertainty_history_size": 1000,
+    "confidence_threshold": 0.7,
+    "reliability_window": 100,
+    "log_level": "INFO",
+    "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "shared_state": {
+    "knowledge_base": {},
+    "reasoning_patterns": {},
+    "cross_domain_insights": [],
+    "metadata": {
+      "created_at": "2025-07-30T18:42:33.768265",
+      "version": "1.0.0",
+      "total_domains": 0,
+      "last_updated": "2025-07-30T18:42:33.768272"
+    }
+  },
+  "knowledge_index": {},
+  "text_search_index": {},
+  "knowledge_relationships": {},
+  "uncertainty_history": [],
+  "prediction_accuracy_history": [],
+  "domain_confidence_scores": {},
+  "uncertainty_calibration_data": {
+    "predictions": [],
+    "true_values": [],
+    "confidence_intervals": []
+  },
+  "statistics": {
+    "total_predictions": 0,
+    "cache_size": 0,
+    "memory_estimate_mb": 0.00021076202392578125
+  },
+  "cache_metadata": {
+    "enabled": true,
+    "size": 0,
+    "max_size": 1000,
+    "keys_sample": []
+  }
+}
