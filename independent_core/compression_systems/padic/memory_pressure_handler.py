@@ -126,9 +126,9 @@ class PerformanceMetrics:
 class PressureHandlerConfig:
     """Configuration for memory pressure handler"""
     # Memory thresholds (MB)
-    gpu_critical_threshold_mb: int = 100
-    gpu_high_threshold_mb: int = 500
-    gpu_moderate_threshold_mb: int = 1000
+    gpu_critical_threshold_mb: int = 2048
+    gpu_high_threshold_mb: int = 4096
+    gpu_moderate_threshold_mb: int = 6144
     
     # Utilization thresholds (0-1)
     gpu_critical_utilization: float = 0.95
@@ -151,7 +151,7 @@ class PressureHandlerConfig:
     
     # Performance parameters
     min_gpu_batch_size: int = 10         # Minimum batch for GPU
-    max_cpu_batch_size: int = 1000       # Maximum batch for CPU
+    max_cpu_batch_size: int = 5000       # Maximum batch for CPU
     warmup_iterations: int = 10          # Iterations before trusting metrics
     
     def __post_init__(self):

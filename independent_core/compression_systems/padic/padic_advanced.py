@@ -259,11 +259,13 @@ class HenselLiftingProcessor:
     
     def _apply_damping(self, correction: PadicWeight, damping_factor: float) -> PadicWeight:
         """Apply damping to correction term"""
-        damped_coeffs = [int(coeff * damping_factor) for coeff in correction.coefficients]
+        damped_coeffs = [int(coeff * damping_factor) for coeff in correction.digits]
         return PadicWeight(
-            coefficients=damped_coeffs,
+            value=correction.value,
             prime=correction.prime,
-            precision=correction.precision
+            precision=correction.precision,
+            valuation=correction.valuation,
+            digits=damped_coeffs
         )
     
     def _compute_residual(self, current: PadicWeight, target: PadicWeight) -> float:
@@ -273,11 +275,11 @@ class HenselLiftingProcessor:
             # Use p-adic norm as residual
             return self.math_ops.padic_norm(difference)
         except Exception:
-            # Fallback to coefficient-based residual
+                                    # Fallback to coefficient-based residual
             residual = 0.0
-            min_len = min(len(current.coefficients), len(target.coefficients))
+            min_len = min(len(current.digits), len(target.digits))
             for i in range(min_len):
-                residual += abs(current.coefficients[i] - target.coefficients[i])
+                residual += abs(current.digits[i] - target.digits[i])
             return residual / (min_len if min_len > 0 else 1)
     
     def _adjust_damping(self, current_damping: float, residual: float, history: List[float]) -> float:
@@ -307,7 +309,7 @@ class HenselLiftingProcessor:
         try:
             reduced = lifted.copy()
             reduced.precision = original.precision
-            reduced.coefficients = reduced.coefficients[:original.precision]
+            reduced.digits = reduced.digits[:original.precision]
             
             # Should match original within tolerance
             diff_norm = self._compute_residual(reduced, original)
@@ -360,8 +362,8 @@ class HenselLiftingProcessor:
 @dataclass
 class ClusteringConfig:
     """Configuration for hierarchical clustering"""
-    max_cluster_size: int = 1000
-    min_cluster_size: int = 10
+    max_cluster_size: int = 5000
+    min_cluster_size: int = 50
     branching_factor: int = 4
     distance_threshold: float = 1e-6
     enable_caching: bool = True
@@ -405,19 +407,21 @@ class ClusterNode:
         template = self.elements[0]
         centroid_coeffs = [0] * template.precision
         
-        # Average coefficients
+        # Average digits
         for element in self.elements:
-            for i in range(min(len(centroid_coeffs), len(element.coefficients))):
-                centroid_coeffs[i] += element.coefficients[i]
+            for i in range(min(len(centroid_coeffs), len(element.digits))):
+                centroid_coeffs[i] += element.digits[i]
         
         # Normalize
         n = len(self.elements)
         centroid_coeffs = [coeff // n for coeff in centroid_coeffs]
         
         return PadicWeight(
-            coefficients=centroid_coeffs,
+            value=template.value,
             prime=template.prime,
-            precision=template.precision
+            precision=template.precision,
+            valuation=template.valuation,
+            digits=centroid_coeffs
         )
     
     def is_leaf(self) -> bool:
@@ -563,7 +567,7 @@ class HierarchicalClusteringManager:
     
     def _create_weight_key(self, weight: PadicWeight) -> str:
         """Create unique key for p-adic weight"""
-        return f"p{weight.prime}_pr{weight.precision}_c{hash(tuple(weight.coefficients))}"
+        return f"p{weight.prime}_pr{weight.precision}_c{hash(tuple(weight.digits))}"
     
     def _compute_ultrametric_distance(self, weight1: PadicWeight, weight2: PadicWeight) -> float:
         """Compute ultrametric distance between p-adic weights"""
@@ -584,8 +588,8 @@ class HierarchicalClusteringManager:
             distance = 0.0
             
             for i in range(min_precision):
-                c1 = weight1.coefficients[i] if i < len(weight1.coefficients) else 0
-                c2 = weight2.coefficients[i] if i < len(weight2.coefficients) else 0
+                c1 = weight1.digits[i] if i < len(weight1.digits) else 0
+                c2 = weight2.digits[i] if i < len(weight2.digits) else 0
                 distance += abs(c1 - c2) * (self.prime ** (-i))
             
             return distance
@@ -955,8 +959,8 @@ class GPUDecompressionConfig:
     """Configuration for GPU-optimized decompression"""
     enable_cuda_streams: bool = True
     num_streams: int = 4
-    batch_size: int = 1000
-    memory_pool_size_mb: int = 512
+    batch_size: int = 5000
+    memory_pool_size_mb: int = 2048
     enable_progressive_precision: bool = True
     precision_schedule: Optional[List[int]] = None
     enable_async_transfer: bool = True
@@ -1224,8 +1228,8 @@ class PadicDecompressionEngine:
         coeffs_matrix = np.zeros((len(batch), precision), dtype=np.float32)
         
         for i, weight in enumerate(batch):
-            for j in range(min(precision, len(weight.coefficients))):
-                coeffs_matrix[i, j] = float(weight.coefficients[j])
+            for j in range(min(precision, len(weight.digits))):
+                coeffs_matrix[i, j] = float(weight.digits[j])
         
         return torch.from_numpy(coeffs_matrix)
     
@@ -1413,15 +1417,17 @@ class PadicSGD(PadicOptimizer):
             param_update = self.math_ops.subtract_padic(param, lr_grad)
             
             # Update parameter in place
-            param.coefficients = param_update.coefficients.copy()
+            param.digits = param_update.digits.copy()
     
     def _scale_padic(self, padic_weight: PadicWeight, scalar: float) -> PadicWeight:
         """Scale p-adic weight by scalar"""
-        scaled_coeffs = [int(coeff * scalar) for coeff in padic_weight.coefficients]
+        scaled_coeffs = [int(coeff * scalar) for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=scaled_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=scaled_coeffs
         )
 
 
@@ -1487,40 +1493,46 @@ class PadicAdam(PadicOptimizer):
             lr_update = self._scale_padic(update, lr)
             
             param_update = self.math_ops.subtract_padic(param, lr_update)
-            param.coefficients = param_update.coefficients.copy()
+            param.digits = param_update.digits.copy()
     
     def _create_zero_padic(self, template: PadicWeight) -> PadicWeight:
         """Create zero p-adic weight with same structure as template"""
         return PadicWeight(
-            coefficients=[0] * template.precision,
+            value=template.value,
             prime=template.prime,
-            precision=template.precision
+            precision=template.precision,
+            valuation=template.valuation,
+            digits=[0] * template.precision
         )
     
     def _square_padic(self, padic_weight: PadicWeight) -> PadicWeight:
         """Square p-adic weight (simplified)"""
-        squared_coeffs = [coeff ** 2 for coeff in padic_weight.coefficients]
+        squared_coeffs = [coeff ** 2 for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=squared_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=squared_coeffs
         )
     
     def _sqrt_padic(self, padic_weight: PadicWeight, eps: float) -> PadicWeight:
         """Square root of p-adic weight (simplified with epsilon)"""
-        sqrt_coeffs = [max(eps, abs(coeff) ** 0.5) for coeff in padic_weight.coefficients]
+        sqrt_coeffs = [max(eps, abs(coeff) ** 0.5) for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=sqrt_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=sqrt_coeffs
         )
     
     def _divide_padic(self, numerator: PadicWeight, denominator: PadicWeight) -> PadicWeight:
         """Divide p-adic weights (simplified)"""
         div_coeffs = []
         for i in range(numerator.precision):
-            num = numerator.coefficients[i] if i < len(numerator.coefficients) else 0
-            den = denominator.coefficients[i] if i < len(denominator.coefficients) else 1
+            num = numerator.digits[i] if i < len(numerator.digits) else 0
+            den = denominator.digits[i] if i < len(denominator.digits) else 1
             div_coeffs.append(num / den if den != 0 else num)
         
         return PadicWeight(
@@ -1587,55 +1599,65 @@ class PadicRMSprop(PadicOptimizer):
             # Apply update
             lr_update = self._scale_padic(update, lr)
             param_update = self.math_ops.subtract_padic(param, lr_update)
-            param.coefficients = param_update.coefficients.copy()
+            param.digits = param_update.digits.copy()
     
     def _create_zero_padic(self, template: PadicWeight) -> PadicWeight:
         """Create zero p-adic weight"""
         return PadicWeight(
-            coefficients=[0] * template.precision,
+            value=template.value,
             prime=template.prime,
-            precision=template.precision
+            precision=template.precision,
+            valuation=template.valuation,
+            digits=[0] * template.precision
         )
     
     def _square_padic(self, padic_weight: PadicWeight) -> PadicWeight:
         """Square p-adic weight"""
-        squared_coeffs = [coeff ** 2 for coeff in padic_weight.coefficients]
+        squared_coeffs = [coeff ** 2 for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=squared_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=squared_coeffs
         )
     
     def _sqrt_padic(self, padic_weight: PadicWeight, eps: float) -> PadicWeight:
         """Square root of p-adic weight with epsilon"""
-        sqrt_coeffs = [max(eps, abs(coeff) ** 0.5) for coeff in padic_weight.coefficients]
+        sqrt_coeffs = [max(eps, abs(coeff) ** 0.5) for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=sqrt_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=sqrt_coeffs
         )
     
     def _divide_padic(self, numerator: PadicWeight, denominator: PadicWeight) -> PadicWeight:
         """Divide p-adic weights"""
         div_coeffs = []
         for i in range(numerator.precision):
-            num = numerator.coefficients[i] if i < len(numerator.coefficients) else 0
-            den = denominator.coefficients[i] if i < len(denominator.coefficients) else 1
+            num = numerator.digits[i] if i < len(numerator.digits) else 0
+            den = denominator.digits[i] if i < len(denominator.digits) else 1
             div_coeffs.append(num / den if den != 0 else num)
         
         return PadicWeight(
-            coefficients=div_coeffs,
+            value=numerator.value,
             prime=numerator.prime,
-            precision=numerator.precision
+            precision=numerator.precision,
+            valuation=numerator.valuation,
+            digits=div_coeffs
         )
     
     def _scale_padic(self, padic_weight: PadicWeight, scalar: float) -> PadicWeight:
         """Scale p-adic weight by scalar"""
-        scaled_coeffs = [int(coeff * scalar) for coeff in padic_weight.coefficients]
+        scaled_coeffs = [int(coeff * scalar) for coeff in padic_weight.digits]
         return PadicWeight(
-            coefficients=scaled_coeffs,
+            value=padic_weight.value,
             prime=padic_weight.prime,
-            precision=padic_weight.precision
+            precision=padic_weight.precision,
+            valuation=padic_weight.valuation,
+            digits=scaled_coeffs
         )
 
 

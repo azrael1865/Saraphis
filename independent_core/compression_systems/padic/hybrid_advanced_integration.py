@@ -75,7 +75,7 @@ class AdvancedIntegrationConfig:
     enable_gpu_memory_optimization: bool = True
     
     # Threading and concurrency
-    max_concurrent_operations: int = 4
+    max_concurrent_operations: int = 20
     enable_async_operations: bool = True
     
     # Monitoring and analytics

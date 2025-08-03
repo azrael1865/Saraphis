@@ -21,12 +21,14 @@ import weakref
 
 # Import p-adic components
 try:
-    from ..padic.padic_encoder import PadicWeight
+    from ..padic.padic_encoder import PadicWeight, validate_single_weight
     from ..padic.padic_advanced import PadicDecompressionEngine
+    from ..padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
 except ImportError:
     # Direct imports for testing
-    from compression_systems.padic.padic_encoder import PadicWeight
+    from compression_systems.padic.padic_encoder import PadicWeight, validate_single_weight
     from compression_systems.padic.padic_advanced import PadicDecompressionEngine
+    from compression_systems.padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
 
 
 class DecompressionMode(Enum):
@@ -49,19 +51,19 @@ class MemoryPressureLevel(Enum):
 class CPUBurstingConfig:
     """Configuration for CPU bursting pipeline"""
     # Memory thresholds
-    gpu_memory_threshold_mb: int = 100  # Min GPU memory before switching to CPU
+    gpu_memory_threshold_mb: int = 2048  # Min GPU memory before switching to CPU
     memory_pressure_threshold: float = 0.9  # GPU utilization threshold
     
     # CPU configuration
     num_cpu_workers: int = -1  # -1 for auto-detect
-    cpu_batch_size: int = 100
+    cpu_batch_size: int = 1000
     use_multiprocessing: bool = True  # False for threading
     cpu_affinity: Optional[List[int]] = None  # CPU cores to use
     
     # Performance settings
     enable_profiling: bool = True
     enable_caching: bool = True
-    cache_size_mb: int = 512
+    cache_size_mb: int = 2048
     prefetch_factor: int = 2
     
     # Decompression settings
@@ -132,6 +134,7 @@ class CPUDecompressionEngine:
         """Initialize CPU decompression engine"""
         self.config = config
         self.prime = prime
+        self.min_channel_size = 10  # Add minimum channel size for consistent sizing
         
         # Determine number of workers
         if config.num_cpu_workers == -1:
@@ -253,43 +256,99 @@ class CPUDecompressionEngine:
         return np.array(batch_data, dtype=np.float32)
     
     def _extract_channels(self, weight: PadicWeight) -> Tuple[np.ndarray, np.ndarray]:
-        """Extract mantissa and exponent channels from p-adic weight"""
-        coeffs = np.array(weight.coefficients, dtype=np.float32)
+        """Extract mantissa and exponent channels from p-adic weight
         
-        # Split coefficients into mantissa and exponent parts
-        # This is a simplified version - actual implementation would use
-        # the specific channel breakdown mentioned in the prompt
-        half_point = len(coeffs) // 2
-        mantissa = coeffs[:half_point]
-        exponent = coeffs[half_point:]
+        Args:
+            weight: PadicWeight object containing digits and valuation
+            
+        Returns:
+            Tuple of (mantissa_channel, exponent_channel) as numpy arrays
+        """
+        # Validate input
+        if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
+            raise ValueError(f"Invalid PadicWeight structure: missing digits or valuation")
+        
+        # Extract mantissa channel from p-adic digits
+        # Pad with zeros if needed to ensure consistent size
+        mantissa = np.array(weight.digits, dtype=np.float32)
+        if len(mantissa) < self.min_channel_size:
+            mantissa = np.pad(mantissa, (0, self.min_channel_size - len(mantissa)), 
+                             mode='constant', constant_values=0)
+        
+        # Extract exponent channel from p-adic valuation
+        # Encode valuation as array for consistent interface
+        # Use signed representation: [sign, abs(val), 0, 0, ...]
+        exponent = np.zeros(self.min_channel_size, dtype=np.float32)
+        exponent[0] = 1.0 if weight.valuation >= 0 else -1.0  # Sign
+        exponent[1] = float(abs(weight.valuation))  # Magnitude
         
         return mantissa, exponent
     
     def _reconstruct_float(self, mantissa: np.ndarray, exponent: np.ndarray, 
                          precision: int) -> float:
-        """Reconstruct float from mantissa and exponent channels"""
-        # Simplified reconstruction - actual implementation would follow
-        # the specific p-adic to float conversion for broken-down components
+        """Reconstruct float from mantissa and exponent channels using proper p-adic arithmetic
         
-        # Compute mantissa value
-        mantissa_val = 0.0
-        for i, coeff in enumerate(mantissa[:precision]):
-            mantissa_val += coeff * (self.prime ** (-i-1))
+        Args:
+            mantissa: Array of p-adic digits (coefficients)
+            exponent: Array encoding valuation [sign, magnitude, ...]
+            precision: Number of p-adic digits to use in reconstruction
+            
+        Returns:
+            Reconstructed float value
+        """
+        # Validate inputs
+        if len(mantissa) == 0 or len(exponent) < 2:
+            raise ValueError("Invalid channel data for reconstruction")
         
-        # Compute exponent value
-        exponent_val = 0
-        for i, coeff in enumerate(exponent[:min(len(exponent), 8)]):  # 8 bits for exponent
-            exponent_val += int(coeff) * (2 ** i)
+        # Extract valuation from exponent channel
+        valuation_sign = exponent[0]
+        valuation_magnitude = int(exponent[1])
+        valuation = int(valuation_sign * valuation_magnitude)
         
-        # Combine using float representation
-        if exponent_val == 0:
-            return 0.0
+        # Reconstruct value from p-adic digits using formula: Σ(d_i * p^i) * p^v
+        # First sum the digit contributions
+        value = 0.0
+        prime_power = 1.0
         
-        # Reconstruct float: (-1)^sign * mantissa * 2^(exponent-bias)
-        sign = 1  # Simplified - no sign bit in this example
-        bias = 127  # IEEE 754 float32 bias
+        # Use only the requested precision
+        effective_precision = min(precision, len(mantissa))
         
-        return sign * mantissa_val * (2 ** (exponent_val - bias))
+        for i in range(effective_precision):
+            digit = mantissa[i]
+            
+            # Validate digit is in valid range [0, prime)
+            if digit < 0 or digit >= self.prime:
+                # Clamp to valid range to handle numerical errors
+                digit = max(0, min(digit, self.prime - 1))
+            
+            value += digit * prime_power
+            prime_power *= self.prime
+        
+        # Apply valuation (p-adic exponent)
+        if valuation != 0:
+            if valuation > 0:
+                # Positive valuation: multiply by prime^valuation
+                for _ in range(valuation):
+                    value *= self.prime
+            else:
+                # Negative valuation: divide by prime^|valuation|
+                for _ in range(abs(valuation)):
+                    value /= self.prime
+        
+        # Handle special cases
+        if np.isnan(value) or np.isinf(value):
+            raise RuntimeError(f"P-adic reconstruction failed: invalid result {value}")
+        
+        # Clamp to float32 range to prevent overflow
+        max_float32 = np.finfo(np.float32).max
+        min_float32 = np.finfo(np.float32).min
+        
+        if value > max_float32:
+            value = max_float32
+        elif value < min_float32:
+            value = min_float32
+        
+        return float(value)
     
     def _combine_batch_results(self, batch_results: List[np.ndarray], 
                              metadata: Dict[str, Any]) -> torch.Tensor:
@@ -368,13 +427,22 @@ class CPU_BurstingPipeline:
     """
     
     def __init__(self, config: CPUBurstingConfig, gpu_decompression_engine: PadicDecompressionEngine):
-        """Initialize CPU bursting pipeline"""
+        """Initialize CPU bursting pipeline with memory pressure handling"""
         self.config = config
         self.gpu_engine = gpu_decompression_engine
         self.prime = gpu_decompression_engine.prime
         
         # Initialize CPU engine
         self.cpu_engine = CPUDecompressionEngine(config, self.prime)
+        
+        # Initialize memory pressure handler
+        pressure_config = PressureHandlerConfig(
+            gpu_critical_threshold_mb=config.gpu_memory_threshold_mb,
+            gpu_high_threshold_mb=config.gpu_memory_threshold_mb * 2,
+            gpu_moderate_threshold_mb=config.gpu_memory_threshold_mb * 3,
+            max_cpu_batch_size=config.cpu_batch_size
+        )
+        self.memory_handler = MemoryPressureHandler(pressure_config)
         
         # Current mode
         self.current_mode = DecompressionMode.AUTO_SWITCH
@@ -401,80 +469,79 @@ class CPU_BurstingPipeline:
         self.monitor_thread = threading.Thread(target=self._monitor_gpu_memory, daemon=True)
         self.monitor_thread.start()
     
-    def decompress(self, padic_weights: List[PadicWeight], 
-                  target_precision: int,
-                  metadata: Dict[str, Any],
-                  force_mode: Optional[DecompressionMode] = None) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        """
-        Main decompression entry point with automatic mode selection
-        
-        Args:
-            padic_weights: List of p-adic weights
-            target_precision: Target precision
-            metadata: Decompression metadata
-            force_mode: Force specific mode (optional)
-            
-        Returns:
-            Tuple of (decompressed_tensor, decompression_info)
-        """
+    def decompress(self, weights: List[PadicWeight], target_precision: int, 
+                   metadata: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        """Decompress weights with automatic CPU/GPU switching - HARD FAILURES ONLY"""
         start_time = time.time()
+        
+        # Validate weights - HARD FAILURE if invalid
+        self._validate_weights(weights)
         
         with self._lock:
             self.stats.total_decompressions += 1
             
-            # Determine decompression mode
-            if force_mode:
-                mode = force_mode
+            # Check memory pressure and decide on mode
+            use_cpu, decision_info = self.memory_handler.should_use_cpu(metadata)
+            
+            if use_cpu:
+                result, info = self._decompress_cpu_burst(weights, target_precision, metadata, decision_info)
+                self.stats.cpu_decompressions += 1
+                self.stats.total_cpu_time += info.get('cpu_time', 0)
             else:
-                mode = self._select_decompression_mode()
+                result, info = self._decompress_gpu(weights, target_precision, metadata, decision_info)
+                self.stats.gpu_decompressions += 1
+                self.stats.total_gpu_time += info.get('decompression_time', 0)
             
-            # Track mode switches
-            if mode != self.current_mode:
-                self.stats.mode_switches += 1
-                self.mode_history.append((time.time(), mode))
-                self.last_mode_switch = time.time()
-                self.current_mode = mode
+            # Add pipeline metadata
+            info['mode'] = 'cpu_burst' if use_cpu else 'gpu'
+            info['total_time'] = time.time() - start_time
+            info['decision_info'] = decision_info
             
-            try:
-                # Execute decompression based on mode
-                if mode == DecompressionMode.GPU_ONLY:
-                    result, info = self._decompress_gpu(padic_weights, target_precision, metadata)
-                    self.stats.gpu_decompressions += 1
-                    self.stats.total_gpu_time += info.get('decompression_time', 0)
-                    
-                elif mode == DecompressionMode.CPU_ONLY:
-                    result, info = self._decompress_cpu(padic_weights, target_precision, metadata)
-                    self.stats.cpu_decompressions += 1
-                    self.stats.total_cpu_time += info.get('cpu_time', 0)
-                    
-                elif mode == DecompressionMode.HYBRID:
-                    result, info = self._decompress_hybrid(padic_weights, target_precision, metadata)
-                    self.stats.gpu_decompressions += 1
-                    self.stats.cpu_decompressions += 1
-                    
-                else:  # AUTO_SWITCH
-                    # Try GPU first, fall back to CPU if needed
-                    try:
-                        result, info = self._decompress_gpu(padic_weights, target_precision, metadata)
-                        self.stats.gpu_decompressions += 1
-                        self.stats.total_gpu_time += info.get('decompression_time', 0)
-                    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-                        # Switch to CPU
-                        self.stats.memory_pressure_events += 1
-                        result, info = self._decompress_cpu(padic_weights, target_precision, metadata)
-                        self.stats.cpu_decompressions += 1
-                        self.stats.total_cpu_time += info.get('cpu_time', 0)
-                        info['fallback_reason'] = str(e)
-                
-                # Add pipeline metadata
-                info['mode'] = mode.value
-                info['total_time'] = time.time() - start_time
-                info['mode_switches'] = self.stats.mode_switches
-                
-                return result, info
-                
-            except Exception as e:
-                raise RuntimeError(f"Decompression failed in mode {mode}: {e}")
+            return result, info
+    
+    def _validate_weights(self, weights: List[PadicWeight]) -> None:
+        """Validate weight structure - HARD FAILURE on error"""
+        if not weights:
+            raise ValueError("Empty weight list - HARD FAILURE")
+        
+        for i, weight in enumerate(weights):
+            if not isinstance(weight, PadicWeight):
+                raise TypeError(f"Weight {i} is not a PadicWeight object - HARD FAILURE")
+            if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
+                raise ValueError(f"Weight {i} missing required fields - HARD FAILURE")
+            if not validate_single_weight(weight, weight.prime, weight.precision):
+                raise ValueError(f"Weight {i} failed validation - HARD FAILURE")
+    
+    def _decompress_cpu_burst(self, weights: List[PadicWeight], target_precision: int,
+                             metadata: Dict[str, Any], decision_info: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        """Decompress using CPU bursting with memory pressure handling"""
+        start_time = time.time()
+        
+        # Use CPU engine for decompression
+        result, info = self.cpu_engine.decompress_batch_cpu(weights, target_precision, metadata)
+        
+        # Add CPU-specific metadata
+        info['cpu_time'] = time.time() - start_time
+        info['memory_pressure'] = decision_info.get('pressure_level', 'unknown')
+        info['gpu_memory_available'] = decision_info.get('gpu_memory_available', 0)
+        info['cpu_batch_size'] = len(weights)
+        
+        return result, info
+    
+    def _decompress_gpu(self, weights: List[PadicWeight], target_precision: int,
+                       metadata: Dict[str, Any], decision_info: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        """Decompress using GPU with memory pressure monitoring"""
+        start_time = time.time()
+        
+        # Use GPU engine for decompression
+        result, info = self.gpu_engine.decompress_batch(weights, target_precision, metadata)
+        
+        # Add GPU-specific metadata
+        info['decompression_time'] = time.time() - start_time
+        info['gpu_memory_used'] = decision_info.get('gpu_memory_used', 0)
+        info['gpu_memory_available'] = decision_info.get('gpu_memory_available', 0)
+        
+        return result, info
     
     def _select_decompression_mode(self) -> DecompressionMode:
         """Select appropriate decompression mode based on GPU memory"""

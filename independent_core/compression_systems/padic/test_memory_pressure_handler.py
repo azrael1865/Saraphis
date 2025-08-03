@@ -10,7 +10,8 @@ import time
 import psutil
 import gc
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
+from fractions import Fraction
 import threading
 
 # Configure logging
@@ -21,25 +22,173 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_mock_padic_weights(num_weights: int, precision: int = 10, prime: int = 251) -> List[Any]:
-    """Create mock p-adic weights for testing"""
-    try:
-        from padic_encoder import PadicWeight
-    except ImportError:
-        # Mock class for testing
-        class PadicWeight:
-            def __init__(self, coefficients, prime, precision):
-                self.coefficients = coefficients
-                self.prime = prime
-                self.precision = precision
+# Import real p-adic components
+from independent_core.compression_systems.padic.padic_encoder import (
+    PadicWeight, 
+    PadicMathematicalOperations
+)
+
+def create_real_padic_weights(num_weights: int, precision: int = 10, prime: int = 251) -> List[PadicWeight]:
+    """Create real p-adic weights for testing using proper mathematical conversion"""
+    from independent_core.compression_systems.padic.padic_encoder import PadicMathematicalOperations
     
+    # Initialize p-adic mathematical operations
+    math_ops = PadicMathematicalOperations(prime, precision)
     weights = []
-    for i in range(num_weights):
-        coeffs = np.random.randint(0, prime, size=precision).tolist()
-        weight = PadicWeight(coefficients=coeffs, prime=prime, precision=precision)
-        weights.append(weight)
     
-    return weights
+    # Value ranges for different test scenarios
+    value_ranges = [
+        (-10.0, 10.0),      # Standard range
+        (-1.0, 1.0),        # Small values
+        (-100.0, 100.0),    # Larger values
+        (0.001, 0.999),     # Fractional values
+        (-0.999, -0.001)    # Negative fractional
+    ]
+    
+    attempts = 0
+    max_attempts = num_weights * 10  # Allow multiple attempts
+    
+    while len(weights) < num_weights and attempts < max_attempts:
+        attempts += 1
+        
+        # Select value range based on index
+        range_idx = (len(weights) % len(value_ranges))
+        min_val, max_val = value_ranges[range_idx]
+        
+        # Generate value
+        if attempts % 3 == 0:
+            # Sometimes use integer values
+            value = float(np.random.randint(int(min_val), int(max_val) + 1))
+        elif attempts % 3 == 1:
+            # Sometimes use simple fractions
+            numerator = np.random.randint(1, 100)
+            denominator = np.random.randint(1, 100)
+            value = numerator / denominator
+            if np.random.rand() > 0.5:
+                value = -value
+        else:
+            # Use random float
+            value = np.random.uniform(min_val, max_val)
+        
+        try:
+            # Convert to proper p-adic representation
+            weight = math_ops.to_padic(value)
+            
+            # Validate the conversion by reconstructing
+            reconstructed = math_ops.from_padic(weight)
+            
+            # Verify mathematical correctness
+            relative_error = abs(value - reconstructed) / (abs(value) + 1e-10)
+            if relative_error > 1e-6:
+                # Skip values with high reconstruction error
+                continue
+            
+            # Additional validation
+            if not validate_single_weight(weight, prime, precision):
+                continue
+            
+            weights.append(weight)
+            
+        except (ValueError, TypeError, OverflowError) as e:
+            # Skip values that can't be converted
+            continue
+    
+    if len(weights) < num_weights:
+        raise ValueError(
+            f"Could not create enough valid p-adic weights. "
+            f"Created {len(weights)} out of {num_weights} requested. "
+            f"Consider adjusting value ranges or precision."
+        )
+    
+    return weights[:num_weights]
+
+
+def validate_single_weight(weight: PadicWeight, expected_prime: int, expected_precision: int) -> bool:
+    """Validate a single p-adic weight for mathematical correctness"""
+    try:
+        # Check basic structure
+        if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
+            return False
+        
+        if not hasattr(weight, 'value') or not hasattr(weight, 'prime') or not hasattr(weight, 'precision'):
+            return False
+        
+        # Check prime and precision match
+        if weight.prime != expected_prime or weight.precision != expected_precision:
+            return False
+        
+        # Check digit properties
+        if not isinstance(weight.digits, list) or len(weight.digits) != weight.precision:
+            return False
+        
+        for digit in weight.digits:
+            if not isinstance(digit, int) or not (0 <= digit < weight.prime):
+                return False
+        
+        # Check valuation bounds
+        if not isinstance(weight.valuation, int):
+            return False
+        
+        if weight.valuation < -weight.precision or weight.valuation > weight.precision:
+            return False
+        
+        # Check value is Fraction
+        if not isinstance(weight.value, Fraction):
+            return False
+        
+        return True
+        
+    except Exception:
+        return False
+
+
+def validate_padic_weights(weights: List[PadicWeight], prime: int, precision: int) -> bool:
+    """Validate that p-adic weights are mathematically correct"""
+    from independent_core.compression_systems.padic.padic_encoder import PadicMathematicalOperations
+    
+    if not weights:
+        print("No weights to validate")
+        return False
+    
+    math_ops = PadicMathematicalOperations(prime, precision)
+    
+    for i, weight in enumerate(weights):
+        try:
+            # Basic structure validation
+            if not validate_single_weight(weight, prime, precision):
+                print(f"Weight {i}: Failed structural validation")
+                return False
+            
+            # Check reconstruction
+            reconstructed = math_ops.from_padic(weight)
+            original = float(weight.value)
+            
+            # Allow small numerical errors
+            relative_error = abs(original - reconstructed) / (abs(original) + 1e-10)
+            if relative_error > 1e-5:
+                print(f"Weight {i}: Reconstruction error - original={original}, reconstructed={reconstructed}, error={relative_error}")
+                return False
+            
+            # Verify digit extraction correctness
+            if weight.value.numerator != 0:
+                # Non-zero weights should have at least one non-zero digit
+                if all(d == 0 for d in weight.digits):
+                    print(f"Weight {i}: All digits are zero for non-zero value {weight.value}")
+                    return False
+                
+        except Exception as e:
+            print(f"Weight {i}: Validation failed - {type(e).__name__}: {e}")
+            return False
+    
+    return True
+
+
+def measure_weight_conversion_time(num_weights: int, precision: int, prime: int) -> Tuple[List[PadicWeight], float]:
+    """Measure time to create real p-adic weights"""
+    start_time = time.time()
+    weights = create_real_padic_weights(num_weights, precision, prime)
+    conversion_time = time.time() - start_time
+    return weights, conversion_time
 
 
 def test_memory_pressure_handler_basic():
@@ -133,9 +282,9 @@ def test_memory_threshold_detection():
     
     # Create handler with low thresholds for testing
     config = PressureHandlerConfig(
-        gpu_critical_threshold_mb=50,
-        gpu_high_threshold_mb=100,
-        gpu_moderate_threshold_mb=200,
+        gpu_critical_threshold_mb=2048,
+        gpu_high_threshold_mb=4096,
+        gpu_moderate_threshold_mb=6144,
         gpu_critical_utilization=0.9,
         gpu_high_utilization=0.8,
         gpu_moderate_utilization=0.7
@@ -474,7 +623,18 @@ def test_integration_scenario():
             
         def decompress_progressive(self, weights, precision, metadata):
             self.decompress_count += 1
-            # Simulate decompression
+            
+            # Validate that we received real PadicWeight objects - HARD FAILURE if not
+            if not weights:
+                raise ValueError("Empty weight list - HARD FAILURE")
+            
+            for i, weight in enumerate(weights):
+                if not isinstance(weight, PadicWeight):
+                    raise TypeError(f"Weight {i} is not a PadicWeight object - HARD FAILURE")
+                if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
+                    raise ValueError(f"Weight {i} missing required fields - HARD FAILURE")
+            
+            # Simulate decompression with real weight validation
             time.sleep(0.01)
             shape = metadata['original_shape']
             return torch.randn(shape), {'decompression_time': 0.01}
@@ -491,8 +651,14 @@ def test_integration_scenario():
     
     print("\n1. Testing integrated decompression...")
     
-    # Test normal decompression
-    weights = create_mock_padic_weights(100)
+    # Test normal decompression with real p-adic weights
+    print("Creating real p-adic weights for testing...")
+    weights, conv_time = measure_weight_conversion_time(100, 10, 251)
+    
+    # Validate weights - HARD FAILURE if validation fails
+    if not validate_padic_weights(weights, 251, 10):
+        raise ValueError("P-adic weight validation failed - HARD FAILURE")
+    print(f"✓ Created and validated {len(weights)} real p-adic weights in {conv_time:.3f}s")
     metadata = {
         'original_shape': (10, 10),
         'dtype': 'torch.float32',

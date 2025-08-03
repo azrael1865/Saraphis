@@ -426,8 +426,8 @@ class PadicDecompressionEngineIntegrated:
         coeffs_matrix = np.zeros((len(batch), precision), dtype=np.float32)
         
         for i, weight in enumerate(batch):
-            for j in range(min(precision, len(weight.coefficients))):
-                coeffs_matrix[i, j] = float(weight.coefficients[j])
+            for j in range(min(precision, len(weight.digits))):
+                coeffs_matrix[i, j] = float(weight.digits[j])
         
         return torch.from_numpy(coeffs_matrix)
     

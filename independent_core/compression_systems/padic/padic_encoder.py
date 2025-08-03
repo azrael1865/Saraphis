@@ -148,7 +148,7 @@ class PadicMathematicalOperations:
         return val_num - val_denom
     
     def to_padic(self, value: float) -> PadicWeight:
-        """Convert float to p-adic representation"""
+        """Convert float to p-adic representation using proper arithmetic"""
         if not isinstance(value, (float, int)):
             raise TypeError(f"Value must be float or int, got {type(value)}")
         if math.isnan(value):
@@ -167,8 +167,11 @@ class PadicMathematicalOperations:
         # Compute valuation
         valuation = self.compute_valuation(frac.numerator, frac.denominator)
         
-        # Extract p-adic digits
-        digits = self._extract_padic_digits(frac)
+        # Extract p-adic digits using modular arithmetic
+        try:
+            digits = self._extract_padic_digits(frac)
+        except ValueError as e:
+            raise ValueError(f"Failed to convert {value} to p-adic: {str(e)}")
         
         return PadicWeight(
             value=frac,
@@ -179,7 +182,7 @@ class PadicMathematicalOperations:
         )
     
     def _extract_padic_digits(self, frac: Fraction) -> List[int]:
-        """Extract p-adic digits from fraction"""
+        """Extract p-adic digits using proper modular arithmetic"""
         digits = []
         
         if frac.numerator == 0:
@@ -197,13 +200,10 @@ class PadicMathematicalOperations:
         if math.gcd(denom, self.prime) != 1:
             raise ValueError(f"Denominator {denom} not coprime to prime {self.prime}")
         
-        try:
-            # Compute modular inverse of denominator
-            denom_inv = pow(denom, -1, self.prime_powers[self.precision])
-        except ValueError as e:
-            raise ValueError(f"Cannot compute modular inverse of {denom}: {e}")
+        # Compute modular inverse of denominator
+        denom_inv = pow(denom, -1, self.prime_powers[self.precision])
         
-        # Extract digits
+        # Extract digits using p-adic expansion
         working_num = (num * denom_inv) % self.prime_powers[self.precision]
         for i in range(self.precision):
             digit = working_num % self.prime
@@ -216,7 +216,7 @@ class PadicMathematicalOperations:
         return digits
     
     def from_padic(self, padic: PadicWeight) -> float:
-        """Convert p-adic representation back to float"""
+        """Convert p-adic representation back to float using reconstruction formula"""
         if not isinstance(padic, PadicWeight):
             raise TypeError(f"Expected PadicWeight, got {type(padic)}")
         if padic.prime != self.prime:
@@ -224,7 +224,7 @@ class PadicMathematicalOperations:
         if padic.precision != self.precision:
             raise ValueError(f"Precision mismatch: {padic.precision} != {self.precision}")
         
-        # Reconstruct value from digits
+        # Reconstruct value from digits: Σ(d_i × p^i) × p^v
         value = 0
         for i, digit in enumerate(padic.digits):
             if i >= len(self.prime_powers):
@@ -287,3 +287,164 @@ class PadicMathematicalOperations:
                 f"Ultrametric property violated: "
                 f"d(x,z)={d_xz:.12e} > max(d(x,y)={d_xy:.12e}, d(y,z)={d_yz:.12e}) = {max_distance:.12e}"
             )
+
+
+# Validation Functions
+def validate_single_weight(weight: PadicWeight, expected_prime: int, expected_precision: int) -> bool:
+    """Validate mathematical correctness of single weight"""
+    try:
+        # Check basic structure
+        if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
+            return False
+        
+        # Check prime and precision match
+        if weight.prime != expected_prime or weight.precision != expected_precision:
+            return False
+        
+        # Check digit properties
+        if not isinstance(weight.digits, list) or len(weight.digits) != weight.precision:
+            return False
+        
+        for digit in weight.digits:
+            if not isinstance(digit, int) or not (0 <= digit < weight.prime):
+                return False
+        
+        # Check valuation bounds
+        if not isinstance(weight.valuation, int):
+            return False
+        
+        if weight.valuation < -weight.precision or weight.valuation > weight.precision:
+            return False
+        
+        return True
+        
+    except Exception:
+        return False
+
+
+def validate_padic_weights(weights: List[PadicWeight], prime: int, precision: int) -> bool:
+    """Validate mathematical correctness of p-adic weights"""
+    math_ops = PadicMathematicalOperations(prime, precision)
+    
+    for i, weight in enumerate(weights):
+        # Check structural integrity
+        if not validate_single_weight(weight, prime, precision):
+            return False
+        
+        # Check reconstruction accuracy
+        try:
+            reconstructed = math_ops.from_padic(weight)
+            original = float(weight.value)
+            
+            # Allow small numerical errors (1e-5 relative)
+            relative_error = abs(original - reconstructed) / (abs(original) + 1e-10)
+            if relative_error > 1e-5:
+                return False
+        except Exception:
+            return False
+    
+    return True
+
+
+def validate_ultrametric_property(weights: List[PadicWeight]) -> bool:
+    """Validate ultrametric distance property preservation"""
+    if len(weights) < 3:
+        return True
+    
+    math_ops = PadicMathematicalOperations(weights[0].prime, weights[0].precision)
+    
+    # Sample validation for efficiency
+    sample_size = min(10, len(weights))
+    sample_indices = np.random.choice(len(weights), sample_size, replace=False)
+    
+    for i in sample_indices:
+        for j in sample_indices:
+            if i >= j:
+                continue
+                
+            for k in sample_indices:
+                if k == i or k == j:
+                    continue
+                
+                try:
+                    math_ops.validate_ultrametric_property(
+                        weights[i], weights[j], weights[k]
+                    )
+                except ValueError:
+                    return False
+    
+    return True
+
+
+def create_real_padic_weights(num_weights: int, precision: int = 10, prime: int = 251) -> List[PadicWeight]:
+    """Create mathematically correct p-adic weights for testing"""
+    math_ops = PadicMathematicalOperations(prime, precision)
+    weights = []
+    
+    value_ranges = [
+        (-10.0, 10.0),      # Standard range
+        (-1.0, 1.0),        # Small values
+        (-100.0, 100.0),    # Larger values
+        (0.001, 0.999),     # Fractional values
+        (-0.999, -0.001)    # Negative fractional
+    ]
+    
+    attempts = 0
+    max_attempts = num_weights * 10  # Allow multiple attempts
+    
+    while len(weights) < num_weights and attempts < max_attempts:
+        attempts += 1
+        
+        # Select value range based on index
+        range_idx = (len(weights) % len(value_ranges))
+        min_val, max_val = value_ranges[range_idx]
+        
+        # Generate value
+        if attempts % 3 == 0:
+            value = float(np.random.randint(int(min_val), int(max_val) + 1))
+        elif attempts % 3 == 1:
+            numerator = np.random.randint(1, 100)
+            denominator = np.random.randint(1, 100)
+            value = numerator / denominator
+            if np.random.rand() > 0.5:
+                value = -value
+        else:
+            value = np.random.uniform(min_val, max_val)
+        
+        try:
+            # Convert to proper p-adic representation
+            weight = math_ops.to_padic(value)
+            
+            # Validate the conversion by reconstructing
+            reconstructed = math_ops.from_padic(weight)
+            
+            # Verify mathematical correctness
+            relative_error = abs(value - reconstructed) / (abs(value) + 1e-10)
+            if relative_error > 1e-6:
+                continue  # Skip values with high reconstruction error
+            
+            # Additional validation
+            if not validate_single_weight(weight, prime, precision):
+                continue
+            
+            weights.append(weight)
+            
+        except (ValueError, TypeError, OverflowError):
+            continue  # Skip values that can't be converted
+    
+    if len(weights) < num_weights:
+        raise ValueError(
+            f"Could not create enough valid p-adic weights. "
+            f"Created {len(weights)} out of {num_weights} requested."
+        )
+    
+    return weights[:num_weights]
+
+
+def measure_weight_conversion_time(num_weights: int, precision: int, prime: int) -> Tuple[List[PadicWeight], float]:
+    """Measure time to create real p-adic weights"""
+    import time
+    start_time = time.time()
+    weights = create_real_padic_weights(num_weights, precision, prime)
+    conversion_time = time.time() - start_time
+    return weights, conversion_time

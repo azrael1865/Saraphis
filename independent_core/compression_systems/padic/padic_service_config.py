@@ -430,8 +430,8 @@ class PadicServiceConfiguration:
                 },
                 'gpu_decompression': {
                     'device_id': 0,
-                    'memory_fraction': 0.8,
-                    'batch_size': 32,
+                    'memory_fraction': 0.9,
+                    'batch_size': 1000,
                     'enable_tensor_cores': True,
                     'stream_count': 4,
                     'enable_memory_pooling': True,
@@ -440,19 +440,19 @@ class PadicServiceConfiguration:
                 }
             },
             'service': {
-                'max_batch_size': 32,
+                'max_batch_size': 1000,
                 'request_timeout': 30,
                 'enable_authentication': False,
                 'enable_rate_limiting': False,
                 'max_requests_per_minute': 60,
                 'enable_response_compression': True,
-                'max_concurrent_requests': 10,
+                'max_concurrent_requests': 100,
                 'enable_caching': True,
                 'cache_size_mb': 1024
             },
             'orchestration': {
-                'max_queue_size': 10000,
-                'max_workers': 10,
+                'max_queue_size': 50000,
+                'max_workers': 50,
                 'load_balancing_strategy': 'least_loaded',
                 'cache_ttl': 300,
                 'history_size': 1000

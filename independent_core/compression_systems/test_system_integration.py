@@ -44,13 +44,13 @@ def test_system_configuration():
     # Test 2: Custom configuration
     print("\n2. Testing custom configuration...")
     custom_config = SystemConfiguration(
-        gpu_memory_limit_mb=4096,
+        gpu_memory_limit_mb=14336,
         prime=127,
         precision=32,
         optimization_strategy=OptimizationStrategy.THROUGHPUT
     )
     
-    assert custom_config.gpu_memory_limit_mb == 4096
+    assert custom_config.gpu_memory_limit_mb == 14336
     assert custom_config.prime == 127
     assert custom_config.optimization_strategy == OptimizationStrategy.THROUGHPUT
     print("   ✓ Custom configuration valid")

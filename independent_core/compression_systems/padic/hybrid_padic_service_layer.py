@@ -59,14 +59,14 @@ class HybridServiceConfig:
     hybrid_threshold: int = 1000  # Elements threshold for hybrid compression
     force_hybrid: bool = False
     enable_dynamic_switching: bool = True
-    gpu_memory_limit_mb: int = 2048
-    max_concurrent_hybrid_requests: int = 8
+    gpu_memory_limit_mb: int = 14336
+    max_concurrent_hybrid_requests: int = 50
     
     # Performance configuration
     hybrid_timeout_seconds: float = 600.0
-    hybrid_batch_size: int = 50
+    hybrid_batch_size: int = 1000
     enable_hybrid_caching: bool = True
-    hybrid_cache_size_mb: int = 512
+    hybrid_cache_size_mb: int = 2048
     
     # Quality configuration
     validate_reconstruction: bool = True

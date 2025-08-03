@@ -122,7 +122,7 @@ class ValidationFrameworkConfig:
     
     # Execution parameters
     enable_parallel_validation: bool = True
-    max_concurrent_validations: int = 4
+    max_concurrent_validations: int = 20
     validation_timeout_seconds: int = 300
     
     # Reporting

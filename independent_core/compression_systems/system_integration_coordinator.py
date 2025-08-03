@@ -61,7 +61,7 @@ class OptimizationStrategy(Enum):
 class SystemConfiguration:
     """Unified system configuration"""
     # GPU Memory Configuration
-    gpu_memory_limit_mb: int = 8192
+    gpu_memory_limit_mb: int = 14336
     enable_smart_pool: bool = True
     smart_pool_fragmentation_target: float = 0.133  # 13.3%
     
@@ -78,8 +78,8 @@ class SystemConfiguration:
     # CPU Bursting Configuration
     enable_cpu_bursting: bool = True
     cpu_workers: int = -1  # Auto-detect
-    cpu_batch_size: int = 100
-    gpu_memory_threshold_mb: int = 100
+    cpu_batch_size: int = 1000
+    gpu_memory_threshold_mb: int = 2048
     
     # Memory Pressure Configuration
     enable_memory_pressure: bool = True
@@ -88,8 +88,8 @@ class SystemConfiguration:
     
     # P-adic Compression Configuration
     prime: int = 251
-    precision: int = 64
-    chunk_size: int = 1000
+    precision: int = 128
+    chunk_size: int = 5000
     enable_hybrid: bool = True
     
     # Performance Configuration
@@ -98,7 +98,7 @@ class SystemConfiguration:
     monitoring_interval_ms: int = 100
     
     # System Configuration
-    max_concurrent_operations: int = 10
+    max_concurrent_operations: int = 50
     enable_auto_optimization: bool = True
     checkpoint_interval_seconds: int = 300
     
