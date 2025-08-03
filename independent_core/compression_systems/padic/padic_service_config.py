@@ -430,32 +430,51 @@ class PadicServiceConfiguration:
                 },
                 'gpu_decompression': {
                     'device_id': 0,
-                    'memory_fraction': 0.9,
-                    'batch_size': 1000,
+                    'memory_fraction': 0.85,          # Safe for 16GB card
+                    'batch_size': 5000,               # Safe for 16GB VRAM
                     'enable_tensor_cores': True,
-                    'stream_count': 4,
+                    'stream_count': 16,               # Reduced for 16GB
                     'enable_memory_pooling': True,
-                    'max_workspace_size': 1073741824,
-                    'enable_mixed_precision': True
-                }
+                    'max_workspace_size': 2147483648, # 2GB workspace
+                                    'enable_mixed_precision': True,
+                'prefetch_factor': 2,             # Reduced prefetch
+                'persistent_workers': True        # Keep workers alive
+            },
+            'cpu_decompression': {
+                'batch_size': 50000,              # Massive CPU batches
+                'num_workers': 16,                # Use all CPUs (hardcoded for safety)
+                'chunk_multiplier': 10,           # Process multiple chunks
+                'use_multiprocessing': True,      # Enable multiprocessing
+                'cache_size_mb': 8192,            # 8GB cache
+                'huge_pages': True,               # Use huge pages
+                'numa_aware': True                # NUMA optimization
+            },
+            'memory_management': {
+                'aggressive_gc': False,           # Disable GC during burst
+                'huge_pages': True,               # Use huge pages
+                'numa_aware': True,               # NUMA optimization
+                'pinned_memory': True,            # Pinned memory transfers
+                'memory_pool_count': 2,           # 2 pools for 16GB card
+                'emergency_workers': 100          # Emergency worker pool
+            }
             },
             'service': {
-                'max_batch_size': 1000,
+                'max_batch_size': 10000,              # 10x increase
                 'request_timeout': 30,
                 'enable_authentication': False,
                 'enable_rate_limiting': False,
-                'max_requests_per_minute': 60,
+                'max_requests_per_minute': 600,        # 10x increase
                 'enable_response_compression': True,
-                'max_concurrent_requests': 100,
+                'max_concurrent_requests': 1000,       # 10x increase
                 'enable_caching': True,
-                'cache_size_mb': 1024
+                'cache_size_mb': 8192                  # 8x increase
             },
             'orchestration': {
-                'max_queue_size': 50000,
-                'max_workers': 50,
+                'max_queue_size': 500000,              # 10x increase
+                'max_workers': 500,                    # 10x increase
                 'load_balancing_strategy': 'least_loaded',
                 'cache_ttl': 300,
-                'history_size': 1000
+                'history_size': 10000                  # 10x increase
             },
             'monitoring': {
                 'health_check_interval': 30,

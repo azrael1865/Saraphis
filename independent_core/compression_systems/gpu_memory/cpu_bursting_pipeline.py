@@ -18,6 +18,7 @@ import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import queue
 import weakref
+import os
 
 # Import p-adic components
 try:
@@ -49,21 +50,21 @@ class MemoryPressureLevel(Enum):
 
 @dataclass
 class CPUBurstingConfig:
-    """Configuration for CPU bursting pipeline"""
+    """Configuration for CPU bursting pipeline - RTX 5060 Ti optimized"""
     # Memory thresholds
-    gpu_memory_threshold_mb: int = 2048  # Min GPU memory before switching to CPU
-    memory_pressure_threshold: float = 0.9  # GPU utilization threshold
+    gpu_memory_threshold_mb: int = 2048      # Appropriate for 16GB card
+    memory_pressure_threshold: float = 0.90  # Trigger CPU at 90% GPU usage
     
     # CPU configuration
     num_cpu_workers: int = -1  # -1 for auto-detect
-    cpu_batch_size: int = 1000
-    use_multiprocessing: bool = True  # False for threading
+    cpu_batch_size: int = 10000              # Was 1000 -> 10x increase
+    use_multiprocessing: bool = True         # Ensure MP is on
     cpu_affinity: Optional[List[int]] = None  # CPU cores to use
     
     # Performance settings
     enable_profiling: bool = True
     enable_caching: bool = True
-    cache_size_mb: int = 2048
+    cache_size_mb: int = 8192                # 8GB cache (system RAM dependent)
     prefetch_factor: int = 2
     
     # Decompression settings
@@ -75,6 +76,12 @@ class CPUBurstingConfig:
     # Auto-switching settings
     switch_delay_ms: int = 10  # Delay before switching modes
     hysteresis_factor: float = 0.1  # Prevent rapid switching
+    
+    # RTX 5060 Ti specific optimizations
+    prefetch_batches: int = 10               # Prefetch 10 batches
+    numa_nodes: List[int] = field(default_factory=lambda: list(range(16)))  # Hardcoded for safety
+    huge_page_size: int = 2097152            # 2MB huge pages
+    cpu_affinity_enabled: bool = True        # Pin workers to CPUs
     
     def __post_init__(self):
         """Validate configuration"""
@@ -377,8 +384,8 @@ class CPUDecompressionEngine:
         if not weights:
             return ""
         
-        first_hash = hash(tuple(weights[0].coefficients[:10]))
-        last_hash = hash(tuple(weights[-1].coefficients[:10]))
+        first_hash = hash(tuple(weights[0].digits[:10]))
+        last_hash = hash(tuple(weights[-1].digits[:10]))
         return f"cpu_p{precision}_f{first_hash}_l{last_hash}_n{len(weights)}"
     
     def _update_cache(self, key: str, tensor: torch.Tensor) -> None:
@@ -502,15 +509,45 @@ class CPU_BurstingPipeline:
     def _validate_weights(self, weights: List[PadicWeight]) -> None:
         """Validate weight structure - HARD FAILURE on error"""
         if not weights:
-            raise ValueError("Empty weight list - HARD FAILURE")
+            raise ValueError("Empty weight list - HARD FAILURE - SYSTEM ABORT")
         
+        if not isinstance(weights, list):
+            raise TypeError(f"Weights must be list, got {type(weights)} - HARD FAILURE")
+        
+        # Validate each weight with comprehensive checks
         for i, weight in enumerate(weights):
-            if not isinstance(weight, PadicWeight):
-                raise TypeError(f"Weight {i} is not a PadicWeight object - HARD FAILURE")
-            if not hasattr(weight, 'digits') or not hasattr(weight, 'valuation'):
-                raise ValueError(f"Weight {i} missing required fields - HARD FAILURE")
+            if weight is None:
+                raise ValueError(f"Weight {i} is None - HARD FAILURE - CORRUPTED DATA")
+            
+            if not hasattr(weight, 'digits'):
+                raise AttributeError(f"Weight {i} missing 'digits' attribute - HARD FAILURE")
+            
+            if not hasattr(weight, 'prime'):
+                raise AttributeError(f"Weight {i} missing 'prime' attribute - HARD FAILURE")
+            
+            if not hasattr(weight, 'precision'):
+                raise AttributeError(f"Weight {i} missing 'precision' attribute - HARD FAILURE")
+            
+            if not hasattr(weight, 'valuation'):
+                raise AttributeError(f"Weight {i} missing 'valuation' attribute - HARD FAILURE")
+            
+            # Deep validation
             if not validate_single_weight(weight, weight.prime, weight.precision):
-                raise ValueError(f"Weight {i} failed validation - HARD FAILURE")
+                raise ValueError(f"Weight {i} failed mathematical validation - HARD FAILURE")
+            
+            # Additional structural checks
+            if not isinstance(weight.digits, list):
+                raise TypeError(f"Weight {i} digits not a list - HARD FAILURE")
+            
+            if len(weight.digits) != weight.precision:
+                raise ValueError(f"Weight {i} digit count {len(weight.digits)} != precision {weight.precision} - HARD FAILURE")
+            
+            if not all(0 <= d < weight.prime for d in weight.digits):
+                raise ValueError(f"Weight {i} has invalid digits outside [0, {weight.prime}) - HARD FAILURE")
+            
+            # Valuation bounds check
+            if weight.valuation < -weight.precision or weight.valuation > weight.precision:
+                raise ValueError(f"Weight {i} valuation {weight.valuation} out of bounds - HARD FAILURE")
     
     def _decompress_cpu_burst(self, weights: List[PadicWeight], target_precision: int,
                              metadata: Dict[str, Any], decision_info: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:

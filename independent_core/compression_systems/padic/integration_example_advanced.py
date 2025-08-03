@@ -43,12 +43,14 @@ def demonstrate_hensel_lifting():
     # Create sample p-adic weight
     coefficients = [3, 1, 4, 1, 5]  # Sample coefficients
     padic_weight = PadicWeight(
-        coefficients=coefficients,
+        value=Fraction(sum(coeff * (prime ** i) for i, coeff in enumerate(coefficients)), 1),
         prime=prime,
-        precision=base_precision
+        precision=base_precision,
+        valuation=0,
+        digits=coefficients
     )
     
-    print(f"Original weight: precision={padic_weight.precision}, coeffs={padic_weight.coefficients}")
+    print(f"Original weight: precision={padic_weight.precision}, digits={padic_weight.digits}")
     
     try:
         # Lift to higher precision
@@ -65,13 +67,13 @@ def demonstrate_hensel_lifting():
         print(f"  Precision schedule: {lifting_metadata['precision_schedule']}")
         
         # Validate that lifting preserves original information
-        reduced_coeffs = lifted_weight.coefficients[:base_precision]
-        if reduced_coeffs == coefficients:
+        reduced_digits = lifted_weight.digits[:base_precision]
+        if reduced_digits == coefficients:
             print(f"  ✓ Lifting validation: original information preserved")
         else:
             print(f"  ⚠ Lifting validation: information changed")
             print(f"    Original: {coefficients}")
-            print(f"    Reduced:  {reduced_coeffs}")
+            print(f"    Reduced:  {reduced_digits}")
         
         # Performance statistics
         stats = hensel_processor.get_lifting_stats()
@@ -118,9 +120,11 @@ def demonstrate_hierarchical_clustering():
         coefficients = base_coeffs + noise
         
         weight = PadicWeight(
-            coefficients=coefficients,
+            value=Fraction(sum(coeff * (prime ** i) for i, coeff in enumerate(coefficients)), 1),
             prime=prime,
-            precision=len(coefficients)
+            precision=len(coefficients),
+            valuation=0,
+            digits=coefficients
         )
         weights.append(weight)
     

@@ -124,11 +124,11 @@ class PerformanceMetrics:
 
 @dataclass
 class PressureHandlerConfig:
-    """Configuration for memory pressure handler"""
-    # Memory thresholds (MB)
-    gpu_critical_threshold_mb: int = 2048
-    gpu_high_threshold_mb: int = 4096
-    gpu_moderate_threshold_mb: int = 6144
+    """Configuration for memory pressure handler - RTX 5060 Ti optimized"""
+    # Memory thresholds (MB) - Scaled for 16GB card
+    gpu_critical_threshold_mb: int = 13312   # 13GB (80% of 16GB card)
+    gpu_high_threshold_mb: int = 10240       # 10GB (60% of 16GB card)
+    gpu_moderate_threshold_mb: int = 6144    # 6GB (40% of 16GB card)
     
     # Utilization thresholds (0-1)
     gpu_critical_utilization: float = 0.95
@@ -151,8 +151,13 @@ class PressureHandlerConfig:
     
     # Performance parameters
     min_gpu_batch_size: int = 10         # Minimum batch for GPU
-    max_cpu_batch_size: int = 5000       # Maximum batch for CPU
+    max_cpu_batch_size: int = 100000     # Was 5000 -> 20x increase (CPU unchanged)
     warmup_iterations: int = 10          # Iterations before trusting metrics
+    
+    # RTX 5060 Ti specific parameters
+    burst_multiplier: float = 5.0            # Reduced burst for 16GB
+    emergency_cpu_workers: int = 100         # Emergency worker pool
+    memory_defrag_threshold: float = 0.3     # Defrag at 30% fragmentation
     
     def __post_init__(self):
         """Validate configuration"""

@@ -78,8 +78,8 @@ class SystemConfiguration:
     # CPU Bursting Configuration
     enable_cpu_bursting: bool = True
     cpu_workers: int = -1  # Auto-detect
-    cpu_batch_size: int = 1000
-    gpu_memory_threshold_mb: int = 2048
+    cpu_batch_size: int = 50000              # Was 1000 -> 50x increase (CPU unchanged)
+    gpu_memory_threshold_mb: int = 2048      # Was 2048 -> Keep original
     
     # Memory Pressure Configuration
     enable_memory_pressure: bool = True
@@ -88,8 +88,8 @@ class SystemConfiguration:
     
     # P-adic Compression Configuration
     prime: int = 251
-    precision: int = 128
-    chunk_size: int = 5000
+    precision: int = 256                     # Was 128 -> 2x precision
+    chunk_size: int = 25000                  # Was 5000 -> 5x increase (GPU safe)
     enable_hybrid: bool = True
     
     # Performance Configuration
@@ -98,7 +98,11 @@ class SystemConfiguration:
     monitoring_interval_ms: int = 100
     
     # System Configuration
-    max_concurrent_operations: int = 50
+    max_concurrent_operations: int = 100     # Was 50 -> 2x increase (GPU safe)
+    prefetch_queue_size: int = 20            # Smaller prefetch for 16GB
+    memory_pool_count: int = 2               # 2 pools for 16GB card
+    use_pinned_memory: bool = True           # Pinned memory transfers
+    use_cuda_graphs: bool = True             # CUDA graph optimization
     enable_auto_optimization: bool = True
     checkpoint_interval_seconds: int = 300
     
@@ -336,8 +340,8 @@ class CompressionPipelineOrchestrator:
         # Size of encoded data
         if 'encoded_data' in compressed:
             for item in compressed['encoded_data']:
-                if hasattr(item, 'coefficients'):
-                    size += len(item.coefficients) * 4  # 4 bytes per coefficient
+                if hasattr(item, 'digits'):
+                    size += len(item.digits) * 4  # 4 bytes per digit
                 elif hasattr(item, 'exponent_channel') and hasattr(item, 'mantissa_channel'):
                     size += item.exponent_channel.numel() * item.exponent_channel.element_size()
                     size += item.mantissa_channel.numel() * item.mantissa_channel.element_size()

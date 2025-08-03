@@ -9,6 +9,8 @@ import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass, field
 import json
+from fractions import Fraction
+from math import gcd
 
 from .padic_encoder import PadicWeight, PadicValidation
 
@@ -287,61 +289,88 @@ class HybridPadicConverter:
             raise RuntimeError(f"Failed to convert from hybrid representation: {e}")
     
     def _extract_exponent_channel(self, coeff_tensor: torch.Tensor, prime: int) -> torch.Tensor:
-        """Extract exponent channel for hierarchical importance
+        """Extract exponent channel using p-adic valuation"""
+        device = coeff_tensor.device
+        batch_size = coeff_tensor.shape[0]
         
-        Since the p-adic valuation is stored separately in HybridPadicWeight,
-        this channel represents the positional powers of the prime for each digit.
-        For digits [d₀, d₁, d₂, ...], this returns [0, 1, 2, ...] representing
-        the powers p⁰, p¹, p², etc.
-        """
-        # Create a tensor of indices representing the power of prime for each digit position
-        # This allows us to reconstruct the contribution of each digit: dᵢ × pⁱ
-        num_coeffs = coeff_tensor.shape[0]
-        exponent_channel = torch.arange(
-            num_coeffs, 
-            dtype=torch.float32, 
-            device=coeff_tensor.device
-        )
+        # Extract p-adic valuations from the tensor
+        valuations = torch.zeros(batch_size, dtype=torch.float32, device=device)
         
-        return exponent_channel
+        # Convert to integers for p-adic analysis
+        int_values = (coeff_tensor * (prime ** 10)).long()
+        
+        # Compute p-adic valuations
+        for i in range(batch_size):
+            val = int_values[i].item()
+            if val == 0:
+                valuations[i] = float('inf')  # Convention for zero
+            else:
+                v = 0
+                while val % prime == 0:
+                    val //= prime
+                    v += 1
+                valuations[i] = float(v)
+        
+        # Normalize valuations to [0, 1] range for stability
+        finite_vals = valuations[valuations != float('inf')]
+        if finite_vals.numel() > 0:
+            max_val = finite_vals.max()
+            valuations[valuations != float('inf')] = valuations[valuations != float('inf')] / (max_val + 1)
+            valuations[valuations == float('inf')] = 1.0  # Max normalized value for zeros
+        
+        return valuations
     
     def _extract_mantissa_channel(self, coeff_tensor: torch.Tensor, prime: int) -> torch.Tensor:
-        """Extract mantissa channel for fine-grained values
+        """Extract mantissa channel using p-adic digit decomposition"""
+        device = coeff_tensor.device
+        batch_size = coeff_tensor.shape[0]
         
-        This channel contains the actual p-adic digit values.
-        Each digit dᵢ is already in the range [0, prime).
-        """
-        # The coefficient tensor already contains the p-adic digits
-        # Just ensure they're in the valid range and return them
-        mantissa_channel = coeff_tensor.clone()
+        # Extract first p-adic digit (mantissa)
+        mantissas = torch.zeros(batch_size, dtype=torch.float32, device=device)
         
-        # Validate that all digits are in the correct range [0, prime)
-        # This is a safety check - they should already be valid
-        mantissa_channel = torch.clamp(mantissa_channel, min=0.0, max=float(prime - 1))
+        # Convert to fractions for exact p-adic decomposition
+        for i in range(batch_size):
+            val = coeff_tensor[i].item()
+            if val == 0:
+                mantissas[i] = 0.0
+            else:
+                # Extract first non-zero p-adic digit
+                frac = Fraction(val).limit_denominator(10**10)
+                
+                # Normalize to have denominator coprime to p
+                while frac.denominator % prime == 0:
+                    frac = Fraction(frac.numerator, frac.denominator // prime)
+                
+                # Compute modular inverse if needed
+                if gcd(frac.denominator, prime) == 1:
+                    inv = pow(frac.denominator, -1, prime)
+                    first_digit = (frac.numerator * inv) % prime
+                    mantissas[i] = float(first_digit)
+                else:
+                    # Fallback for non-coprime denominators
+                    mantissas[i] = float(abs(frac.numerator) % prime)
         
-        return mantissa_channel
+        return mantissas
     
     def _reconstruct_coefficients(self, exponent_channel: torch.Tensor, 
-                                mantissa_channel: torch.Tensor, prime: int) -> torch.Tensor:
-        """Reconstruct coefficients from two channels
+                                mantissa_channel: torch.Tensor, 
+                                prime: int) -> torch.Tensor:
+        """Reconstruct coefficients using p-adic formula"""
+        device = exponent_channel.device
+        batch_size = exponent_channel.shape[0]
         
-        Since the exponent channel contains positional indices and the mantissa 
-        channel contains the actual digit values, reconstruction is straightforward:
-        we return the mantissa channel which contains the original p-adic digits.
+        reconstructed = torch.zeros(batch_size, dtype=torch.float32, device=device)
         
-        The full p-adic value reconstruction (including valuation) happens at a 
-        higher level where we have access to the stored valuation.
-        """
-        # The mantissa channel contains the actual p-adic digits
-        # The exponent channel contains positional information that's implicit
-        # in the ordering of the digits, so we don't need to use it for reconstruction
-        # at this level. The actual p-adic value computation happens in the 
-        # PadicMathematicalOperations.from_padic() method.
-        
-        reconstructed = mantissa_channel.clone()
-        
-        # Ensure values are in valid coefficient range [0, prime)
-        reconstructed = torch.clamp(reconstructed, min=0.0, max=float(prime - 1))
+        for i in range(batch_size):
+            # Denormalize valuation
+            valuation = int(exponent_channel[i].item() * 10)  # Assuming max valuation of 10
+            mantissa = int(mantissa_channel[i].item())
+            
+            # Reconstruct: mantissa * p^valuation
+            if mantissa == 0:
+                reconstructed[i] = 0.0
+            else:
+                reconstructed[i] = float(mantissa * (prime ** valuation))
         
         return reconstructed
     

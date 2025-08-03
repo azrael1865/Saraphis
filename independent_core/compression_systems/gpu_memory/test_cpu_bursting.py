@@ -27,77 +27,62 @@ from independent_core.compression_systems.gpu_memory.cpu_bursting_pipeline impor
 
 def create_real_padic_weights(num_weights: int, precision: int = 10, prime: int = 251) -> List[PadicWeight]:
     """Create real p-adic weights for testing using proper mathematical conversion"""
+    if num_weights <= 0:
+        raise ValueError(f"Invalid num_weights {num_weights} - must be positive")
+    
+    if precision <= 0:
+        raise ValueError(f"Invalid precision {precision} - must be positive")
+    
+    if prime <= 1 or not is_prime(prime):
+        raise ValueError(f"Invalid prime {prime} - must be prime > 1")
+    
     from independent_core.compression_systems.padic.padic_encoder import PadicMathematicalOperations
     
     # Initialize p-adic mathematical operations
     math_ops = PadicMathematicalOperations(prime, precision)
     weights = []
     
-    # Value ranges for different test scenarios
-    value_ranges = [
-        (-10.0, 10.0),      # Standard range
-        (-1.0, 1.0),        # Small values
-        (-100.0, 100.0),    # Larger values
-        (0.001, 0.999),     # Fractional values
-        (-0.999, -0.001)    # Negative fractional
-    ]
+    # Generate diverse test values
+    test_values = []
     
-    attempts = 0
-    max_attempts = num_weights * 10  # Allow multiple attempts
+    # Include edge cases
+    test_values.extend([0.0, 1.0, -1.0, float(prime), float(prime**2)])
     
-    while len(weights) < num_weights and attempts < max_attempts:
-        attempts += 1
+    # Random values with different magnitudes
+    np.random.seed(42)  # Reproducible
+    test_values.extend(np.random.uniform(-1000, 1000, num_weights // 2))
+    test_values.extend(np.random.uniform(-1, 1, num_weights // 4))
+    test_values.extend(np.random.exponential(scale=100, size=num_weights // 4))
+    
+    for i in range(num_weights):
+        val = test_values[i % len(test_values)]
         
-        # Select value range based on index
-        range_idx = (len(weights) % len(value_ranges))
-        min_val, max_val = value_ranges[range_idx]
+        # Convert to p-adic
+        padic_weight = math_ops.to_padic(val)
         
-        # Generate value
-        if attempts % 3 == 0:
-            # Sometimes use integer values
-            value = float(np.random.randint(int(min_val), int(max_val) + 1))
-        elif attempts % 3 == 1:
-            # Sometimes use simple fractions
-            numerator = np.random.randint(1, 100)
-            denominator = np.random.randint(1, 100)
-            value = numerator / denominator
-            if np.random.rand() > 0.5:
-                value = -value
-        else:
-            # Use random float
-            value = np.random.uniform(min_val, max_val)
+        # Validate immediately
+        if not validate_single_weight(padic_weight, prime, precision):
+            raise RuntimeError(f"Failed to create valid p-adic weight for value {val}")
         
-        try:
-            # Convert to proper p-adic representation
-            weight = math_ops.to_padic(value)
-            
-            # Validate the conversion by reconstructing
-            reconstructed = math_ops.from_padic(weight)
-            
-            # Verify mathematical correctness
-            relative_error = abs(value - reconstructed) / (abs(value) + 1e-10)
-            if relative_error > 1e-6:
-                # Skip values with high reconstruction error
-                continue
-            
-            # Additional validation
-            if not validate_single_weight(weight, prime, precision):
-                continue
-            
-            weights.append(weight)
-            
-        except (ValueError, TypeError, OverflowError) as e:
-            # Skip values that can't be converted
-            continue
+        # Double-check reconstruction
+        reconstructed = math_ops.from_padic(padic_weight)
+        rel_error = abs(reconstructed - val) / (abs(val) + 1e-10)
+        
+        if rel_error > 1e-6:
+            raise RuntimeError(f"Reconstruction error {rel_error} too high for value {val}")
+        
+        weights.append(padic_weight)
     
-    if len(weights) < num_weights:
-        raise ValueError(
-            f"Could not create enough valid p-adic weights. "
-            f"Created {len(weights)} out of {num_weights} requested. "
-            f"Consider adjusting value ranges or precision."
-        )
-    
-    return weights[:num_weights]
+    return weights
+
+def is_prime(n: int) -> bool:
+    """Check if n is prime"""
+    if n < 2:
+        return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
 
 
 def validate_single_weight(weight: PadicWeight, expected_prime: int, expected_precision: int) -> bool:
@@ -757,6 +742,40 @@ def main():
             print(f"  - {test_name}: {type(error).__name__}: {error}")
     
     return len(failed_tests) == 0
+
+
+def test_integration_hard_failures():
+    """Test that system properly hard-fails on invalid inputs"""
+    pipeline = CPU_BurstingPipeline(config=CPUBurstingConfig())
+    
+    # Test 1: Empty weights
+    try:
+        pipeline.decompress([], 128, {})
+        assert False, "Should have failed on empty weights"
+    except ValueError as e:
+        assert "Empty weight list" in str(e)
+    
+    # Test 2: Invalid weight structure
+    try:
+        class FakeWeight:
+            def __init__(self):
+                self.prime = 251
+                # Missing digits, precision, valuation
+        
+        pipeline.decompress([FakeWeight()], 128, {'test': True})
+        assert False, "Should have failed on invalid weight"
+    except AttributeError as e:
+        assert "missing" in str(e) and "attribute" in str(e)
+    
+    # Test 3: Invalid precision
+    try:
+        weights = create_real_padic_weights(10)
+        pipeline.decompress(weights, -1, {'test': True})
+        assert False, "Should have failed on negative precision"
+    except ValueError as e:
+        assert "Invalid target precision" in str(e)
+    
+    print("✓ All hard failure tests passed")
 
 
 if __name__ == "__main__":
