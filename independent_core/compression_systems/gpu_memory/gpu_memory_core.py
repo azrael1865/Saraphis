@@ -46,6 +46,11 @@ class GPUMemoryBlock:
     access_count: int = 0
     is_free: bool = False
     stream_id: Optional[int] = None
+    # AutoSwap fields
+    priority_score: float = 0.0
+    doa_score: float = 0.0
+    swap_candidate: bool = False
+    tensor_id: Optional[str] = None
 
 
 @dataclass
@@ -144,9 +149,19 @@ class GPUMemoryOptimizer:
         self.brain_core = None
         self.training_manager = None
         self.compression_systems = {}
+        self.smart_pool = None  # SmartPool integration
+        self.autoswap_manager = None  # AutoSwap integration
         
         # Background optimization
         self.optimization_active = True
+        
+        # Initialize SmartPool if enabled
+        if config.get('enable_smart_pool', True):
+            self._initialize_smart_pool()
+            
+        # Initialize AutoSwap if enabled
+        if config.get('enable_autoswap', True):
+            self._initialize_autoswap()
         self.optimization_thread = threading.Thread(target=self._optimization_loop, daemon=True)
         self.optimization_thread.start()
         
@@ -229,14 +244,28 @@ class GPUMemoryOptimizer:
         warnings = []
         
         try:
-            # Optimize each device
-            for device_id in range(self.device_count):
-                device_result = await self._optimize_device_memory_async(device_id)
-                total_memory_freed += device_result.memory_freed_mb
-                total_streams_optimized += device_result.streams_optimized
-                total_fragmentation_reduced += device_result.fragmentation_reduced
-                recommendations.extend(device_result.recommendations)
-                warnings.extend(device_result.warnings)
+            # Use SmartPool optimization if available
+            if self.smart_pool is not None:
+                smartpool_result = self.smart_pool.optimize_memory()
+                total_memory_freed += smartpool_result.memory_freed_mb
+                total_streams_optimized += smartpool_result.streams_optimized
+                total_fragmentation_reduced += smartpool_result.fragmentation_reduced
+                recommendations.extend(smartpool_result.recommendations)
+                warnings.extend(smartpool_result.warnings)
+                
+                # Check if 13.3% target achieved
+                if self.smart_pool.statistics.target_achieved:
+                    recommendations.append("✓ SmartPool achieved 13.3% fragmentation reduction target")
+            else:
+                # Fallback to standard optimization
+                # Optimize each device
+                for device_id in range(self.device_count):
+                    device_result = await self._optimize_device_memory_async(device_id)
+                    total_memory_freed += device_result.memory_freed_mb
+                    total_streams_optimized += device_result.streams_optimized
+                    total_fragmentation_reduced += device_result.fragmentation_reduced
+                    recommendations.extend(device_result.recommendations)
+                    warnings.extend(device_result.warnings)
             
             # Global optimization
             await self._global_memory_optimization()
@@ -338,6 +367,19 @@ class GPUMemoryOptimizer:
             available_memory = self._get_available_memory()
             if estimated_memory_mb > available_memory:
                 self.logger.warning(f"Requested memory ({estimated_memory_mb}MB) exceeds available ({available_memory}MB)")
+            
+            # Use SmartPool if available for optimized allocation
+            if self.smart_pool is not None:
+                from .smart_pool import AllocationRequest
+                request = AllocationRequest(
+                    size=int(estimated_memory_mb * 1024 * 1024),  # Convert to bytes
+                    device_id=0,  # Default to first device
+                    hint_lifetime=300.0 if computation_type == 'training' else 60.0,
+                    hint_access_pattern=computation_type
+                )
+                allocation_result = self.smart_pool.allocate_memory(request)
+                if allocation_result:
+                    self.logger.debug(f"SmartPool allocation successful for {estimated_memory_mb}MB")
             
             # Pre-allocate if needed
             if computation_type == 'training':
@@ -1049,6 +1091,79 @@ class GPUMemoryOptimizer:
                 for i in reversed(blocks_to_remove):
                     del self.memory_blocks[device_id][i]
     
+    def register_tensor_for_autoswap(self, tensor: torch.Tensor, tensor_id: Optional[str] = None,
+                                    priority: Optional[str] = None) -> str:
+        """Register a tensor for AutoSwap management"""
+        if not self.autoswap_manager:
+            raise RuntimeError("AutoSwap not initialized")
+        
+        if tensor_id is None:
+            tensor_id = f"tensor_{id(tensor)}_{int(time.time() * 1000)}"
+        
+        # Import SwapPriority
+        from .doa_scorer import SwapPriority
+        
+        # Map priority string to enum
+        priority_map = {
+            'critical': SwapPriority.CRITICAL,
+            'high': SwapPriority.HIGH,
+            'medium': SwapPriority.MEDIUM,
+            'low': SwapPriority.LOW,
+            'idle': SwapPriority.IDLE
+        }
+        swap_priority = priority_map.get(priority, SwapPriority.MEDIUM)
+        
+        # Register with AutoSwap
+        self.autoswap_manager.register_tensor(tensor_id, tensor, swap_priority)
+        
+        # Track in memory blocks
+        with self.memory_lock:
+            device_id = tensor.device.index if tensor.is_cuda else -1
+            if device_id >= 0:
+                block = GPUMemoryBlock(
+                    ptr=tensor.data_ptr(),
+                    size=tensor.numel() * tensor.element_size(),
+                    dtype=tensor.dtype,
+                    device=tensor.device,
+                    allocated_time=time.time(),
+                    last_accessed=time.time(),
+                    tensor_id=tensor_id,
+                    priority_score=swap_priority.value / 4.0,  # Normalize to 0-1
+                    swap_candidate=swap_priority.value >= SwapPriority.MEDIUM.value
+                )
+                self.memory_blocks[device_id].append(block)
+        
+        return tensor_id
+    
+    def record_tensor_access(self, tensor_id: str, offset: int = 0, length: Optional[int] = None) -> None:
+        """Record tensor access for DOA tracking"""
+        if self.autoswap_manager:
+            self.autoswap_manager.record_access(tensor_id, offset, length)
+            
+            # Update memory block access time
+            with self.memory_lock:
+                for device_blocks in self.memory_blocks.values():
+                    for block in device_blocks:
+                        if block.tensor_id == tensor_id:
+                            block.last_accessed = time.time()
+                            block.access_count += 1
+                            break
+    
+    def handle_memory_pressure(self, required_bytes: int, device_id: int = 0) -> bool:
+        """Handle memory pressure using AutoSwap"""
+        if not self.autoswap_manager:
+            self.logger.warning("AutoSwap not available for memory pressure handling")
+            return False
+        
+        return self.autoswap_manager.handle_memory_pressure(required_bytes, device_id)
+    
+    def swap_in_tensor(self, tensor_id: str, device_id: int = 0) -> Optional[torch.Tensor]:
+        """Swap a tensor back to GPU"""
+        if not self.autoswap_manager:
+            raise RuntimeError("AutoSwap not initialized")
+        
+        return self.autoswap_manager.swap_in_tensor(tensor_id, device_id)
+    
     def _track_allocation(self, tensor: torch.Tensor, memory_mb: float) -> None:
         """Track tensor allocation."""
         try:
@@ -1401,9 +1516,63 @@ class GPUMemoryOptimizer:
             if device_id in self.memory_pools:
                 self.memory_pools[device_id].clear()
     
+    def _initialize_smart_pool(self) -> None:
+        """Initialize SmartPool memory management system"""
+        try:
+            from .smart_pool import integrate_smartpool_with_gpu_optimizer
+            self.smart_pool = integrate_smartpool_with_gpu_optimizer(self)
+            self.logger.info("SmartPool memory management initialized - targeting 13.3% fragmentation reduction")
+        except ImportError as e:
+            self.logger.warning(f"SmartPool not available: {e}")
+            self.smart_pool = None
+        except Exception as e:
+            self.logger.error(f"Failed to initialize SmartPool: {e}")
+            self.smart_pool = None
+    
+    def _initialize_autoswap(self) -> None:
+        """Initialize AutoSwap priority-based memory swapping system"""
+        try:
+            from .auto_swap_manager import AutoSwapManager, AutoSwapConfig, SwapPolicy
+            
+            # Create AutoSwap configuration
+            autoswap_config = AutoSwapConfig(
+                swap_policy=SwapPolicy(self.config.get('swap_policy', 'balanced')),
+                memory_pressure_thresholds={
+                    'low': self.config.get('swap_threshold_low', 0.5),
+                    'moderate': self.config.get('swap_threshold_moderate', 0.75),
+                    'high': self.config.get('swap_threshold_high', 0.9),
+                    'critical': self.config.get('swap_threshold_critical', 0.95)
+                },
+                min_swap_size_mb=self.config.get('min_swap_size_mb', 1.0),
+                max_swap_size_mb=self.config.get('max_swap_size_mb', 1024.0),
+                enable_predictive_swapping=self.config.get('enable_predictive_swapping', True),
+                enable_batch_swapping=self.config.get('enable_batch_swapping', True),
+                monitoring_interval_seconds=self.config.get('swap_monitoring_interval', 1.0)
+            )
+            
+            # Initialize AutoSwap
+            self.autoswap_manager = AutoSwapManager(self, autoswap_config)
+            
+            # Start monitoring if requested
+            if self.config.get('autoswap_monitoring', True):
+                self.autoswap_manager.start_monitoring()
+            
+            self.logger.info("AutoSwap priority-based memory swapping initialized")
+            
+        except ImportError as e:
+            self.logger.warning(f"AutoSwap not available: {e}")
+            self.autoswap_manager = None
+        except Exception as e:
+            self.logger.error(f"Failed to initialize AutoSwap: {e}")
+            self.autoswap_manager = None
+    
     def shutdown(self) -> None:
         """Shutdown the GPU memory optimizer and clean up resources."""
         self.logger.info("Shutting down GPU memory optimizer")
+        
+        # Stop AutoSwap monitoring
+        if self.autoswap_manager:
+            self.autoswap_manager.stop_monitoring()
         
         # Stop optimization thread
         self.optimization_active = False

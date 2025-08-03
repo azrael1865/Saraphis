@@ -56,6 +56,15 @@ from .hybrid_padic_gpu_ops import (
     HybridPadicGPUOptimizer,
     HybridPadicGPUManager
 )
+from .memory_pressure_handler import (
+    MemoryPressureHandler,
+    PressureHandlerConfig,
+    ProcessingMode,
+    MemoryState,
+    MemoryMetrics,
+    PerformanceMetrics,
+    integrate_memory_pressure_handler
+)
 
 __all__ = [
     'PadicWeight',
@@ -100,5 +109,12 @@ __all__ = [
     'GPUOperationConfig',
     'HybridPadicGPUOps',
     'HybridPadicGPUOptimizer',
-    'HybridPadicGPUManager'
+    'HybridPadicGPUManager',
+    'MemoryPressureHandler',
+    'PressureHandlerConfig',
+    'ProcessingMode',
+    'MemoryState',
+    'MemoryMetrics',
+    'PerformanceMetrics',
+    'integrate_memory_pressure_handler'
 ]

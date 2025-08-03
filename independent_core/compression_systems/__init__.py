@@ -27,6 +27,17 @@ from .sheaf import (
     SheafSystemOrchestrator
 )
 
+# Import system integration coordinator
+from .system_integration_coordinator import (
+    SystemIntegrationCoordinator,
+    SystemConfiguration,
+    OptimizationStrategy,
+    CompressionRequest,
+    CompressionResult,
+    create_compression_system,
+    load_compression_system
+)
+
 __all__ = [
     # Tensor decomposition
     'HOSVDDecomposer',
@@ -42,7 +53,16 @@ __all__ = [
     # Sheaf compression
     'SheafCompressionSystem',
     'SheafAdvancedIntegration',
-    'SheafSystemOrchestrator'
+    'SheafSystemOrchestrator',
+    
+    # System integration
+    'SystemIntegrationCoordinator',
+    'SystemConfiguration',
+    'OptimizationStrategy',
+    'CompressionRequest',
+    'CompressionResult',
+    'create_compression_system',
+    'load_compression_system'
 ]
 
-__version__ = '1.0.0'
+__version__ = '2.0.0'  # Updated for complete system integration

@@ -18169,6 +18169,180 @@ class Brain:
                 'basic_usage': current_usage if 'current_usage' in locals() else {}
             }
     
+    def run_integration_tests(self, test_suite: str = 'full_integration', 
+                            options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Run comprehensive integration tests on the Brain system.
+        
+        This executes the production integration testing framework to validate
+        all system components, integrations, performance, and security.
+        
+        Args:
+            test_suite: Name of test suite to execute. Options:
+                - 'full_integration': Complete system integration testing (default)
+                - 'component_integration': Component-level integration testing
+                - 'performance_integration': Performance-focused integration testing
+                - 'security_integration': Security-focused integration testing
+                - 'production_readiness': Production readiness validation
+            options: Optional test configuration:
+                - verbose: Enable verbose output (default: False)
+                - fail_fast: Stop on first failure (default: False)
+                - parallel: Enable parallel test execution (default: True)
+                - timeout: Test timeout in seconds (default: 300)
+        
+        Returns:
+            Dictionary containing:
+            - success: Whether all tests passed
+            - test_session_id: Unique identifier for this test session
+            - results: Detailed test results
+            - report: Comprehensive test report
+            - execution_time: Total execution time
+            - recommendations: List of recommendations based on results
+        
+        Example:
+            >>> # Run full integration tests
+            >>> result = brain.run_integration_tests()
+            >>> if result['success']:
+            >>>     print(f"All tests passed! Session: {result['test_session_id']}")
+            >>> else:
+            >>>     print(f"Tests failed. Issues: {result['results']['summary']['failed_tests']}")
+            >>> 
+            >>> # Run security-focused tests
+            >>> security_result = brain.run_integration_tests(
+            >>>     test_suite='security_integration',
+            >>>     options={'verbose': True}
+            >>> )
+        """
+        try:
+            self.logger.info(f"Starting integration tests: {test_suite}")
+            
+            # Check if production testing is available
+            try:
+                from production_testing import IntegrationTestManager
+                TESTING_AVAILABLE = True
+            except ImportError:
+                TESTING_AVAILABLE = False
+                self.logger.warning("Production testing framework not available")
+            
+            if not TESTING_AVAILABLE:
+                return {
+                    'success': False,
+                    'error': 'Production testing framework not installed',
+                    'recommendations': ['Install production_testing module']
+                }
+            
+            # Configure integration test manager
+            test_config = {
+                'orchestrator': {
+                    'max_parallel_tests': 10,
+                    'test_timeout': options.get('timeout', 300) if options else 300
+                },
+                'components': {
+                    'max_retries': 3,
+                    'critical_components': ['brain_core', 'domain_registry', 'security_system']
+                },
+                'system': {
+                    'max_integration_latency': 200,
+                    'min_integration_throughput': 100,
+                    'max_integration_error_rate': 0.01
+                },
+                'performance': {
+                    'max_response_time': 1000,
+                    'min_throughput': 100,
+                    'max_cpu_usage': 80,
+                    'max_memory_usage': 80
+                },
+                'security': {
+                    'gdpr_compliance': self.config.brain_config.enable_monitoring if self.config.brain_config else True,
+                    'max_auth_failure_rate': 0.01,
+                    'min_password_entropy': 60
+                },
+                'reporting': {
+                    'report_format': 'json',
+                    'include_detailed_results': options.get('verbose', False) if options else False,
+                    'include_recommendations': True
+                }
+            }
+            
+            # Initialize test manager
+            test_manager = IntegrationTestManager(test_config)
+            
+            # Execute test suite
+            test_options = options or {}
+            test_result = test_manager.execute_test_suite(test_suite, test_options)
+            
+            if not test_result['success']:
+                self.logger.error(f"Integration tests failed: {test_result.get('error', 'Unknown error')}")
+                return test_result
+            
+            # Extract key information from results
+            summary = test_result['results']['summary']
+            report = test_result['report']
+            
+            # Generate Brain-specific recommendations
+            recommendations = []
+            
+            # Add report recommendations
+            if 'recommendations' in report:
+                recommendations.extend([rec['description'] for rec in report['recommendations']])
+            
+            # Add Brain-specific recommendations based on results
+            if summary['critical_failures'] > 0:
+                recommendations.insert(0, "CRITICAL: Address critical failures before production deployment")
+            
+            if summary['performance_issues'] > 5:
+                recommendations.append("Consider performance optimization for affected components")
+            
+            if summary['security_issues'] > 0:
+                recommendations.append("Security vulnerabilities detected - review and remediate immediately")
+            
+            if summary['integration_issues'] > 3:
+                recommendations.append("Review integration patterns and consider adding circuit breakers")
+            
+            # Log summary
+            self.logger.info(
+                f"Integration tests completed - "
+                f"Success rate: {summary['success_rate']*100:.1f}%, "
+                f"Total: {summary['total_tests']}, "
+                f"Passed: {summary['passed_tests']}, "
+                f"Failed: {summary['failed_tests']}"
+            )
+            
+            # Return comprehensive result
+            return {
+                'success': test_result['success'],
+                'test_session_id': test_result['test_session_id'],
+                'test_suite': test_suite,
+                'results': test_result['results'],
+                'report': report,
+                'execution_time': test_result['execution_metrics']['execution_time_seconds'],
+                'execution_metrics': test_result['execution_metrics'],
+                'recommendations': recommendations,
+                'report_file': report.get('report_file', None),
+                'summary': {
+                    'overall_status': report['executive_summary']['overall_status'],
+                    'success_rate': summary['success_rate'],
+                    'total_tests': summary['total_tests'],
+                    'passed_tests': summary['passed_tests'],
+                    'failed_tests': summary['failed_tests'],
+                    'critical_failures': summary['critical_failures'],
+                    'issues': {
+                        'performance': summary['performance_issues'],
+                        'security': summary['security_issues'],
+                        'integration': summary['integration_issues']
+                    }
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Integration test execution failed: {e}")
+            return {
+                'success': False,
+                'error': f'Integration test failed: {str(e)}',
+                'traceback': traceback.format_exc(),
+                'recommendations': ['Fix integration test infrastructure errors']
+            }
+    
     def _collect_system_metrics(self) -> Dict[str, Any]:
         """
         Internal method to collect comprehensive system metrics.

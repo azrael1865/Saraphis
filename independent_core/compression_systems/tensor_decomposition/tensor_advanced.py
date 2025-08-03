@@ -24,7 +24,7 @@ import scipy.optimize
 import scipy.linalg
 from sklearn.decomposition import TruncatedSVD
 from sklearn.ensemble import RandomForestRegressor
-import optuna
+# # import optuna  # Commented out for building - uncomment on NVIDIA GPU computer  # Commented out for building - uncomment on NVIDIA GPU computer
 import gpytorch
 from gpytorch.models import ExactGP
 from gpytorch.means import ConstantMean
