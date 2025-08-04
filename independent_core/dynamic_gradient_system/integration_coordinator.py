@@ -13,11 +13,9 @@ import json
 from datetime import datetime
 import os
 
-from .direction_state import DirectionState
-from .direction_validator import DirectionValidator
-from .direction_bounder import DirectionBounder
-from .progress_monitor import ProgressMonitor
-from .simple_switcher import SimpleSwitcher
+from ..gac_system.direction_state import DirectionStateManager as DirectionState
+from ..gac_system.direction_validator import DirectionValidator
+from ..gac_system.enhanced_bounder import EnhancedGradientBounder as DirectionBounder
 
 logger = logging.getLogger(__name__)
 
@@ -68,17 +66,50 @@ class IntegrationCoordinator:
         
         try:
             # Initialize all components with validated configuration
-            self.direction_state = DirectionState()
+            self.direction_state = DirectionState({
+                'history_size': config.get('window_size', 10),
+                'smoothing_factor': 0.8,
+                'confidence_threshold': 0.7
+            })
             
-            self.direction_validator = DirectionValidator(
-                min_dwell_time=config.get('min_dwell_time', 1.0)
-            )
+            self.direction_validator = DirectionValidator({
+                'validation_window': config.get('window_size', 10),
+                'consistency_threshold': 0.8,
+                'anomaly_threshold': 0.7
+            })
             
-            self.direction_bounder = DirectionBounder(
-                max_gradient_norm=config.get('max_gradient_norm', 1.0)
-            )
+            self.direction_bounder = DirectionBounder({
+                'ascent_max_norm': config.get('max_gradient_norm', 1.0),
+                'descent_max_norm': config.get('max_gradient_norm', 1.0),
+                'stable_max_norm': config.get('max_gradient_norm', 1.0),
+                'oscillating_max_norm': config.get('max_gradient_norm', 1.0)
+            })
             
-            self.progress_monitor = ProgressMonitor(
+            # Create simple progress monitor and switcher classes
+            class SimpleProgressMonitor:
+                def __init__(self, window_size=10):
+                    self.window_size = window_size
+                    self.loss_history = []
+                    self.progress_threshold = 0.001
+                
+                def update(self, loss):
+                    self.loss_history.append(loss)
+                    if len(self.loss_history) > self.window_size:
+                        self.loss_history.pop(0)
+                
+                def get_progress(self):
+                    if len(self.loss_history) < 2:
+                        return 0.0
+                    return abs(self.loss_history[-1] - self.loss_history[0])
+            
+            class SimpleSwitcher:
+                def __init__(self, progress_threshold=0.001):
+                    self.progress_threshold = progress_threshold
+                
+                def should_switch(self, progress):
+                    return progress < self.progress_threshold
+            
+            self.progress_monitor = SimpleProgressMonitor(
                 window_size=config.get('window_size', 10)
             )
             

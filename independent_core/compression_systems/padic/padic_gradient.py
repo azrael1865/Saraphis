@@ -185,7 +185,7 @@ class PadicGradientCompressor:
         return filtered
     
     def _compute_adaptive_precision(self, gradient: torch.Tensor) -> int:
-        """Compute adaptive precision based on gradient statistics"""
+        """Compute adaptive precision based on gradient statistics - SAFE PRECISION ONLY"""
         # Analyze gradient magnitude distribution
         grad_abs = torch.abs(gradient)
         grad_max = torch.max(grad_abs).item()
@@ -198,20 +198,28 @@ class PadicGradientCompressor:
         else:
             dynamic_range = 1.0
         
-        # Map dynamic range to precision
+        # SAFETY: Get prime from p-adic system
+        prime = getattr(self.padic_system, 'prime', 257)
+        
+        # SAFETY: Calculate max safe precision for this prime
+        import math
+        safe_threshold = 1e12
+        max_safe_precision = int(math.log(safe_threshold) / math.log(prime))
+        
+        # Map dynamic range to precision - WITHIN SAFE LIMITS
         base_precision = self.padic_system.precision
         
         if dynamic_range > 1000:
-            precision = min(base_precision + 16, 64)
+            precision = min(base_precision + 2, max_safe_precision)  # Reduced increase
         elif dynamic_range > 100:
-            precision = min(base_precision + 8, 48)
+            precision = min(base_precision + 1, max_safe_precision)  # Reduced increase
         elif dynamic_range > 10:
-            precision = min(base_precision + 4, 40)
+            precision = base_precision  # No increase for moderate range
         else:
             precision = base_precision
         
-        # Ensure precision is within bounds
-        precision = max(8, min(precision, 128))
+        # SAFETY: Ensure precision never exceeds safe limits
+        precision = max(1, min(precision, max_safe_precision))
         
         return precision
     

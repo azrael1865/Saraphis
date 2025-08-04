@@ -23,19 +23,19 @@ import statistics
 # PyTorch training infrastructure will be imported after Brain class definition
 
 # Import Brain components
-from brain_core import BrainCore, BrainConfig, PredictionResult
-from domain_registry import DomainRegistry, DomainConfig, DomainStatus, DomainType
-from domain_router import DomainRouter, RoutingStrategy
-from domain_state import DomainStateManager
-from training_manager import TrainingManager, TrainingConfig, TrainingStatus
-from progress_tracker import ProgressTracker, AlertSeverity
-from error_recovery_system import integrate_error_recovery, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord
+from .brain_core import BrainCore, BrainConfig, PredictionResult
+from .domain_registry import DomainRegistry, DomainConfig, DomainStatus, DomainType
+from .domain_router import DomainRouter, RoutingStrategy
+from .domain_state import DomainStateManager
+from .training_manager import TrainingManager, TrainingConfig, TrainingStatus
+from .progress_tracker import ProgressTracker, AlertSeverity
+from .error_recovery_system import integrate_error_recovery, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord
 
 # Import Brain-GAC Integration components
 try:
-    from brain_gac_integration import BrainGACIntegration
-    from brain_gac_coordinator import BrainGACCoordinator
-    from brain_gac_optimizer import BrainGACOptimizer
+    from .brain_gac_integration import BrainGACIntegration
+    from .brain_gac_coordinator import BrainGACCoordinator
+    from .brain_gac_optimizer import BrainGACOptimizer
     BRAIN_GAC_AVAILABLE = True
 except ImportError as e:
     BRAIN_GAC_AVAILABLE = False
@@ -43,12 +43,12 @@ except ImportError as e:
 
 # Import Proof System components
 try:
-    from proof_system.proof_integration_manager import ProofIntegrationManager
-    from proof_system.rule_based_engine import RuleBasedProofEngine
-    from proof_system.ml_based_engine import MLBasedProofEngine
-    from proof_system.cryptographic_engine import CryptographicProofEngine
-    from proof_system.confidence_generator import ConfidenceGenerator
-    from proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
+    from .proof_system.proof_integration_manager import ProofIntegrationManager
+    from .proof_system.rule_based_engine import RuleBasedProofEngine
+    from .proof_system.ml_based_engine import MLBasedProofEngine
+    from .proof_system.cryptographic_engine import CryptographicProofEngine
+    from .proof_system.confidence_generator import ConfidenceGenerator
+    from .proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
     PROOF_SYSTEM_AVAILABLE = True
 except ImportError as e:
     PROOF_SYSTEM_AVAILABLE = False
@@ -56,10 +56,10 @@ except ImportError as e:
 
 # Import Production Monitoring components
 try:
-    from production_monitoring_system import ProductionMonitoringSystem
-    from production_observability import ObservabilityManager
-    from production_telemetry import TelemetryManager
-    from production_metrics_collector import MetricsManager
+    from .production_monitoring_system import ProductionMonitoringSystem
+    from .production_observability import ObservabilityManager
+    from .production_telemetry import TelemetryManager
+    from .production_metrics_collector import MetricsManager
     PRODUCTION_MONITORING_AVAILABLE = True
 except ImportError as e:
     PRODUCTION_MONITORING_AVAILABLE = False
@@ -67,10 +67,10 @@ except ImportError as e:
 
 # Import Production Security Hardening components
 try:
-    from production_security_hardening import SecurityHardeningManager, ComplianceManager
-    from production_security_auditor import SecurityAuditor
-    from production_security_enforcer import SecurityEnforcer
-    from production_security_validator import SecurityValidator
+    from .production_security_hardening import SecurityHardeningManager, ComplianceManager
+    from .production_security_auditor import SecurityAuditor
+    from .production_security_enforcer import SecurityEnforcer
+    from .production_security_validator import SecurityValidator
     PRODUCTION_SECURITY_HARDENING_AVAILABLE = True
 except ImportError as e:
     PRODUCTION_SECURITY_HARDENING_AVAILABLE = False
@@ -78,7 +78,7 @@ except ImportError as e:
 
 # Import Orchestrator components
 try:
-    from orchestrators import (
+    from .orchestrators import (
         BrainOrchestrator,
         BrainDecisionEngine,
         ReasoningOrchestrator,

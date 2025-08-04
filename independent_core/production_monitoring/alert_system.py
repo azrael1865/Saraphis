@@ -634,7 +634,8 @@ class ProductionAlertSystem:
     
     def _log_notification(self, alert: Alert):
         """Log notification (already done in _log_alert)"""
-        pass
+        # NO EMPTY IMPLEMENTATIONS - HARD FAILURE
+        raise NotImplementedError("_log_notification must be implemented")
     
     def _create_response_action(self, alert: Alert, action: str):
         """Create a response action for an alert"""

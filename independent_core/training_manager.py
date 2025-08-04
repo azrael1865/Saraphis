@@ -57,7 +57,7 @@ except ImportError as e:
 
 # Import error recovery system
 try:
-    from error_recovery_system import CheckpointRecovery, StateRollback, ErrorRecoveryManager, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord, RecoveryCheckpoint
+    from .error_recovery_system import CheckpointRecovery, StateRollback, ErrorRecoveryManager, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord, RecoveryCheckpoint
 except ImportError as e:
     if DISABLE_FALLBACKS:
         raise ImportError(f"FALLBACK DISABLED: error_recovery_system import failed: {e}")
@@ -105,11 +105,9 @@ except ImportError as e:
 
 # Direction Switching Components - Task 2.1.1
 try:
-    from .dynamic_gradient_system.direction_state import DirectionState
-    from .dynamic_gradient_system.direction_validator import DirectionValidator
-    from .dynamic_gradient_system.direction_bounder import DirectionBounder
-    from .dynamic_gradient_system.progress_monitor import ProgressMonitor
-    from .dynamic_gradient_system.simple_switcher import SimpleSwitcher
+    from .gac_system.direction_state import DirectionStateManager as DirectionState
+    from .gac_system.direction_validator import DirectionValidator
+    from .gac_system.enhanced_bounder import EnhancedGradientBounder as DirectionBounder
     from .dynamic_gradient_system.integration_coordinator import IntegrationCoordinator
     DIRECTION_SWITCHING_AVAILABLE = True
 except ImportError as e:
@@ -2506,7 +2504,8 @@ class TrainingManager:
             elif isinstance(config, dict) and 'learning_rate' in config:
                 lr = config['learning_rate']
             else:
-                return 0.001  # Default fallback
+                # NO FALLBACKS - HARD FAILURE
+                raise ValueError(f"Cannot extract learning rate from config: {config}")
             
             # Handle various formats
             if isinstance(lr, dict):

@@ -11,7 +11,7 @@ import numpy as np
 from typing import Dict, Any, Optional, Tuple, List, Union
 import time
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import psutil
 import multiprocessing as mp
@@ -25,11 +25,13 @@ try:
     from ..padic.padic_encoder import PadicWeight, validate_single_weight
     from ..padic.padic_advanced import PadicDecompressionEngine
     from ..padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
+    from ..padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
 except ImportError:
     # Direct imports for testing
     from compression_systems.padic.padic_encoder import PadicWeight, validate_single_weight
     from compression_systems.padic.padic_advanced import PadicDecompressionEngine
     from compression_systems.padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
+    from compression_systems.padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
 
 
 class DecompressionMode(Enum):
@@ -143,6 +145,15 @@ class CPUDecompressionEngine:
         self.prime = prime
         self.min_channel_size = 10  # Add minimum channel size for consistent sizing
         
+        # Initialize safe reconstructor with appropriate config
+        self.reconstruction_config = ReconstructionConfig(
+            prime=self.prime,
+            max_safe_precision=6,  # Safe limit for prime=257
+            method=ReconstructionMethod.HYBRID,
+            overflow_threshold=1e12
+        )
+        self.safe_reconstructor = SafePadicReconstructor(self.reconstruction_config)
+        
         # Determine number of workers
         if config.num_cpu_workers == -1:
             self.num_workers = mp.cpu_count()
@@ -150,10 +161,9 @@ class CPUDecompressionEngine:
             self.num_workers = config.num_cpu_workers
         
         # Initialize executor
-        if config.use_multiprocessing:
-            self.executor = ProcessPoolExecutor(max_workers=self.num_workers)
-        else:
-            self.executor = ThreadPoolExecutor(max_workers=self.num_workers)
+        # Note: Using ThreadPoolExecutor to avoid thread lock serialization issues
+        # ProcessPoolExecutor cannot pickle threading.RLock objects
+        self.executor = ThreadPoolExecutor(max_workers=self.num_workers)
         
         # Set CPU affinity if specified
         if config.cpu_affinity:
@@ -176,8 +186,8 @@ class CPUDecompressionEngine:
             p = psutil.Process()
             p.cpu_affinity(cpu_list)
         except Exception as e:
-            # CPU affinity not supported on all platforms
-            pass
+            # CPU affinity not supported on all platforms - HARD FAILURE
+            raise RuntimeError(f"CPU affinity setup failed: {e}")
     
     def decompress_batch_cpu(self, padic_weights: List[PadicWeight], 
                             target_precision: int,
@@ -256,8 +266,8 @@ class CPUDecompressionEngine:
             # Extract mantissa and exponent channels
             mantissa, exponent = self._extract_channels(weight)
             
-            # Reconstruct float values
-            reconstructed = self._reconstruct_float(mantissa, exponent, target_precision)
+            # CRITICAL FIX: Use weight.precision instead of target_precision
+            reconstructed = self._reconstruct_float(mantissa, exponent, weight.precision, weight)
             batch_data.append(reconstructed)
         
         return np.array(batch_data, dtype=np.float32)
@@ -292,13 +302,14 @@ class CPUDecompressionEngine:
         return mantissa, exponent
     
     def _reconstruct_float(self, mantissa: np.ndarray, exponent: np.ndarray, 
-                         precision: int) -> float:
-        """Reconstruct float from mantissa and exponent channels using proper p-adic arithmetic
+                         precision: int, weight: PadicWeight) -> float:
+        """Reconstruct float using safe reconstruction to prevent overflow
         
         Args:
             mantissa: Array of p-adic digits (coefficients)
             exponent: Array encoding valuation [sign, magnitude, ...]
-            precision: Number of p-adic digits to use in reconstruction
+            precision: Number of p-adic digits to use in reconstruction (weight.precision)
+            weight: Original PadicWeight for validation
             
         Returns:
             Reconstructed float value
@@ -312,50 +323,42 @@ class CPUDecompressionEngine:
         valuation_magnitude = int(exponent[1])
         valuation = int(valuation_sign * valuation_magnitude)
         
-        # Reconstruct value from p-adic digits using formula: Σ(d_i * p^i) * p^v
-        # First sum the digit contributions
-        value = 0.0
-        prime_power = 1.0
+        # Create safe weight object for reconstruction
+        from ..padic.safe_reconstruction import PadicWeight as SafeWeight
         
-        # Use only the requested precision
-        effective_precision = min(precision, len(mantissa))
+        # Use actual digits from weight, not mantissa (which may be padded)
+        effective_precision = min(precision, len(weight.digits))
         
-        for i in range(effective_precision):
-            digit = mantissa[i]
+        safe_weight = SafeWeight(
+            digits=weight.digits[:effective_precision],
+            valuation=valuation,
+            precision=effective_precision,
+            prime=self.prime
+        )
+        
+        try:
+            # Use safe reconstruction to prevent overflow
+            value = self.safe_reconstructor.reconstruct(safe_weight, effective_precision)
             
-            # Validate digit is in valid range [0, prime)
-            if digit < 0 or digit >= self.prime:
-                # Clamp to valid range to handle numerical errors
-                digit = max(0, min(digit, self.prime - 1))
+            # Clamp to float32 range to prevent overflow downstream
+            max_float32 = np.finfo(np.float32).max
+            min_float32 = np.finfo(np.float32).min
             
-            value += digit * prime_power
-            prime_power *= self.prime
-        
-        # Apply valuation (p-adic exponent)
-        if valuation != 0:
-            if valuation > 0:
-                # Positive valuation: multiply by prime^valuation
-                for _ in range(valuation):
-                    value *= self.prime
-            else:
-                # Negative valuation: divide by prime^|valuation|
-                for _ in range(abs(valuation)):
-                    value /= self.prime
-        
-        # Handle special cases
-        if np.isnan(value) or np.isinf(value):
-            raise RuntimeError(f"P-adic reconstruction failed: invalid result {value}")
-        
-        # Clamp to float32 range to prevent overflow
-        max_float32 = np.finfo(np.float32).max
-        min_float32 = np.finfo(np.float32).min
-        
-        if value > max_float32:
-            value = max_float32
-        elif value < min_float32:
-            value = min_float32
-        
-        return float(value)
+            if value > max_float32:
+                value = max_float32
+            elif value < min_float32:
+                value = min_float32
+            
+            # Handle NaN/inf
+            if np.isnan(value) or np.isinf(value):
+                print(f"Warning: Safe reconstruction returned {value}, using 0.0")
+                value = 0.0
+            
+            return float(value)
+            
+        except (OverflowError, ValueError) as e:
+            # NO FALLBACKS - HARD FAILURE ONLY
+            raise RuntimeError(f"Safe reconstruction failed for weight with precision {effective_precision}, valuation {valuation}: {e}")
     
     def _combine_batch_results(self, batch_results: List[np.ndarray], 
                              metadata: Dict[str, Any]) -> torch.Tensor:
@@ -564,14 +567,14 @@ class CPU_BurstingPipeline:
         info['cpu_batch_size'] = len(weights)
         
         return result, info
-    
+                
     def _decompress_gpu(self, weights: List[PadicWeight], target_precision: int,
                        metadata: Dict[str, Any], decision_info: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """Decompress using GPU with memory pressure monitoring"""
         start_time = time.time()
         
         # Use GPU engine for decompression
-        result, info = self.gpu_engine.decompress_batch(weights, target_precision, metadata)
+        result, info = self.gpu_engine.decompress_progressive(weights, target_precision, metadata)
         
         # Add GPU-specific metadata
         info['decompression_time'] = time.time() - start_time
@@ -612,11 +615,6 @@ class CPU_BurstingPipeline:
         
         return self.current_mode
     
-    def _decompress_gpu(self, padic_weights: List[PadicWeight], 
-                       target_precision: int,
-                       metadata: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        """Decompress using GPU engine"""
-        return self.gpu_engine.decompress_progressive(padic_weights, target_precision, metadata)
     
     def _decompress_cpu(self, padic_weights: List[PadicWeight], 
                        target_precision: int,
@@ -738,9 +736,9 @@ class CPU_BurstingPipeline:
                 
                 time.sleep(0.05)  # 50ms sleep
                 
-            except Exception:
-                # Continue monitoring even if error occurs
-                pass
+            except Exception as e:
+                # NO FALLBACKS - HARD FAILURE
+                raise RuntimeError(f"GPU memory monitoring failed: {e}")
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics"""

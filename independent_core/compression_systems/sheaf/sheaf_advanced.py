@@ -17,7 +17,7 @@ import itertools
 
 from .sheaf_structures import CellularSheaf, RestrictionMap
 from .cohomology_validator import CohomologyValidator
-from ..base import CompressionBase
+from ..base.compression_base import CompressionAlgorithm as CompressionBase
 
 
 class CellularSheafBuilder:

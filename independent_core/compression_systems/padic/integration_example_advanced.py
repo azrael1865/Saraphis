@@ -206,9 +206,11 @@ def demonstrate_gpu_decompression():
         for i in range(100):  # Create 100 weights for batch processing
             coefficients = [i % prime, (i * 2) % prime, (i * 3) % prime, (i * 5) % prime]
             weight = PadicWeight(
-                coefficients=coefficients,
+                value=Fraction(sum(coeff * (prime ** i) for i, coeff in enumerate(coefficients)), 1),
                 prime=prime,
-                precision=len(coefficients)
+                precision=len(coefficients),
+                valuation=0,
+                digits=coefficients
             )
             weights.append(weight)
         
@@ -285,9 +287,11 @@ def demonstrate_padic_optimizers():
     for i in range(10):  # 10 parameters
         coefficients = [i % prime, (i * 2) % prime, (i * 3) % prime]
         weight = PadicWeight(
-            coefficients=coefficients,
+            value=Fraction(sum(coeff * (prime ** i) for i, coeff in enumerate(coefficients)), 1),
             prime=prime,
-            precision=len(coefficients)
+            precision=len(coefficients),
+            valuation=0,
+            digits=coefficients
         )
         params.append(weight)
     
@@ -298,9 +302,11 @@ def demonstrate_padic_optimizers():
     for i in range(len(params)):
         grad_coeffs = [(i + 1) % prime, ((i + 1) * 2) % prime]
         gradient = PadicWeight(
-            coefficients=grad_coeffs + [0],  # Pad to match parameter precision
+            value=Fraction(sum(coeff * (prime ** i) for i, coeff in enumerate(grad_coeffs + [0])), 1),
             prime=prime,
-            precision=3
+            precision=3,
+            valuation=0,
+            digits=grad_coeffs + [0]
         )
         gradients.append(gradient)
     

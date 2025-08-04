@@ -12,19 +12,55 @@ from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from collections import deque
 from pathlib import Path
+from dataclasses import dataclass
 import logging
 
 # Import existing P-adic configuration types for compatibility
 try:
-    from .padic_integration import PadicIntegrationConfig
     from .padic_advanced import HenselLiftingConfig, ClusteringConfig, GPUDecompressionConfig
 except ImportError:
     # Handle direct script execution
     import sys
     import os
     sys.path.append(os.path.dirname(__file__))
-    from padic_integration import PadicIntegrationConfig
     from padic_advanced import HenselLiftingConfig, ClusteringConfig, GPUDecompressionConfig
+
+# Define PadicIntegrationConfig locally to avoid circular import
+@dataclass
+class PadicIntegrationConfig:
+    """Configuration for P-Adic integration"""
+    prime: int = 2999
+    base_precision: int = 100
+    adaptive_precision: bool = True
+    precision_min: int = 50
+    precision_max: int = 500
+    precision_step: int = 50
+    
+    # GAC integration
+    gac_compression_threshold: float = 0.001
+    gac_batch_size: int = 32
+    gac_async_processing: bool = True
+    
+    # Brain Core integration
+    brain_priority: int = 10
+    brain_auto_register: bool = True
+    brain_memory_limit: int = 4 * 1024 * 1024 * 1024  # 4GB
+    
+    # Training integration
+    training_interval: int = 100
+    training_warmup_steps: int = 500
+    training_adaptive_rate: float = 0.1
+    training_monitor_gradients: bool = True
+    
+    # System orchestration
+    orchestrator_threads: int = 4
+    orchestrator_queue_size: int = 1000
+    orchestrator_timeout: float = 30.0
+    
+    # Performance monitoring
+    monitor_interval: float = 1.0
+    monitor_history_size: int = 1000
+    performance_threshold_ms: float = 10.0
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -456,7 +492,7 @@ class PadicServiceConfiguration:
                 'pinned_memory': True,            # Pinned memory transfers
                 'memory_pool_count': 2,           # 2 pools for 16GB card
                 'emergency_workers': 100          # Emergency worker pool
-            }
+                }
             },
             'service': {
                 'max_batch_size': 10000,              # 10x increase

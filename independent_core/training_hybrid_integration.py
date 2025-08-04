@@ -744,8 +744,9 @@ class TrainingHybridIntegration:
                 gpu_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
                 gpu_memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 gpu_memory_usage = gpu_memory_info.used / (1024**3)  # GB
-            except:
-                pass
+            except Exception as e:
+                # NO FALLBACKS - HARD FAILURE
+                raise RuntimeError(f"Failed to get GPU memory info: {e}")
             
             return {
                 'memory_usage_gb': memory_usage,
@@ -1022,8 +1023,8 @@ class TrainingHybridIntegration:
                 'integration_state': self.integration_state.value
             }
         except Exception as e:
-            self.logger.error(f"Failed to calculate system health: {e}")
-            return {'health_score': 0.0, 'health_status': 'unknown'}
+            # NO FALLBACKS - HARD FAILURE
+            raise RuntimeError(f"Failed to calculate system health: {e}")
     
     def _calculate_system_health_score(self) -> float:
         """Calculate system health score"""
@@ -1055,8 +1056,8 @@ class TrainingHybridIntegration:
             return np.mean(score_factors) if score_factors else 0.5
             
         except Exception as e:
-            self.logger.error(f"Failed to calculate system health score: {e}")
-            return 0.0
+            # NO FALLBACKS - HARD FAILURE
+            raise RuntimeError(f"Failed to calculate system health score: {e}")
     
     def _generate_system_recommendations(self) -> List[str]:
         """Generate system-wide recommendations"""

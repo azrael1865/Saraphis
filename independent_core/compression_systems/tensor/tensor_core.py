@@ -19,7 +19,7 @@ from datetime import datetime
 import warnings
 
 # Import base compression class
-from ..base.compression_base import CompressionBase
+from ..base.compression_base import CompressionAlgorithm as CompressionBase
 
 
 class DecompositionType(Enum):

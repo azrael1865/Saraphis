@@ -34,7 +34,7 @@ from .padic_integration import (
 from .padic_service_layer import (
     PadicServiceInterface,
     PadicServiceManager,
-    PadicServiceValidator,
+    PadicServiceValidation,
     PadicServiceMetrics,
     PadicServiceConfig,
     PadicServiceMethod
@@ -95,7 +95,7 @@ __all__ = [
     'shutdown_padic_integration',
     'PadicServiceInterface',
     'PadicServiceManager',
-    'PadicServiceValidator',
+    'PadicServiceValidation',
     'PadicServiceMetrics',
     'PadicServiceConfig',
     'PadicServiceMethod',

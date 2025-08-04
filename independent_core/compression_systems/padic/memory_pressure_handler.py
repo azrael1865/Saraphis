@@ -25,12 +25,10 @@ import warnings
 # Import GPU memory components
 try:
     from ..gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
-    from ..gpu_memory.cpu_bursting_pipeline import CPU_BurstingPipeline, DecompressionMode
     from ..gpu_memory.auto_swap_manager import MemoryPressureLevel
 except ImportError:
     # Direct imports for testing
     from compression_systems.gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
-    from compression_systems.gpu_memory.cpu_bursting_pipeline import CPU_BurstingPipeline, DecompressionMode
     from compression_systems.gpu_memory.auto_swap_manager import MemoryPressureLevel
 
 
@@ -177,7 +175,7 @@ class MemoryPressureHandler:
     
     def __init__(self, config: PressureHandlerConfig, 
                  gpu_optimizer: Optional[GPUMemoryOptimizer] = None,
-                 cpu_pipeline: Optional[CPU_BurstingPipeline] = None):
+                 cpu_pipeline: Optional[Any] = None):
         """
         Initialize memory pressure handler
         
@@ -441,8 +439,8 @@ class MemoryPressureHandler:
             )
             
         except Exception as e:
-            warnings.warn(f"Failed to get memory metrics: {e}")
-            return None
+            # NO FALLBACKS - HARD FAILURE
+            raise RuntimeError(f"Failed to get memory metrics: {e}")
     
     def _update_memory_state(self, metrics: MemoryMetrics) -> None:
         """Update memory state based on metrics"""
@@ -547,7 +545,7 @@ class MemoryPressureHandler:
         """
         with self._lock:
             if len(self.memory_history) < 5:
-                return None
+                raise RuntimeError("Insufficient memory history for exhaustion prediction")
             
             # Get recent memory usage
             recent = list(self.memory_history)[-5:]
@@ -556,14 +554,14 @@ class MemoryPressureHandler:
             
             # Simple linear regression
             if len(set(free_memory)) == 1:  # No change
-                return None
+                raise RuntimeError("No memory usage change detected - cannot predict exhaustion")
             
             # Calculate rate of change
             time_diff = times[-1] - times[0]
             memory_diff = free_memory[-1] - free_memory[0]
             
             if memory_diff >= 0:  # Memory not decreasing
-                return None
+                raise RuntimeError("Memory usage not increasing - no exhaustion predicted")
             
             rate_mb_per_sec = memory_diff / time_diff
             
@@ -571,7 +569,7 @@ class MemoryPressureHandler:
             seconds_to_exhaustion = -free_memory[-1] / rate_mb_per_sec
             
             if seconds_to_exhaustion < 0 or seconds_to_exhaustion > 3600:  # More than 1 hour
-                return None
+                raise RuntimeError(f"Invalid exhaustion prediction: {seconds_to_exhaustion} seconds")
             
             return seconds_to_exhaustion
     

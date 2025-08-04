@@ -12,7 +12,7 @@ import pickle
 import json
 from datetime import datetime
 
-from ..base.compression_base import CompressionBase
+from ..base.compression_base import CompressionAlgorithm as CompressionBase
 from ...proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
 from ...proof_system.confidence_generator import ConfidenceGenerator
 
@@ -787,8 +787,8 @@ class SheafCompressionSystem(CompressionBase):
         data_types = {type(data) for data in component_data.values()}
         
         if len(data_types) > 1:
-            # Mixed types - cannot glue
-            return None
+            # Mixed types - cannot glue - HARD FAILURE
+            raise ValueError(f"Cannot glue mixed data types: {data_types}")
         
         data_type = next(iter(data_types))
         
@@ -799,7 +799,7 @@ class SheafCompressionSystem(CompressionBase):
             # Check if all arrays have same dimensionality
             ndims = {arr.ndim for arr in arrays}
             if len(ndims) > 1:
-                return None
+                raise ValueError(f"Cannot glue arrays with different dimensions: {ndims}")
             
             ndim = next(iter(ndims))
             

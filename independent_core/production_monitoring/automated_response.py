@@ -313,8 +313,8 @@ class AutomatedResponseSystem:
             action_func = self.response_actions.get(action_name)
             
             if not action_func:
-                logger.error(f"Unknown action: {action_name}")
-                continue
+                # NO FALLBACKS - HARD FAILURE
+                raise RuntimeError(f"Unknown action: {action_name}")
             
             try:
                 action_result = action_func(alert)

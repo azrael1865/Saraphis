@@ -19,7 +19,7 @@ from contextlib import contextmanager
 import gc
 
 from ...gac_system.gac_components import GradientCompressionComponent, GACComponent
-from ...brain_core import BrainCore, BrainConfig
+from ...brain import Brain as BrainCore, BrainSystemConfig as BrainConfig
 from ..gpu_memory import GPUMemoryOptimizer
 from .padic_compressor import PadicCompressionSystem
 from .padic_advanced import (
@@ -27,44 +27,10 @@ from .padic_advanced import (
     PadicDecompressionEngine, PadicOptimizationManager,
     HenselLiftingConfig, ClusteringConfig, GPUDecompressionConfig
 )
-from .padic_service_config import PadicServiceConfiguration
+from .padic_service_config import PadicServiceConfiguration, PadicIntegrationConfig
 
 
-@dataclass
-class PadicIntegrationConfig:
-    """Configuration for P-Adic integration"""
-    prime: int = 2999
-    base_precision: int = 100
-    adaptive_precision: bool = True
-    precision_min: int = 50
-    precision_max: int = 500
-    precision_step: int = 50
-    
-    # GAC integration
-    gac_compression_threshold: float = 0.001
-    gac_batch_size: int = 32
-    gac_async_processing: bool = True
-    
-    # Brain Core integration
-    brain_priority: int = 10
-    brain_auto_register: bool = True
-    brain_memory_limit: int = 4 * 1024 * 1024 * 1024  # 4GB
-    
-    # Training integration
-    training_interval: int = 100
-    training_warmup_steps: int = 500
-    training_adaptive_rate: float = 0.1
-    training_monitor_gradients: bool = True
-    
-    # System orchestration
-    orchestrator_threads: int = 4
-    orchestrator_queue_size: int = 1000
-    orchestrator_timeout: float = 30.0
-    
-    # Performance monitoring
-    monitor_interval: float = 1.0
-    monitor_history_size: int = 1000
-    performance_threshold_ms: float = 10.0
+
 
 
 class PadicGACIntegration:

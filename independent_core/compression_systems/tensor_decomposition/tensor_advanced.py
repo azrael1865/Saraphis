@@ -32,7 +32,7 @@ from gpytorch.kernels import RBFKernel
 from gpytorch.distributions import MultivariateNormal
 
 # Import base classes from tensor_core.py
-from .tensor_core import (
+from ..tensor.tensor_core import (
     DecompositionMethod, TensorDecomposition, DecompositionType,
     TensorValidator, TensorCompressionSystem, TensorRankOptimizer
 )
@@ -41,10 +41,10 @@ from .tensor_core import (
 from ..gpu_memory.gpu_memory_core import GPUMemoryManager, StreamManager, MemoryOptimizer
 
 # Import training manager components
-from ....training_manager import TrainingManager, TrainingConfig, TrainingSession
+from ...training_manager import TrainingManager, TrainingConfig, TrainingSession
 
 # Import GAC system components
-from ....gac_system.gac_components import GradientCompressionComponent
+from ...gac_system.gac_components import GradientCompressionComponent
 
 # Configure logging
 logger = logging.getLogger(__name__)

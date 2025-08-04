@@ -28,8 +28,17 @@ from independent_core.compression_systems.padic.padic_encoder import (
     PadicMathematicalOperations
 )
 
-def create_real_padic_weights(num_weights: int, precision: int = 10, prime: int = 251) -> List[PadicWeight]:
+def create_real_padic_weights(num_weights: int, precision: int = 4, prime: int = 257) -> List[PadicWeight]:
     """Create real p-adic weights for testing using proper mathematical conversion"""
+    # SAFETY CHECK: Ensure precision doesn't cause overflow
+    import math
+    safe_threshold = 1e12
+    max_safe_precision = int(math.log(safe_threshold) / math.log(prime))
+    
+    if precision > max_safe_precision:
+        print(f"Safety: Reducing precision from {precision} to {max_safe_precision} for prime={prime}")
+        precision = max_safe_precision
+    
     from independent_core.compression_systems.padic.padic_encoder import PadicMathematicalOperations
     
     # Initialize p-adic mathematical operations
@@ -87,8 +96,8 @@ def create_real_padic_weights(num_weights: int, precision: int = 10, prime: int 
             if not validate_single_weight(weight, prime, precision):
                 continue
             
-            weights.append(weight)
-            
+        weights.append(weight)
+    
         except (ValueError, TypeError, OverflowError) as e:
             # Skip values that can't be converted
             continue

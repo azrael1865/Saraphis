@@ -83,8 +83,14 @@ class PadicDecompressionEngineIntegrated:
         self.streams = []
         self.memory_pool = None
         
-        # Initialize components
-        self.math_ops = PadicMathematicalOperations(prime, 10)
+        # Initialize components with SAFE precision
+        # Calculate max safe precision for this prime
+        import math
+        safe_threshold = 1e12
+        max_safe_precision = int(math.log(safe_threshold) / math.log(prime))
+        safe_precision = min(10, max_safe_precision)  # Use 10 or less if unsafe
+        
+        self.math_ops = PadicMathematicalOperations(prime, safe_precision)
         
         # Initialize memory systems
         self.memory_pressure_handler = None
