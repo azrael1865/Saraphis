@@ -24,6 +24,10 @@ from collections import defaultdict, deque
 import warnings
 import json
 import os
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Import all compression components
 try:
@@ -31,11 +35,38 @@ try:
     from .gpu_memory.smart_pool import SmartPool, integrate_smartpool_with_gpu_optimizer
     from .gpu_memory.auto_swap_manager import AutoSwapManager, SwapPolicy
     from .gpu_memory.cpu_bursting_pipeline import CPU_BurstingPipeline, DecompressionMode
+    from .gpu_memory.gpu_auto_detector import get_config_updater
     from .padic.memory_pressure_handler import MemoryPressureHandler, ProcessingMode
     from .padic.padic_advanced import PadicDecompressionEngine
     from .padic.hybrid_padic_compressor import HybridPadicCompressionSystem
 except ImportError as e:
     raise RuntimeError(f"Failed to import compression components: {e}")
+
+# Import JAX components with graceful fallback
+JAX_AVAILABLE = False
+try:
+    from .tropical.jax_memory_pool import JAXMemoryPool
+    from .tropical.jax_tropical_bridge import TropicalJAXBridge
+    from .tropical.jax_device_manager import JAXDeviceManager
+    from .tropical.jax_memory_optimizer import JAXMemoryOptimizer
+    from .tropical.jax_config_adapter import JAXConfigAdapter
+    from .tropical.jax_compilation_optimizer import JAXCompilationOptimizer
+    from .tropical.jax_tropical_engine import TropicalJAXEngine
+    from .tropical.jax_tropical_strategy import JAXTropicalStrategy
+    from .tropical.jax_performance_monitor import JAXPerformanceMonitor
+    JAX_AVAILABLE = True
+except ImportError as jax_e:
+    # JAX components not available - will use fallback implementations
+    warnings.warn(f"JAX components not available: {jax_e}. JAX backend will be disabled.")
+    JAXMemoryPool = None
+    TropicalJAXBridge = None
+    JAXDeviceManager = None
+    JAXMemoryOptimizer = None
+    JAXConfigAdapter = None
+    JAXCompilationOptimizer = None
+    TropicalJAXEngine = None
+    JAXTropicalStrategy = None
+    JAXPerformanceMonitor = None
 
 
 class SystemState(Enum):
@@ -55,13 +86,15 @@ class OptimizationStrategy(Enum):
     MEMORY = "memory"                # Minimize memory usage
     BALANCED = "balanced"            # Balance all metrics
     ADAPTIVE = "adaptive"            # Adapt based on workload
+    JAX_ACCELERATED = "jax_accelerated"  # JAX-optimized execution
 
 
 @dataclass
 class SystemConfiguration:
-    """Unified system configuration"""
+    """Unified system configuration - Auto-configured for detected GPU"""
     # GPU Memory Configuration
-    gpu_memory_limit_mb: int = 14336
+    gpu_memory_limit_mb: int = None          # Auto-detected
+    device_ids: List[int] = field(default_factory=lambda: [0])  # GPU device IDs for multi-GPU setups
     enable_smart_pool: bool = True
     smart_pool_fragmentation_target: float = 0.133  # 13.3%
     
@@ -78,8 +111,8 @@ class SystemConfiguration:
     # CPU Bursting Configuration
     enable_cpu_bursting: bool = True
     cpu_workers: int = -1  # Auto-detect
-    cpu_batch_size: int = 50000              # Was 1000 -> 50x increase (CPU unchanged)
-    gpu_memory_threshold_mb: int = 2048      # Was 2048 -> Keep original
+    cpu_batch_size: int = None               # Auto-detected
+    gpu_memory_threshold_mb: int = None      # Auto-detected
     
     # Memory Pressure Configuration
     enable_memory_pressure: bool = True
@@ -88,9 +121,17 @@ class SystemConfiguration:
     
     # P-adic Compression Configuration
     prime: int = 251
-    precision: int = 256                     # Was 128 -> 2x precision
-    chunk_size: int = 25000                  # Was 5000 -> 5x increase (GPU safe)
+    precision: int = 256                     # High precision
+    chunk_size: int = None                   # Auto-detected
     enable_hybrid: bool = True
+    
+    # JAX Configuration
+    enable_jax: bool = True  # Enable JAX backend if available
+    jax_backend: str = "auto"  # "auto", "gpu", "cpu", "tpu"
+    jax_memory_fraction: float = 0.75  # Fraction of GPU memory for JAX
+    jax_compilation_cache_size: int = 128  # JIT compilation cache size
+    jax_enable_x64: bool = False  # Enable 64-bit precision in JAX
+    jax_parallel_devices: int = 1  # Number of devices for parallel execution
     
     # Performance Configuration
     optimization_strategy: OptimizationStrategy = OptimizationStrategy.BALANCED
@@ -98,16 +139,24 @@ class SystemConfiguration:
     monitoring_interval_ms: int = 100
     
     # System Configuration
-    max_concurrent_operations: int = 100     # Was 50 -> 2x increase (GPU safe)
-    prefetch_queue_size: int = 20            # Smaller prefetch for 16GB
-    memory_pool_count: int = 2               # 2 pools for 16GB card
-    use_pinned_memory: bool = True           # Pinned memory transfers
-    use_cuda_graphs: bool = True             # CUDA graph optimization
+    max_concurrent_operations: int = None    # Auto-detected
+    prefetch_queue_size: int = None          # Auto-detected
+    memory_pool_count: int = None            # Auto-detected
+    use_pinned_memory: bool = None           # Auto-detected
+    use_cuda_graphs: bool = None             # Auto-detected
     enable_auto_optimization: bool = True
     checkpoint_interval_seconds: int = 300
     
+    # Flag to track if auto-configuration has been applied
+    _auto_configured: bool = False
+    
     def __post_init__(self):
-        """Validate configuration"""
+        """Auto-configure and validate configuration"""
+        # Apply auto-configuration if values are None
+        if not self._auto_configured:
+            self._apply_auto_configuration()
+        
+        # Validate after auto-configuration
         if self.gpu_memory_limit_mb <= 0:
             raise ValueError(f"gpu_memory_limit_mb must be > 0, got {self.gpu_memory_limit_mb}")
         if self.prime <= 1:
@@ -116,6 +165,66 @@ class SystemConfiguration:
             raise ValueError(f"precision must be > 0, got {self.precision}")
         if self.chunk_size <= 0:
             raise ValueError(f"chunk_size must be > 0, got {self.chunk_size}")
+    
+    def _apply_auto_configuration(self):
+        """Apply auto-detected configuration values"""
+        try:
+            config_updater = get_config_updater()
+            auto_config = config_updater.optimized_config
+            
+            # Apply auto-detected values only if not manually set
+            if self.gpu_memory_limit_mb is None:
+                self.gpu_memory_limit_mb = auto_config.gpu_memory_limit_mb
+            if self.cpu_batch_size is None:
+                self.cpu_batch_size = auto_config.cpu_batch_size
+            if self.gpu_memory_threshold_mb is None:
+                self.gpu_memory_threshold_mb = auto_config.gpu_memory_threshold_mb
+            if self.chunk_size is None:
+                self.chunk_size = auto_config.chunk_size
+            if self.max_concurrent_operations is None:
+                self.max_concurrent_operations = auto_config.max_concurrent_operations
+            if self.prefetch_queue_size is None:
+                self.prefetch_queue_size = auto_config.prefetch_queue_size
+            if self.memory_pool_count is None:
+                self.memory_pool_count = auto_config.memory_pool_count
+            if self.use_pinned_memory is None:
+                self.use_pinned_memory = auto_config.use_pinned_memory
+            if self.use_cuda_graphs is None:
+                self.use_cuda_graphs = auto_config.use_cuda_graphs
+            
+            # Update CPU workers if auto-detect
+            if self.cpu_workers == -1:
+                self.cpu_workers = auto_config.num_cpu_workers
+            
+            self._auto_configured = True
+            
+            # Log detected GPU info
+            gpu_info = config_updater.get_gpu_info_string()
+            print(f"System auto-configured for:\n{gpu_info}")
+            
+        except Exception as e:
+            # Fallback to conservative defaults if auto-detection fails
+            print(f"Auto-configuration failed: {e}, using conservative defaults")
+            if self.gpu_memory_limit_mb is None:
+                self.gpu_memory_limit_mb = 8192  # 8GB
+            if self.cpu_batch_size is None:
+                self.cpu_batch_size = 10000
+            if self.gpu_memory_threshold_mb is None:
+                self.gpu_memory_threshold_mb = 2048
+            if self.chunk_size is None:
+                self.chunk_size = 10000
+            if self.max_concurrent_operations is None:
+                self.max_concurrent_operations = 50
+            if self.prefetch_queue_size is None:
+                self.prefetch_queue_size = 10
+            if self.memory_pool_count is None:
+                self.memory_pool_count = 1
+            if self.use_pinned_memory is None:
+                self.use_pinned_memory = True
+            if self.use_cuda_graphs is None:
+                self.use_cuda_graphs = False
+            
+            self._auto_configured = True
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
@@ -655,6 +764,10 @@ class SystemIntegrationCoordinator:
             # Initialize compression systems
             self._initialize_compression_systems()
             
+            # Initialize JAX components if available and enabled
+            if self.config.enable_jax and JAX_AVAILABLE:
+                self._initialize_jax_components()
+            
             # Initialize orchestrators
             self.pipeline_orchestrator = CompressionPipelineOrchestrator(self.config, self.components)
             self.performance_manager = PerformanceOptimizationManager(self.config, self.components)
@@ -672,7 +785,7 @@ class SystemIntegrationCoordinator:
     def _initialize_gpu_memory(self) -> None:
         """Initialize GPU memory optimizer"""
         gpu_config = {
-            'device_ids': [0],  # TODO: Make configurable
+            'device_ids': self.config.device_ids,  # Now configurable via SystemConfiguration
             'memory_limit_mb': self.config.gpu_memory_limit_mb,
             'enable_monitoring': True
         }
@@ -753,6 +866,81 @@ class SystemIntegrationCoordinator:
         # Initialize standard compressor as fallback
         from .padic.padic_compressor import PadicCompressionSystem
         self.components['padic_compressor'] = PadicCompressionSystem(padic_config)
+    
+    def _initialize_jax_components(self) -> None:
+        """Initialize JAX acceleration components"""
+        try:
+            # Initialize JAX config adapter
+            jax_config = {
+                'backend': self.config.jax_backend,
+                'memory_fraction': self.config.jax_memory_fraction,
+                'enable_x64': self.config.jax_enable_x64,
+                'compilation_cache_size': self.config.jax_compilation_cache_size,
+                'parallel_devices': self.config.jax_parallel_devices
+            }
+            self.components['jax_config_adapter'] = JAXConfigAdapter(jax_config)
+            
+            # Initialize JAX device manager
+            self.components['jax_device_manager'] = JAXDeviceManager(
+                backend=self.config.jax_backend,
+                device_ids=self.config.device_ids
+            )
+            
+            # Initialize JAX memory pool
+            self.components['jax_memory_pool'] = JAXMemoryPool(
+                memory_fraction=self.config.jax_memory_fraction,
+                device_manager=self.components['jax_device_manager']
+            )
+            
+            # Initialize JAX memory optimizer
+            self.components['jax_memory_optimizer'] = JAXMemoryOptimizer(
+                memory_pool=self.components['jax_memory_pool'],
+                gpu_optimizer=self.components.get('gpu_optimizer')
+            )
+            
+            # Initialize JAX compilation optimizer
+            self.components['jax_compilation_optimizer'] = JAXCompilationOptimizer(
+                cache_size=self.config.jax_compilation_cache_size,
+                device_manager=self.components['jax_device_manager']
+            )
+            
+            # Initialize Tropical JAX engine
+            self.components['jax_tropical_engine'] = TropicalJAXEngine(
+                device_manager=self.components['jax_device_manager'],
+                memory_optimizer=self.components['jax_memory_optimizer'],
+                compilation_optimizer=self.components['jax_compilation_optimizer']
+            )
+            
+            # Initialize Tropical JAX bridge
+            self.components['jax_tropical_bridge'] = TropicalJAXBridge(
+                engine=self.components['jax_tropical_engine'],
+                config_adapter=self.components['jax_config_adapter']
+            )
+            
+            # Initialize JAX strategy
+            self.components['jax_strategy'] = JAXTropicalStrategy(
+                engine=self.components['jax_tropical_engine'],
+                bridge=self.components['jax_tropical_bridge']
+            )
+            
+            # Initialize JAX performance monitor
+            if 'jax_performance_monitor' in globals():
+                self.components['jax_performance_monitor'] = JAXPerformanceMonitor(
+                    device_manager=self.components['jax_device_manager']
+                )
+            
+            logger.info("JAX components initialized successfully")
+            
+        except Exception as e:
+            warnings.warn(f"Failed to initialize JAX components: {e}. JAX acceleration disabled.")
+            # Remove partially initialized JAX components
+            jax_component_keys = [
+                'jax_config_adapter', 'jax_device_manager', 'jax_memory_pool',
+                'jax_memory_optimizer', 'jax_compilation_optimizer', 'jax_tropical_engine',
+                'jax_tropical_bridge', 'jax_strategy', 'jax_performance_monitor'
+            ]
+            for key in jax_component_keys:
+                self.components.pop(key, None)
     
     def compress(self, tensor: torch.Tensor, priority: str = "normal", 
                  metadata: Optional[Dict[str, Any]] = None) -> CompressionResult:
@@ -879,7 +1067,10 @@ class SystemIntegrationCoordinator:
                     'auto_swap': 'active' if 'auto_swap' in self.components else 'inactive',
                     'cpu_bursting': 'active' if 'cpu_bursting' in self.components else 'inactive',
                     'memory_pressure': 'active' if 'memory_pressure_handler' in self.components else 'inactive',
-                    'hybrid_compressor': 'active' if 'hybrid_compressor' in self.components else 'inactive'
+                    'hybrid_compressor': 'active' if 'hybrid_compressor' in self.components else 'inactive',
+                    'jax_backend': 'active' if 'jax_tropical_engine' in self.components else 'inactive',
+                    'jax_memory_pool': 'active' if 'jax_memory_pool' in self.components else 'inactive',
+                    'jax_strategy': 'active' if 'jax_strategy' in self.components else 'inactive'
                 },
                 'statistics': dict(self.system_stats),
                 'performance': self.performance_manager.get_performance_summary() if self.performance_manager else {},

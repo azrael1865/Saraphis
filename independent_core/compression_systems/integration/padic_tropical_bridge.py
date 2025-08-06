@@ -540,10 +540,28 @@ class HybridRepresentation:
             if self.padic_components is None:
                 raise RuntimeError("P-adic components not computed")
             
-            # Reconstruct from p-adic
-            # This would use the p-adic decoder (not shown here for brevity)
-            # For now, return a placeholder
-            raise NotImplementedError("P-adic reconstruction requires full decoder implementation")
+            # Reconstruct from p-adic components
+            # Create encoder for reconstruction
+            encoder = PadicMathematicalOperations(
+                prime=self.padic_components[0].prime,
+                precision=self.padic_components[0].precision
+            )
+            
+            # Reconstruct each p-adic weight to float
+            reconstructed_values = []
+            for padic_weight in self.padic_components:
+                # Use the from_padic method to reconstruct the original value
+                float_val = encoder.from_padic(padic_weight)
+                reconstructed_values.append(float_val)
+            
+            # Convert to tensor
+            result = torch.tensor(reconstructed_values, dtype=self.original_dtype)
+            
+            # Move to original device and reshape
+            result = result.to(self.original_device)
+            result = result.reshape(self.original_shape)
+            
+            return result
         
         elif self.active_mode == "tropical":
             if self.tropical_components is None:
@@ -561,10 +579,73 @@ class HybridRepresentation:
             return result
         
         elif self.active_mode == "hybrid":
-            # Hybrid mode: combine both representations
-            # This is a simplified version - full implementation would use
-            # weighted combination based on local characteristics
-            raise NotImplementedError("Hybrid reconstruction requires full implementation")
+            # Hybrid mode: combine both p-adic and tropical representations
+            if self.padic_components is None or self.tropical_components is None:
+                raise RuntimeError("Both p-adic and tropical components required for hybrid reconstruction")
+            
+            # Reconstruct from p-adic
+            encoder = PadicMathematicalOperations(
+                prime=self.padic_components[0].prime,
+                precision=self.padic_components[0].precision
+            )
+            
+            padic_values = []
+            for padic_weight in self.padic_components:
+                float_val = encoder.from_padic(padic_weight)
+                padic_values.append(float_val)
+            
+            padic_tensor = torch.tensor(padic_values, dtype=self.original_dtype)
+            padic_tensor = padic_tensor.to(self.original_device).reshape(self.original_shape)
+            
+            # Get tropical reconstruction
+            tropical_tensor = self.tropical_components.clone()
+            tropical_tensor = tropical_tensor.to(self.original_device, self.original_dtype)
+            tropical_tensor = tropical_tensor.reshape(self.original_shape)
+            
+            # Compute adaptive weighting based on local characteristics
+            # Use p-adic for small values (better precision)
+            # Use tropical for large values (better stability)
+            abs_values = torch.abs(self.original_tensor)
+            
+            # Compute weights: sigmoid transition around threshold
+            threshold = torch.median(abs_values).item()
+            scale = 10.0 / (threshold + 1e-10)  # Steepness of transition
+            
+            # Weight calculation: p-adic weight decreases for larger values
+            padic_weight = torch.sigmoid(-scale * (abs_values - threshold))
+            tropical_weight = 1.0 - padic_weight
+            
+            # Weighted combination
+            result = padic_weight * padic_tensor + tropical_weight * tropical_tensor
+            
+            # Apply smoothing to reduce artifacts at boundaries
+            if result.numel() > 1:
+                # Simple averaging filter for smoothing
+                kernel_size = min(3, result.shape[-1] if result.dim() > 0 else 1)
+                if kernel_size > 1 and result.dim() > 0:
+                    # Apply 1D smoothing along last dimension
+                    padding = kernel_size // 2
+                    if result.dim() == 1:
+                        result = torch.nn.functional.avg_pool1d(
+                            result.unsqueeze(0).unsqueeze(0),
+                            kernel_size=kernel_size,
+                            stride=1,
+                            padding=padding
+                        ).squeeze()
+                    elif result.dim() == 2:
+                        # Apply row-wise smoothing
+                        result_smooth = []
+                        for row in result:
+                            smoothed = torch.nn.functional.avg_pool1d(
+                                row.unsqueeze(0).unsqueeze(0),
+                                kernel_size=min(kernel_size, row.shape[0]),
+                                stride=1,
+                                padding=min(padding, row.shape[0]//2)
+                            ).squeeze()
+                            result_smooth.append(smoothed)
+                        result = torch.stack(result_smooth)
+            
+            return result
         
         else:
             raise ValueError(f"Invalid active mode: {self.active_mode}")

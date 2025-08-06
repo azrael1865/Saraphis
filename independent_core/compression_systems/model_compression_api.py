@@ -63,6 +63,16 @@ from independent_core.compression_systems.base.compression_base import (
     CompressionMetrics
 )
 
+# Import JAX components with graceful fallback
+JAX_AVAILABLE = False
+try:
+    from independent_core.compression_systems.tropical.jax_tropical_strategy import JAXTropicalStrategy
+    from independent_core.compression_systems.tropical.jax_tropical_engine import TropicalJAXEngine
+    JAX_AVAILABLE = True
+except ImportError:
+    JAXTropicalStrategy = None
+    TropicalJAXEngine = None
+
 
 @dataclass
 class CompressionProfile:
@@ -70,7 +80,7 @@ class CompressionProfile:
     target_compression_ratio: float = 4.0
     mode: str = "balanced"  # "aggressive", "conservative", "balanced"
     preserve_accuracy_threshold: float = 0.99  # Maintain 99% accuracy
-    strategy: str = "auto"  # "auto", "tropical", "padic", "hybrid"
+    strategy: str = "auto"  # "auto", "tropical", "padic", "hybrid", "jax"
     enable_fine_tuning: bool = False
     fine_tuning_epochs: int = 5
     device: str = "auto"  # "auto", "cpu", "cuda"
@@ -93,8 +103,16 @@ class CompressionProfile:
         if not (0.0 <= self.preserve_accuracy_threshold <= 1.0):
             raise ValueError(f"Accuracy threshold must be in [0, 1], got {self.preserve_accuracy_threshold}")
         
-        if self.strategy not in ["auto", "tropical", "padic", "hybrid"]:
-            raise ValueError(f"Strategy must be 'auto', 'tropical', 'padic', or 'hybrid', got {self.strategy}")
+        valid_strategies = ["auto", "tropical", "padic", "hybrid"]
+        if JAX_AVAILABLE:
+            valid_strategies.append("jax")
+        
+        if self.strategy not in valid_strategies:
+            raise ValueError(f"Strategy must be one of {valid_strategies}, got {self.strategy}")
+        
+        if self.strategy == "jax" and not JAX_AVAILABLE:
+            warnings.warn("JAX strategy requested but JAX is not available. Falling back to 'auto'.")
+            self.strategy = "auto"
         
         if self.fine_tuning_epochs < 0:
             raise ValueError(f"Fine-tuning epochs must be non-negative, got {self.fine_tuning_epochs}")
@@ -294,12 +312,18 @@ class CompressedModel(nn.Module):
     
     def save_compressed(self, path: str) -> None:
         """Save compressed model to disk"""
+        # Extract model architecture information
+        model_architecture = self._extract_model_architecture(self.original_model)
+        
         save_dict = {
             'compressed_layers': self.compressed_layers,
             'strategy_map': self.strategy_map,
             'profile': asdict(self.profile),
             'model_state': self.original_model.state_dict(),
             'compression_stats': self.get_compression_stats(),
+            'model_architecture': model_architecture,
+            'model_class_name': self.original_model.__class__.__name__,
+            'model_module_name': self.original_model.__class__.__module__,
             'version': '1.0.0'
         }
         
@@ -311,21 +335,28 @@ class CompressedModel(nn.Module):
     
     @classmethod
     def load_compressed(cls, path: str, model_class: Optional[type] = None) -> 'CompressedModel':
-        """Load compressed model from disk"""
+        """Load compressed model from disk with automatic reconstruction support"""
         with open(path, 'rb') as f:
             save_dict = pickle.load(f)
         
         # Reconstruct profile
         profile = CompressionProfile(**save_dict['profile'])
         
-        # Create model instance if class provided
+        # Create model instance
         if model_class:
             model = model_class()
             # Load non-compressed parameters
             model.load_state_dict(save_dict['model_state'], strict=False)
         else:
-            # Attempt to reconstruct from state dict structure
-            raise NotImplementedError("Auto-reconstruction not yet supported. Please provide model_class.")
+            # Auto-reconstruct from saved metadata
+            model_architecture = save_dict.get('model_architecture', {})
+            model_state = save_dict['model_state']
+            
+            # Try to reconstruct using architecture information
+            model = cls._reconstruct_model(model_architecture, model_state)
+            
+            # Load the state dict
+            model.load_state_dict(model_state, strict=False)
         
         # Create compressed model
         compressed_model = cls(
@@ -350,6 +381,408 @@ class CompressedModel(nn.Module):
     def clear_cache(self):
         """Clear decompression cache"""
         self.decompressed_cache.clear()
+    
+    @staticmethod
+    def _extract_model_architecture(model: nn.Module) -> Dict[str, Any]:
+        """Extract model architecture information for reconstruction"""
+        architecture = {
+            'layers': OrderedDict(),
+            'forward_order': [],
+            'input_shapes': {},
+            'output_shapes': {}
+        }
+        
+        # Extract layer information
+        for name, module in model.named_modules():
+            if len(list(module.children())) == 0:  # Leaf module
+                layer_info = {
+                    'type': module.__class__.__name__,
+                    'module': module.__class__.__module__,
+                    'params': {}
+                }
+                
+                # Extract layer-specific parameters
+                if isinstance(module, nn.Linear):
+                    layer_info['params'] = {
+                        'in_features': module.in_features,
+                        'out_features': module.out_features,
+                        'bias': module.bias is not None
+                    }
+                elif isinstance(module, nn.Conv2d):
+                    layer_info['params'] = {
+                        'in_channels': module.in_channels,
+                        'out_channels': module.out_channels,
+                        'kernel_size': module.kernel_size,
+                        'stride': module.stride,
+                        'padding': module.padding,
+                        'dilation': module.dilation,
+                        'groups': module.groups,
+                        'bias': module.bias is not None,
+                        'padding_mode': module.padding_mode
+                    }
+                elif isinstance(module, nn.Conv1d):
+                    layer_info['params'] = {
+                        'in_channels': module.in_channels,
+                        'out_channels': module.out_channels,
+                        'kernel_size': module.kernel_size,
+                        'stride': module.stride,
+                        'padding': module.padding,
+                        'dilation': module.dilation,
+                        'groups': module.groups,
+                        'bias': module.bias is not None,
+                        'padding_mode': module.padding_mode
+                    }
+                elif isinstance(module, nn.Conv3d):
+                    layer_info['params'] = {
+                        'in_channels': module.in_channels,
+                        'out_channels': module.out_channels,
+                        'kernel_size': module.kernel_size,
+                        'stride': module.stride,
+                        'padding': module.padding,
+                        'dilation': module.dilation,
+                        'groups': module.groups,
+                        'bias': module.bias is not None,
+                        'padding_mode': module.padding_mode
+                    }
+                elif isinstance(module, nn.BatchNorm1d):
+                    layer_info['params'] = {
+                        'num_features': module.num_features,
+                        'eps': module.eps,
+                        'momentum': module.momentum,
+                        'affine': module.affine,
+                        'track_running_stats': module.track_running_stats
+                    }
+                elif isinstance(module, nn.BatchNorm2d):
+                    layer_info['params'] = {
+                        'num_features': module.num_features,
+                        'eps': module.eps,
+                        'momentum': module.momentum,
+                        'affine': module.affine,
+                        'track_running_stats': module.track_running_stats
+                    }
+                elif isinstance(module, nn.BatchNorm3d):
+                    layer_info['params'] = {
+                        'num_features': module.num_features,
+                        'eps': module.eps,
+                        'momentum': module.momentum,
+                        'affine': module.affine,
+                        'track_running_stats': module.track_running_stats
+                    }
+                elif isinstance(module, nn.LayerNorm):
+                    layer_info['params'] = {
+                        'normalized_shape': module.normalized_shape,
+                        'eps': module.eps,
+                        'elementwise_affine': module.elementwise_affine
+                    }
+                elif isinstance(module, nn.Dropout):
+                    layer_info['params'] = {
+                        'p': module.p,
+                        'inplace': module.inplace
+                    }
+                elif isinstance(module, nn.Dropout2d):
+                    layer_info['params'] = {
+                        'p': module.p,
+                        'inplace': module.inplace
+                    }
+                elif isinstance(module, nn.Dropout3d):
+                    layer_info['params'] = {
+                        'p': module.p,
+                        'inplace': module.inplace
+                    }
+                elif isinstance(module, nn.ReLU):
+                    layer_info['params'] = {
+                        'inplace': module.inplace
+                    }
+                elif isinstance(module, nn.LeakyReLU):
+                    layer_info['params'] = {
+                        'negative_slope': module.negative_slope,
+                        'inplace': module.inplace
+                    }
+                elif isinstance(module, nn.GELU):
+                    layer_info['params'] = {
+                        'approximate': getattr(module, 'approximate', 'none')
+                    }
+                elif isinstance(module, nn.Tanh):
+                    layer_info['params'] = {}
+                elif isinstance(module, nn.Sigmoid):
+                    layer_info['params'] = {}
+                elif isinstance(module, nn.Softmax):
+                    layer_info['params'] = {
+                        'dim': module.dim
+                    }
+                elif isinstance(module, nn.LogSoftmax):
+                    layer_info['params'] = {
+                        'dim': module.dim
+                    }
+                elif isinstance(module, nn.MaxPool2d):
+                    layer_info['params'] = {
+                        'kernel_size': module.kernel_size,
+                        'stride': module.stride,
+                        'padding': module.padding,
+                        'dilation': module.dilation,
+                        'return_indices': module.return_indices,
+                        'ceil_mode': module.ceil_mode
+                    }
+                elif isinstance(module, nn.AvgPool2d):
+                    layer_info['params'] = {
+                        'kernel_size': module.kernel_size,
+                        'stride': module.stride,
+                        'padding': module.padding,
+                        'ceil_mode': module.ceil_mode,
+                        'count_include_pad': module.count_include_pad,
+                        'divisor_override': module.divisor_override
+                    }
+                elif isinstance(module, nn.AdaptiveAvgPool2d):
+                    layer_info['params'] = {
+                        'output_size': module.output_size
+                    }
+                elif isinstance(module, nn.AdaptiveMaxPool2d):
+                    layer_info['params'] = {
+                        'output_size': module.output_size,
+                        'return_indices': module.return_indices
+                    }
+                elif isinstance(module, nn.Embedding):
+                    layer_info['params'] = {
+                        'num_embeddings': module.num_embeddings,
+                        'embedding_dim': module.embedding_dim,
+                        'padding_idx': module.padding_idx,
+                        'max_norm': module.max_norm,
+                        'norm_type': module.norm_type,
+                        'scale_grad_by_freq': module.scale_grad_by_freq,
+                        'sparse': module.sparse
+                    }
+                elif isinstance(module, nn.LSTM):
+                    layer_info['params'] = {
+                        'input_size': module.input_size,
+                        'hidden_size': module.hidden_size,
+                        'num_layers': module.num_layers,
+                        'bias': module.bias,
+                        'batch_first': module.batch_first,
+                        'dropout': module.dropout,
+                        'bidirectional': module.bidirectional
+                    }
+                elif isinstance(module, nn.GRU):
+                    layer_info['params'] = {
+                        'input_size': module.input_size,
+                        'hidden_size': module.hidden_size,
+                        'num_layers': module.num_layers,
+                        'bias': module.bias,
+                        'batch_first': module.batch_first,
+                        'dropout': module.dropout,
+                        'bidirectional': module.bidirectional
+                    }
+                elif isinstance(module, nn.TransformerEncoderLayer):
+                    layer_info['params'] = {
+                        'd_model': module.self_attn.embed_dim,
+                        'nhead': module.self_attn.num_heads,
+                        'dim_feedforward': module.linear1.out_features,
+                        'dropout': module.dropout.p if hasattr(module, 'dropout') else 0.1,
+                        'batch_first': module.self_attn.batch_first
+                    }
+                elif isinstance(module, nn.MultiheadAttention):
+                    layer_info['params'] = {
+                        'embed_dim': module.embed_dim,
+                        'num_heads': module.num_heads,
+                        'dropout': module.dropout,
+                        'bias': module.in_proj_bias is not None,
+                        'add_bias_kv': module.bias_k is not None,
+                        'add_zero_attn': module.add_zero_attn,
+                        'kdim': module.kdim,
+                        'vdim': module.vdim,
+                        'batch_first': module.batch_first
+                    }
+                
+                architecture['layers'][name] = layer_info
+                architecture['forward_order'].append(name)
+        
+        return architecture
+    
+    @classmethod
+    def _reconstruct_model(cls, architecture: Dict[str, Any], state_dict: Dict[str, torch.Tensor]) -> nn.Module:
+        """Reconstruct model from architecture information"""
+        if not architecture or 'layers' not in architecture:
+            # Fallback: Create a generic sequential model based on state dict
+            return cls._reconstruct_from_state_dict(state_dict)
+        
+        # Create ModuleDict to hold layers
+        layers = nn.ModuleDict()
+        
+        for name, layer_info in architecture['layers'].items():
+            layer_type = layer_info['type']
+            params = layer_info.get('params', {})
+            
+            # Create layer based on type
+            if layer_type == 'Linear':
+                layer = nn.Linear(**params)
+            elif layer_type == 'Conv2d':
+                layer = nn.Conv2d(**params)
+            elif layer_type == 'Conv1d':
+                layer = nn.Conv1d(**params)
+            elif layer_type == 'Conv3d':
+                layer = nn.Conv3d(**params)
+            elif layer_type == 'BatchNorm1d':
+                layer = nn.BatchNorm1d(**params)
+            elif layer_type == 'BatchNorm2d':
+                layer = nn.BatchNorm2d(**params)
+            elif layer_type == 'BatchNorm3d':
+                layer = nn.BatchNorm3d(**params)
+            elif layer_type == 'LayerNorm':
+                layer = nn.LayerNorm(**params)
+            elif layer_type == 'Dropout':
+                layer = nn.Dropout(**params)
+            elif layer_type == 'Dropout2d':
+                layer = nn.Dropout2d(**params)
+            elif layer_type == 'Dropout3d':
+                layer = nn.Dropout3d(**params)
+            elif layer_type == 'ReLU':
+                layer = nn.ReLU(**params)
+            elif layer_type == 'LeakyReLU':
+                layer = nn.LeakyReLU(**params)
+            elif layer_type == 'GELU':
+                layer = nn.GELU(**params)
+            elif layer_type == 'Tanh':
+                layer = nn.Tanh()
+            elif layer_type == 'Sigmoid':
+                layer = nn.Sigmoid()
+            elif layer_type == 'Softmax':
+                layer = nn.Softmax(**params)
+            elif layer_type == 'LogSoftmax':
+                layer = nn.LogSoftmax(**params)
+            elif layer_type == 'MaxPool2d':
+                layer = nn.MaxPool2d(**params)
+            elif layer_type == 'AvgPool2d':
+                layer = nn.AvgPool2d(**params)
+            elif layer_type == 'AdaptiveAvgPool2d':
+                layer = nn.AdaptiveAvgPool2d(**params)
+            elif layer_type == 'AdaptiveMaxPool2d':
+                layer = nn.AdaptiveMaxPool2d(**params)
+            elif layer_type == 'Embedding':
+                layer = nn.Embedding(**params)
+            elif layer_type == 'LSTM':
+                layer = nn.LSTM(**params)
+            elif layer_type == 'GRU':
+                layer = nn.GRU(**params)
+            elif layer_type == 'TransformerEncoderLayer':
+                layer = nn.TransformerEncoderLayer(**params)
+            elif layer_type == 'MultiheadAttention':
+                layer = nn.MultiheadAttention(**params)
+            elif layer_type == 'Flatten':
+                layer = nn.Flatten()
+            elif layer_type == 'Identity':
+                layer = nn.Identity()
+            else:
+                # Unknown layer type, create placeholder
+                logger.warning(f"Unknown layer type: {layer_type}, creating Identity placeholder")
+                layer = nn.Identity()
+            
+            # Clean name for module dict (replace dots with underscores)
+            clean_name = name.replace('.', '_')
+            layers[clean_name] = layer
+        
+        # Create wrapper model
+        class ReconstructedModel(nn.Module):
+            def __init__(self, layers_dict, forward_order):
+                super().__init__()
+                self.layers = layers_dict
+                self.forward_order = forward_order
+            
+            def forward(self, x):
+                # Simple sequential forward pass
+                for layer_name in self.forward_order:
+                    clean_name = layer_name.replace('.', '_')
+                    if clean_name in self.layers:
+                        x = self.layers[clean_name](x)
+                return x
+        
+        model = ReconstructedModel(layers, architecture.get('forward_order', list(layers.keys())))
+        
+        return model
+    
+    @classmethod
+    def _reconstruct_from_state_dict(cls, state_dict: Dict[str, torch.Tensor]) -> nn.Module:
+        """Fallback: Reconstruct model from state dict only"""
+        # Analyze state dict to infer structure
+        layers = []
+        layer_map = {}
+        
+        # Group parameters by layer
+        for key in state_dict.keys():
+            if '.' in key:
+                layer_name = key.rsplit('.', 1)[0]
+                param_name = key.rsplit('.', 1)[1]
+            else:
+                layer_name = 'layer0'
+                param_name = key
+            
+            if layer_name not in layer_map:
+                layer_map[layer_name] = {}
+            layer_map[layer_name][param_name] = state_dict[key]
+        
+        # Create layers based on parameter shapes
+        for layer_name in sorted(layer_map.keys()):
+            params = layer_map[layer_name]
+            
+            if 'weight' in params:
+                weight_shape = params['weight'].shape
+                
+                # Infer layer type from weight shape
+                if len(weight_shape) == 2:
+                    # Linear layer
+                    out_features, in_features = weight_shape
+                    bias = 'bias' in params
+                    layer = nn.Linear(in_features, out_features, bias=bias)
+                elif len(weight_shape) == 4:
+                    # Conv2d layer
+                    out_channels, in_channels, kernel_h, kernel_w = weight_shape
+                    bias = 'bias' in params
+                    # Assume standard convolution parameters
+                    layer = nn.Conv2d(in_channels, out_channels, 
+                                     kernel_size=(kernel_h, kernel_w), bias=bias)
+                elif len(weight_shape) == 3:
+                    # Could be Conv1d or other
+                    out_channels, in_channels, kernel_size = weight_shape
+                    bias = 'bias' in params
+                    layer = nn.Conv1d(in_channels, out_channels, 
+                                     kernel_size=kernel_size, bias=bias)
+                elif len(weight_shape) == 5:
+                    # Conv3d layer
+                    out_channels, in_channels, kernel_d, kernel_h, kernel_w = weight_shape
+                    bias = 'bias' in params
+                    layer = nn.Conv3d(in_channels, out_channels,
+                                     kernel_size=(kernel_d, kernel_h, kernel_w), bias=bias)
+                elif len(weight_shape) == 1:
+                    # Could be BatchNorm or LayerNorm
+                    num_features = weight_shape[0]
+                    if 'running_mean' in params:
+                        # BatchNorm
+                        layer = nn.BatchNorm1d(num_features)
+                    else:
+                        # LayerNorm
+                        layer = nn.LayerNorm(num_features)
+                else:
+                    # Unknown, create placeholder
+                    layer = nn.Identity()
+                    logger.warning(f"Could not infer layer type for {layer_name} with weight shape {weight_shape}")
+            elif 'running_mean' in params and 'running_var' in params:
+                # BatchNorm without weight (affine=False)
+                num_features = params['running_mean'].shape[0]
+                layer = nn.BatchNorm1d(num_features, affine=False)
+            else:
+                # No recognizable parameters
+                layer = nn.Identity()
+                logger.warning(f"Could not infer layer type for {layer_name}")
+            
+            layers.append(layer)
+        
+        # Create sequential model
+        if layers:
+            model = nn.Sequential(*layers)
+        else:
+            # Empty model
+            model = nn.Identity()
+            logger.warning("No layers could be reconstructed from state dict")
+        
+        return model
 
 
 class ModelCompressionAPI:
@@ -359,7 +792,14 @@ class ModelCompressionAPI:
         """Initialize compression API"""
         self.profile = profile or CompressionProfile()
         self.strategy_config = self.profile.to_strategy_config()
-        self.strategy_manager = AdaptiveStrategyManager(self.strategy_config)
+        
+        # Override strategy if JAX is specifically requested
+        if self.profile.strategy == "jax" and JAX_AVAILABLE:
+            # Use JAX-accelerated strategy manager
+            self.strategy_manager = self._create_jax_strategy_manager()
+        else:
+            self.strategy_manager = AdaptiveStrategyManager(self.strategy_config)
+        
         self.analyzer = LayerAnalyzer()
         
         # Initialize converter for hybrid strategies
@@ -372,6 +812,36 @@ class ModelCompressionAPI:
         
         # Metrics tracking
         self.compression_history = []
+    
+    def _create_jax_strategy_manager(self):
+        """Create JAX-enabled strategy manager"""
+        # Create a custom strategy manager that uses JAX
+        class JAXStrategyManager(AdaptiveStrategyManager):
+            def __init__(self, config):
+                super().__init__(config)
+                # Add JAX strategy to available strategies
+                if JAX_AVAILABLE and JAXTropicalStrategy:
+                    self.strategies['jax'] = JAXTropicalStrategy()
+            
+            def compress_model(self, model):
+                # Override to prefer JAX strategy when available
+                compressed_layers = {}
+                for name, param in model.state_dict().items():
+                    if param.numel() == 0:
+                        continue
+                    
+                    # Use JAX strategy if available and suitable
+                    if 'jax' in self.strategies and param.numel() > 1000:
+                        strategy = self.strategies['jax']
+                    else:
+                        strategy = self.selector.select_strategy(param, name)
+                    
+                    compressed = strategy.compress(param)
+                    compressed_layers[name] = compressed
+                
+                return compressed_layers
+        
+        return JAXStrategyManager(self.strategy_config)
     
     def compress(self, model: nn.Module, 
                 validation_data: Optional[DataLoader] = None) -> CompressedModel:
@@ -980,6 +1450,10 @@ def decompress_state_dict(compressed: Dict[str, CompressedData]) -> Dict[str, to
         'padic': PadicStrategy(),
         'hybrid': HybridStrategy()
     }
+    
+    # Add JAX strategy if available
+    if JAX_AVAILABLE and JAXTropicalStrategy:
+        strategies['jax'] = JAXTropicalStrategy()
     
     decompressed_dict = {}
     

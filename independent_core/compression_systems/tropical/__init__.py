@@ -3,7 +3,7 @@ Tropical mathematics module for neural network compression.
 Implements max-plus algebra operations for piecewise linear approximations.
 """
 
-from .tropical_core import (
+from independent_core.compression_systems.tropical.tropical_core import (
     # Constants
     TROPICAL_ZERO,
     TROPICAL_EPSILON,

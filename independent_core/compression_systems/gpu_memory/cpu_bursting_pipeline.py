@@ -26,12 +26,14 @@ try:
     from ..padic.padic_advanced import PadicDecompressionEngine
     from ..padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
     from ..padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
+    from .gpu_auto_detector import get_config_updater, AutoOptimizedConfig
 except ImportError:
     # Direct imports for testing
     from compression_systems.padic.padic_encoder import PadicWeight, validate_single_weight
     from compression_systems.padic.padic_advanced import PadicDecompressionEngine
     from compression_systems.padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
     from compression_systems.padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
+    from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater, AutoOptimizedConfig
 
 
 class DecompressionMode(Enum):
@@ -52,21 +54,21 @@ class MemoryPressureLevel(Enum):
 
 @dataclass
 class CPUBurstingConfig:
-    """Configuration for CPU bursting pipeline - RTX 5060 Ti optimized"""
+    """Configuration for CPU bursting pipeline - Auto-configured for detected GPU"""
     # Memory thresholds
-    gpu_memory_threshold_mb: int = 2048      # Appropriate for 16GB card
-    memory_pressure_threshold: float = 0.90  # Trigger CPU at 90% GPU usage
+    gpu_memory_threshold_mb: int = None      # Auto-detected
+    memory_pressure_threshold: float = None  # Auto-detected
     
     # CPU configuration
     num_cpu_workers: int = -1  # -1 for auto-detect
-    cpu_batch_size: int = 10000              # Was 1000 -> 10x increase
+    cpu_batch_size: int = None               # Auto-detected
     use_multiprocessing: bool = True         # Ensure MP is on
     cpu_affinity: Optional[List[int]] = None  # CPU cores to use
     
     # Performance settings
     enable_profiling: bool = True
     enable_caching: bool = True
-    cache_size_mb: int = 8192                # 8GB cache (system RAM dependent)
+    cache_size_mb: int = None                # Auto-detected
     prefetch_factor: int = 2
     
     # Decompression settings
@@ -79,14 +81,22 @@ class CPUBurstingConfig:
     switch_delay_ms: int = 10  # Delay before switching modes
     hysteresis_factor: float = 0.1  # Prevent rapid switching
     
-    # RTX 5060 Ti specific optimizations
-    prefetch_batches: int = 10               # Prefetch 10 batches
-    numa_nodes: List[int] = field(default_factory=lambda: list(range(16)))  # Hardcoded for safety
-    huge_page_size: int = 2097152            # 2MB huge pages
+    # Auto-configured optimizations
+    prefetch_batches: int = None              # Auto-detected
+    numa_nodes: List[int] = None             # Auto-detected
+    huge_page_size: int = None               # Auto-detected
     cpu_affinity_enabled: bool = True        # Pin workers to CPUs
     
+    # Flag to track if auto-configuration has been applied
+    _auto_configured: bool = False
+    
     def __post_init__(self):
-        """Validate configuration"""
+        """Auto-configure and validate configuration"""
+        # Apply auto-configuration if values are None
+        if not self._auto_configured:
+            self._apply_auto_configuration()
+        
+        # Validate after auto-configuration
         if self.gpu_memory_threshold_mb <= 0:
             raise ValueError(f"gpu_memory_threshold_mb must be > 0, got {self.gpu_memory_threshold_mb}")
         if not 0 < self.memory_pressure_threshold <= 1:
@@ -95,6 +105,58 @@ class CPUBurstingConfig:
             raise ValueError("num_cpu_workers cannot be 0")
         if self.cpu_batch_size <= 0:
             raise ValueError(f"cpu_batch_size must be > 0, got {self.cpu_batch_size}")
+    
+    def _apply_auto_configuration(self):
+        """Apply auto-detected configuration values"""
+        try:
+            config_updater = get_config_updater()
+            auto_config = config_updater.optimized_config
+            
+            # Apply auto-detected values only if not manually set
+            if self.gpu_memory_threshold_mb is None:
+                self.gpu_memory_threshold_mb = auto_config.gpu_memory_threshold_mb
+            if self.memory_pressure_threshold is None:
+                self.memory_pressure_threshold = auto_config.memory_pressure_threshold
+            if self.cpu_batch_size is None:
+                self.cpu_batch_size = auto_config.cpu_batch_size
+            if self.cache_size_mb is None:
+                self.cache_size_mb = auto_config.cache_size_mb
+            if self.prefetch_batches is None:
+                self.prefetch_batches = auto_config.prefetch_batches
+            if self.numa_nodes is None:
+                self.numa_nodes = auto_config.numa_nodes
+            if self.huge_page_size is None:
+                self.huge_page_size = auto_config.huge_page_size
+            
+            # Update CPU workers if auto-detect
+            if self.num_cpu_workers == -1:
+                self.num_cpu_workers = auto_config.num_cpu_workers
+            
+            self._auto_configured = True
+            
+            # Log detected GPU info
+            gpu_info = config_updater.get_gpu_info_string()
+            print(f"Auto-configured CPU bursting for:\n{gpu_info}")
+            
+        except Exception as e:
+            # Fallback to conservative defaults if auto-detection fails
+            print(f"Auto-configuration failed: {e}, using conservative defaults")
+            if self.gpu_memory_threshold_mb is None:
+                self.gpu_memory_threshold_mb = 2048
+            if self.memory_pressure_threshold is None:
+                self.memory_pressure_threshold = 0.90
+            if self.cpu_batch_size is None:
+                self.cpu_batch_size = 10000
+            if self.cache_size_mb is None:
+                self.cache_size_mb = 4096
+            if self.prefetch_batches is None:
+                self.prefetch_batches = 10
+            if self.numa_nodes is None:
+                self.numa_nodes = [0]
+            if self.huge_page_size is None:
+                self.huge_page_size = 2097152
+            
+            self._auto_configured = True
 
 
 @dataclass

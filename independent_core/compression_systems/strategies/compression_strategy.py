@@ -684,6 +684,16 @@ class StrategySelector:
             max_batch_size=self.config.max_batch_size
         )
         self.strategy_cache['hybrid'] = HybridStrategy(conversion_config)
+        
+        # Initialize JAX strategy if available
+        try:
+            from ..tropical.jax_tropical_strategy import JAXTropicalStrategy
+            if self.config.use_gpu:  # JAX strategy is beneficial on GPU
+                self.strategy_cache['jax'] = JAXTropicalStrategy()
+                logger.info("JAX tropical strategy initialized successfully")
+        except ImportError:
+            # JAX not available, skip JAX strategy
+            pass
     
     def select_strategy(self, tensor: torch.Tensor, 
                        layer_name: str = "") -> CompressionStrategy:

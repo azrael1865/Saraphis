@@ -26,10 +26,12 @@ import warnings
 try:
     from ..gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
     from ..gpu_memory.auto_swap_manager import MemoryPressureLevel
+    from ..gpu_memory.gpu_auto_detector import get_config_updater
 except ImportError:
     # Direct imports for testing
     from compression_systems.gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
     from compression_systems.gpu_memory.auto_swap_manager import MemoryPressureLevel
+    from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater
 
 
 class ProcessingMode(Enum):
@@ -122,16 +124,16 @@ class PerformanceMetrics:
 
 @dataclass
 class PressureHandlerConfig:
-    """Configuration for memory pressure handler - RTX 5060 Ti optimized"""
-    # Memory thresholds (MB) - Scaled for 16GB card
-    gpu_critical_threshold_mb: int = 13312   # 13GB (80% of 16GB card)
-    gpu_high_threshold_mb: int = 10240       # 10GB (60% of 16GB card)
-    gpu_moderate_threshold_mb: int = 6144    # 6GB (40% of 16GB card)
+    """Configuration for memory pressure handler - Auto-configured for detected GPU"""
+    # Memory thresholds (MB) - Auto-detected
+    gpu_critical_threshold_mb: int = None    # Auto-detected
+    gpu_high_threshold_mb: int = None        # Auto-detected
+    gpu_moderate_threshold_mb: int = None    # Auto-detected
     
     # Utilization thresholds (0-1)
-    gpu_critical_utilization: float = 0.95
-    gpu_high_utilization: float = 0.85
-    gpu_moderate_utilization: float = 0.70
+    gpu_critical_utilization: float = None   # Auto-detected
+    gpu_high_utilization: float = None       # Auto-detected
+    gpu_moderate_utilization: float = None   # Auto-detected
     
     # CPU thresholds
     cpu_critical_threshold_mb: int = 500
@@ -149,22 +151,90 @@ class PressureHandlerConfig:
     
     # Performance parameters
     min_gpu_batch_size: int = 10         # Minimum batch for GPU
-    max_cpu_batch_size: int = 100000     # Was 5000 -> 20x increase (CPU unchanged)
+    max_cpu_batch_size: int = None       # Auto-detected
     warmup_iterations: int = 10          # Iterations before trusting metrics
     
-    # RTX 5060 Ti specific parameters
-    burst_multiplier: float = 5.0            # Reduced burst for 16GB
-    emergency_cpu_workers: int = 100         # Emergency worker pool
-    memory_defrag_threshold: float = 0.3     # Defrag at 30% fragmentation
+    # Auto-configured parameters
+    burst_multiplier: float = None           # Auto-detected
+    emergency_cpu_workers: int = None        # Auto-detected
+    memory_defrag_threshold: float = None    # Auto-detected
+    
+    # Flag to track if auto-configuration has been applied
+    _auto_configured: bool = False
     
     def __post_init__(self):
-        """Validate configuration"""
+        """Auto-configure and validate configuration"""
+        # Apply auto-configuration if values are None
+        if not self._auto_configured:
+            self._apply_auto_configuration()
+        
+        # Validate after auto-configuration
         if self.gpu_critical_threshold_mb <= 0:
             raise ValueError(f"gpu_critical_threshold_mb must be > 0, got {self.gpu_critical_threshold_mb}")
         if not 0 < self.gpu_critical_utilization <= 1:
             raise ValueError(f"gpu_critical_utilization must be in (0,1], got {self.gpu_critical_utilization}")
         if self.monitoring_interval_ms <= 0:
             raise ValueError(f"monitoring_interval_ms must be > 0, got {self.monitoring_interval_ms}")
+    
+    def _apply_auto_configuration(self):
+        """Apply auto-detected configuration values"""
+        try:
+            config_updater = get_config_updater()
+            auto_config = config_updater.optimized_config
+            
+            # Apply auto-detected values only if not manually set
+            if self.gpu_critical_threshold_mb is None:
+                self.gpu_critical_threshold_mb = auto_config.gpu_critical_threshold_mb
+            if self.gpu_high_threshold_mb is None:
+                self.gpu_high_threshold_mb = auto_config.gpu_high_threshold_mb
+            if self.gpu_moderate_threshold_mb is None:
+                self.gpu_moderate_threshold_mb = auto_config.gpu_moderate_threshold_mb
+            
+            if self.gpu_critical_utilization is None:
+                self.gpu_critical_utilization = auto_config.gpu_critical_utilization
+            if self.gpu_high_utilization is None:
+                self.gpu_high_utilization = auto_config.gpu_high_utilization
+            if self.gpu_moderate_utilization is None:
+                self.gpu_moderate_utilization = auto_config.gpu_moderate_utilization
+            
+            if self.max_cpu_batch_size is None:
+                self.max_cpu_batch_size = auto_config.cpu_batch_size
+            if self.burst_multiplier is None:
+                self.burst_multiplier = auto_config.burst_multiplier
+            if self.emergency_cpu_workers is None:
+                self.emergency_cpu_workers = auto_config.emergency_cpu_workers
+            if self.memory_defrag_threshold is None:
+                self.memory_defrag_threshold = auto_config.memory_defrag_threshold
+            
+            self._auto_configured = True
+            
+        except Exception as e:
+            # Fallback to conservative defaults if auto-detection fails
+            print(f"Auto-configuration failed: {e}, using conservative defaults")
+            if self.gpu_critical_threshold_mb is None:
+                self.gpu_critical_threshold_mb = 6144  # 6GB
+            if self.gpu_high_threshold_mb is None:
+                self.gpu_high_threshold_mb = 4096  # 4GB
+            if self.gpu_moderate_threshold_mb is None:
+                self.gpu_moderate_threshold_mb = 2048  # 2GB
+            
+            if self.gpu_critical_utilization is None:
+                self.gpu_critical_utilization = 0.95
+            if self.gpu_high_utilization is None:
+                self.gpu_high_utilization = 0.85
+            if self.gpu_moderate_utilization is None:
+                self.gpu_moderate_utilization = 0.70
+            
+            if self.max_cpu_batch_size is None:
+                self.max_cpu_batch_size = 10000
+            if self.burst_multiplier is None:
+                self.burst_multiplier = 5.0
+            if self.emergency_cpu_workers is None:
+                self.emergency_cpu_workers = 50
+            if self.memory_defrag_threshold is None:
+                self.memory_defrag_threshold = 0.3
+            
+            self._auto_configured = True
 
 
 class MemoryPressureHandler:
