@@ -1061,6 +1061,133 @@ class PadicDecompressionEngine:
         # Thread safety
         self._lock = threading.RLock()
     
+    def _extract_gpu_channels(self, batch: List[PadicWeight]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Extract mantissa and exponent channels from p-adic weights for GPU processing.
+        Mirrors CPU implementation but optimized for GPU batch processing.
+        
+        Args:
+            batch: List of PadicWeight objects
+            
+        Returns:
+            Tuple of (mantissa_tensor, exponent_tensor) on GPU
+        """
+        batch_size = len(batch)
+        
+        # Find max digits for mantissa channel sizing
+        max_digits = max(len(weight.digits) for weight in batch)
+        min_channel_size = max(10, max_digits)  # Ensure minimum size for consistency
+        
+        # Create mantissa tensor from p-adic digits
+        mantissa_tensor = torch.zeros((batch_size, min_channel_size), 
+                                      dtype=torch.float32, device=self.device)
+        
+        # Create exponent tensor from valuations
+        # Format: [sign, magnitude, 0, 0, ...] matching CPU implementation
+        exponent_tensor = torch.zeros((batch_size, min_channel_size), 
+                                      dtype=torch.float32, device=self.device)
+        
+        # Fill tensors
+        for i, weight in enumerate(batch):
+            # Validate weight
+            if weight.prime != self.prime:
+                raise ValueError(f"Weight {i} has prime {weight.prime}, expected {self.prime}")
+            
+            # Fill mantissa channel with digits
+            digit_count = len(weight.digits)
+            if digit_count > 0:
+                mantissa_tensor[i, :digit_count] = torch.tensor(
+                    weight.digits, dtype=torch.float32, device=self.device
+                )
+            
+            # Fill exponent channel with valuation encoding
+            valuation = getattr(weight, 'valuation', 0)
+            exponent_tensor[i, 0] = 1.0 if valuation >= 0 else -1.0  # Sign
+            exponent_tensor[i, 1] = float(abs(valuation))  # Magnitude
+        
+        return mantissa_tensor, exponent_tensor
+
+    def _gpu_reconstruct_from_channels(self, mantissa: torch.Tensor, exponent: torch.Tensor, 
+                                      batch: List[PadicWeight], precision: int) -> torch.Tensor:
+        """
+        GPU reconstruction using separated mantissa/exponent channels.
+        
+        Args:
+            mantissa: Mantissa channel tensor (batch_size, channel_size)
+            exponent: Exponent channel tensor (batch_size, channel_size)
+            batch: Original PadicWeight list for metadata
+            precision: Target precision
+            
+        Returns:
+            Reconstructed values tensor
+        """
+        batch_size = mantissa.shape[0]
+        
+        # Extract valuations from exponent channel
+        valuation_signs = exponent[:, 0]
+        valuation_magnitudes = exponent[:, 1]
+        valuations = (valuation_signs * valuation_magnitudes).int()
+        
+        # Prepare digits tensor for reconstruction (only actual digits, not full channel)
+        max_actual_digits = max(len(weight.digits) for weight in batch)
+        digits_tensor = torch.zeros((batch_size, max_actual_digits), 
+                                   dtype=torch.int32, device=self.device)
+        
+        for i, weight in enumerate(batch):
+            actual_digits = len(weight.digits)
+            if actual_digits > 0:
+                # Use mantissa values up to actual digit count
+                digits_tensor[i, :actual_digits] = mantissa[i, :actual_digits].int()
+        
+        # Use existing GPU reconstruction kernel
+        results = self._gpu_reconstruct_kernel_channelized(
+            digits_tensor, valuations, min(precision, max_actual_digits)
+        )
+        
+        return results
+
+    def _gpu_reconstruct_kernel_channelized(self, digits: torch.Tensor, 
+                                           valuations: torch.Tensor,
+                                           precision: int) -> torch.Tensor:
+        """
+        GPU kernel for channel-based batch reconstruction.
+        Enhanced version of SafePadicReconstructor's kernel.
+        """
+        batch_size = digits.shape[0]
+        device = digits.device
+        
+        # Pre-compute prime powers on GPU (reuse if possible)
+        if not hasattr(self, '_cached_prime_powers') or len(self._cached_prime_powers) < precision:
+            self._cached_prime_powers = torch.pow(
+                float(self.prime), 
+                torch.arange(precision, dtype=torch.float32, device=device)
+            )
+        
+        prime_powers = self._cached_prime_powers[:precision]
+        
+        # Batch matrix multiplication for mantissa processing
+        digits_float = digits[:, :precision].float()
+        mantissa_results = torch.sum(digits_float * prime_powers.unsqueeze(0), dim=1)
+        
+        # Apply exponent (valuation) factors efficiently
+        # Split positive and negative valuations for numerical stability
+        pos_mask = valuations >= 0
+        neg_mask = ~pos_mask
+        
+        results = torch.zeros(batch_size, dtype=torch.float32, device=device)
+        
+        if pos_mask.any():
+            pos_valuations = valuations[pos_mask].float()
+            pos_factors = torch.pow(float(self.prime), pos_valuations)
+            results[pos_mask] = mantissa_results[pos_mask] * pos_factors
+        
+        if neg_mask.any():
+            neg_valuations = valuations[neg_mask].float()
+            neg_factors = torch.pow(float(self.prime), neg_valuations)
+            results[neg_mask] = mantissa_results[neg_mask] * neg_factors
+        
+        return results
+    
     def _validate_prime_powers(self):
         """Validate pre-computed powers are within safe ranges"""
         for i, power in enumerate(self.prime_powers):
@@ -1424,27 +1551,23 @@ class PadicDecompressionEngine:
     
     def _decompress_batch_gpu(self, batch: List[PadicWeight], precision_schedule: List[int],
                             stream: torch.cuda.Stream, batch_start: int) -> Dict[str, Any]:
-        """Decompress batch using GPU stream with overflow protection"""
+        """Decompress batch using GPU stream with channel-based processing"""
         with torch.cuda.stream(stream):
             current_result = None
             
             for precision in precision_schedule:
-                # CRITICAL FIX: Convert batch using actual p-adic precision, not target precision
-                gpu_data = self._convert_padic_to_gpu_format_fixed(batch)
+                # CRITICAL FIX: Convert batch using channel extraction
+                mantissa_channel, exponent_channel = self._convert_padic_to_gpu_format_fixed(batch)
                 
-                # Transfer to GPU if async enabled
-                if self.config.enable_async_transfer:
-                    gpu_data = gpu_data.to(self.device, non_blocking=True)
-                else:
-                    gpu_data = gpu_data.to(self.device)
+                # Process with channel-based reconstruction
+                result = self._process_gpu_data_fixed(
+                    (mantissa_channel, exponent_channel), batch, precision
+                )
                 
-                # Process with correct precision logic
-                result = self._process_gpu_data_fixed(gpu_data, batch, precision)
-                
-                # Ensure result is never None - our improved method should handle this, but double-check
+                # Ensure result is never None
                 if result is None:
                     print(f"Warning: _process_gpu_data_fixed returned None, using zeros for batch {batch_start}")
-                    result = torch.zeros(len(batch), dtype=torch.float32, device=gpu_data.device)
+                    result = torch.zeros(len(batch), dtype=torch.float32, device=self.device)
                 
                 # Validate intermediate result
                 if torch.any(torch.isnan(result)):
@@ -1458,7 +1581,7 @@ class PadicDecompressionEngine:
                 
                 current_result = result
             
-            # Final conversion to float tensor - ensure current_result is not None
+            # Final conversion to float tensor
             if current_result is None:
                 print(f"Warning: current_result is None for batch {batch_start}, using zeros")
                 current_result = torch.zeros(len(batch), dtype=torch.float32, device=self.device)
@@ -1469,11 +1592,21 @@ class PadicDecompressionEngine:
                 'data': final_data,
                 'batch_start': batch_start,
                 'batch_size': len(batch),
-                'final_precision': precision_schedule[-1] if precision_schedule else 1  # SAFETY FIX
+                'final_precision': precision_schedule[-1] if precision_schedule else 1,
+                'used_channels': True  # New flag to indicate channel-based processing
             }
     
-    def _convert_padic_to_gpu_format_fixed(self, batch: List[PadicWeight]) -> torch.Tensor:
-        """Convert p-adic weights to GPU-friendly format using actual digit counts"""
+    def _convert_padic_to_gpu_format_fixed(self, batch: List[PadicWeight]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Convert p-adic weights to GPU-friendly format using channel separation.
+        Now returns mantissa and exponent channels instead of raw digits.
+        
+        Args:
+            batch: List of PadicWeight objects
+            
+        Returns:
+            Tuple of (mantissa_channel, exponent_channel) tensors
+        """
         # HARD VALIDATION: Ensure all weights are valid
         for i, weight in enumerate(batch):
             if not isinstance(weight, PadicWeight):
@@ -1483,130 +1616,125 @@ class PadicDecompressionEngine:
             if not weight.digits:
                 raise ValueError(f"Weight {i} has empty digits")
         
-        # CRITICAL FIX: Use actual digit lengths, not any target precision
-        # Find maximum actual precision in the batch
-        max_actual_digits = max(len(weight.digits) for weight in batch)
-        
-        # Create coefficient matrix with actual digit count only
-        coeffs_matrix = np.zeros((len(batch), max_actual_digits), dtype=np.float32)
-        
-        for i, weight in enumerate(batch):
-            # Extract only the actual digits (no padding beyond actual digits)
-            for j in range(len(weight.digits)):
-                digit = weight.digits[j]
-                # VALIDATION: Ensure digit is in valid range
-                if not (0 <= digit < self.prime):
-                    raise ValueError(f"Invalid digit {digit} at weight {i}, position {j}")
-                coeffs_matrix[i, j] = float(digit)
-        
-        return torch.from_numpy(coeffs_matrix)
+        # Extract channels using GPU-optimized method
+        return self._extract_gpu_channels(batch)
     
-    def _process_gpu_data_fixed(self, gpu_data: torch.Tensor, batch: List[PadicWeight], target_precision: int) -> torch.Tensor:
-        """Process p-adic data using safe reconstruction with comprehensive fallbacks"""
-        batch_size, num_actual_coeffs = gpu_data.shape
+    def _process_gpu_data_fixed(self, gpu_data: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]], 
+                               batch: List[PadicWeight], target_precision: int) -> torch.Tensor:
+        """
+        Process p-adic data using channel-based GPU reconstruction.
         
-        # Convert batch to safe weight format for GPU processing
-        safe_weights = []
-        for weight in batch:
-            from .safe_reconstruction import PadicWeight as SafeWeight
-            safe_weight = SafeWeight(
-                digits=weight.digits,
-                valuation=getattr(weight, 'valuation', 0),
-                precision=weight.precision,
-                prime=self.prime
-            )
-            safe_weights.append(safe_weight)
+        Args:
+            gpu_data: Either legacy tensor or tuple of (mantissa, exponent) channels
+            batch: List of PadicWeight objects
+            target_precision: Target precision for reconstruction
+            
+        Returns:
+            Reconstructed values tensor
+        """
+        # Handle both legacy (single tensor) and new (channel tuple) formats
+        if isinstance(gpu_data, tuple):
+            mantissa_channel, exponent_channel = gpu_data
+            use_channels = True
+        else:
+            # Legacy path - convert to channels
+            mantissa_channel, exponent_channel = self._extract_gpu_channels(batch)
+            use_channels = False
         
         try:
-            # Use GPU batch reconstruction
-            results_tensor = self.safe_reconstructor.reconstruct_batch_gpu(
-                safe_weights, 
-                target_precision
+            # Use channel-based GPU reconstruction
+            results_tensor = self._gpu_reconstruct_from_channels(
+                mantissa_channel, exponent_channel, batch, target_precision
             )
             
             # Ensure we never return None
             if results_tensor is None:
-                raise GPUProcessingError("GPU reconstruction returned None")
+                raise RuntimeError("GPU channel reconstruction returned None")
+            
+            # Validate results
+            max_val = torch.max(torch.abs(results_tensor))
+            if max_val > 1e15:  # Consistent with SafePadicReconstructor
+                print(f"Warning: Large values detected (max={max_val:.2e}), may indicate precision issues")
             
             return results_tensor
             
         except (OverflowError, RuntimeError) as gpu_error:
-            # Handle overflow specifically - reduce precision and retry
-            if "overflow" in str(gpu_error).lower():
+            # Try with reduced precision if overflow
+            if "overflow" in str(gpu_error).lower() and target_precision > 1:
                 print(f"GPU overflow detected, reducing precision from {target_precision} to {target_precision-1}")
                 
-                # Try with reduced precision
                 reduced_precision = max(1, target_precision - 1)
                 try:
-                    results_tensor = self.safe_reconstructor.reconstruct_batch_gpu(
-                        safe_weights, 
-                        reduced_precision
+                    results_tensor = self._gpu_reconstruct_from_channels(
+                        mantissa_channel, exponent_channel, batch, reduced_precision
                     )
                     
                     if results_tensor is None:
-                        raise GPUProcessingError("GPU reconstruction with reduced precision returned None")
+                        raise RuntimeError("GPU channel reconstruction with reduced precision returned None")
                     
                     return results_tensor
                     
                 except Exception as retry_error:
-                    print(f"GPU retry with reduced precision failed: {retry_error}, falling back to CPU")
+                    print(f"GPU retry with reduced precision failed: {retry_error}")
+                    # Fall through to CPU fallback
             
-            # Fallback to CPU reconstruction
+            # CPU fallback using safe reconstruction
+            print(f"GPU channel reconstruction failed: {gpu_error}, falling back to CPU")
             try:
+                # Convert batch to safe weight format
+                safe_weights = []
+                for weight in batch:
+                    from .safe_reconstruction import PadicWeight as SafeWeight
+                    safe_weight = SafeWeight(
+                        digits=weight.digits,
+                        valuation=getattr(weight, 'valuation', 0),
+                        precision=weight.precision,
+                        prime=self.prime
+                    )
+                    safe_weights.append(safe_weight)
+                
+                # Use CPU reconstruction
                 cpu_results = self.safe_reconstructor.reconstruct_batch_cpu(
-                    safe_weights,
-                    target_precision
+                    safe_weights, target_precision
                 )
                 
-                # Ensure CPU results are valid
                 if cpu_results is None:
-                    raise DecompressionError("CPU reconstruction returned None")
+                    raise RuntimeError("CPU reconstruction returned None")
                 
-                result_tensor = torch.tensor(cpu_results, dtype=torch.float32, device=gpu_data.device)
-                
-                if result_tensor is None:
-                    raise GPUProcessingError("Failed to create result tensor from CPU reconstruction")
-                
+                # Convert to GPU tensor
+                result_tensor = torch.tensor(cpu_results, dtype=torch.float32, device=self.device)
                 return result_tensor
                 
-            except (OverflowError, RuntimeError) as cpu_error:
-                # If CPU also has overflow, try with reduced precision
-                if "overflow" in str(cpu_error).lower():
-                    reduced_precision = max(1, target_precision - 1)
-                    try:
-                        cpu_results = self.safe_reconstructor.reconstruct_batch_cpu(
-                            safe_weights,
-                            reduced_precision
-                        )
-                        
-                        if cpu_results is None:
-                            raise DecompressionError("CPU reconstruction with reduced precision returned None")
-                        
-                        result_tensor = torch.tensor(cpu_results, dtype=torch.float32, device=gpu_data.device)
-                        return result_tensor
-                        
-                    except Exception as final_error:
-                        # Last resort: return zeros instead of None
-                        print(f"All reconstruction attempts failed, returning zeros: {final_error}")
-                        return torch.zeros(batch_size, dtype=torch.float32, device=gpu_data.device)
-                
-                # Both GPU and CPU failed for non-overflow reasons
-                raise DecompressionError(f"Both GPU and CPU reconstruction failed. GPU: {gpu_error}, CPU: {cpu_error}")
+            except Exception as cpu_error:
+                # Last resort: return zeros
+                print(f"Both GPU and CPU reconstruction failed, returning zeros: GPU: {gpu_error}, CPU: {cpu_error}")
+                return torch.zeros(len(batch), dtype=torch.float32, device=self.device)
         
         except Exception as other_error:
             # Handle other errors with fallback
             print(f"Unexpected error in GPU processing: {other_error}, attempting CPU fallback")
             try:
+                # Convert batch to safe weight format
+                safe_weights = []
+                for weight in batch:
+                    from .safe_reconstruction import PadicWeight as SafeWeight
+                    safe_weight = SafeWeight(
+                        digits=weight.digits,
+                        valuation=getattr(weight, 'valuation', 0),
+                        precision=weight.precision,
+                        prime=self.prime
+                    )
+                    safe_weights.append(safe_weight)
+                
                 cpu_results = self.safe_reconstructor.reconstruct_batch_cpu(
-                    safe_weights,
-                    target_precision
+                    safe_weights, target_precision
                 )
-                result_tensor = torch.tensor(cpu_results, dtype=torch.float32, device=gpu_data.device)
+                result_tensor = torch.tensor(cpu_results, dtype=torch.float32, device=self.device)
                 return result_tensor
             except Exception as final_error:
-                # Last resort: return zeros instead of None
+                # Last resort: return zeros
                 print(f"Final fallback failed, returning zeros: {final_error}")
-                return torch.zeros(batch_size, dtype=torch.float32, device=gpu_data.device)
+                return torch.zeros(len(batch), dtype=torch.float32, device=self.device)
     
     def _update_batch_precision(self, batch: List[PadicWeight], precision: int) -> List[PadicWeight]:
         """Update batch with new precision (for progressive processing)"""

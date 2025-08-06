@@ -3,18 +3,19 @@ Tensor Decomposition Compression System Module
 Advanced tensor decomposition with HOSVD, Tensor-Ring, GPU acceleration
 """
 
-from .tensor_advanced import (
-    HOSVDDecomposer,
-    TensorRingDecomposer,
-    AdvancedTensorRankOptimizer,
-    TensorGPUAccelerator
-)
+# Temporarily disabled due to missing gpytorch dependency
+# from .tensor_advanced import (
+#     HOSVDDecomposer,
+#     TensorRingDecomposer,
+#     AdvancedTensorRankOptimizer,
+#     TensorGPUAccelerator
+# )
 
 __all__ = [
-    'HOSVDDecomposer',
-    'TensorRingDecomposer', 
-    'AdvancedTensorRankOptimizer',
-    'TensorGPUAccelerator'
+    # 'HOSVDDecomposer',
+    # 'TensorRingDecomposer', 
+    # 'AdvancedTensorRankOptimizer',
+    # 'TensorGPUAccelerator'
 ]
 
 # Module version

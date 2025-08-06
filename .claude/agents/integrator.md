@@ -1,7 +1,7 @@
 ---
 name: integrator
 description: i will tell you explicitely tell you when to use the integrator
-model: sonnet
+model: opus
 ---
 
 # Fix Implementation Agent

@@ -6,12 +6,13 @@ Fail-loud architecture - no fallbacks.
 """
 
 # Import tensor decomposition components
-from .tensor_decomposition import (
-    HOSVDDecomposer,
-    TensorRingDecomposer,
-    AdvancedTensorRankOptimizer,
-    TensorGPUAccelerator
-)
+# Temporarily disabled due to missing gpytorch dependency
+# from .tensor_decomposition import (
+#     HOSVDDecomposer,
+#     TensorRingDecomposer,
+#     AdvancedTensorRankOptimizer,
+#     TensorGPUAccelerator
+# )
 
 # Import P-adic compression components
 from .padic import (
@@ -39,11 +40,11 @@ from .system_integration_coordinator import (
 )
 
 __all__ = [
-    # Tensor decomposition
-    'HOSVDDecomposer',
-    'TensorRingDecomposer',
-    'AdvancedTensorRankOptimizer',
-    'TensorGPUAccelerator',
+    # Tensor decomposition - temporarily disabled
+    # 'HOSVDDecomposer',
+    # 'TensorRingDecomposer',
+    # 'AdvancedTensorRankOptimizer',
+    # 'TensorGPUAccelerator',
     
     # P-adic compression
     'PadicCompressionSystem',
