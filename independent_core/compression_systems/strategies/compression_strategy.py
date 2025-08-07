@@ -15,6 +15,8 @@ from typing import Dict, Any, Optional, List, Tuple, Union, Protocol
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
+from fractions import Fraction
+from scipy import stats
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +26,26 @@ logger = logging.getLogger(__name__)
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
+# Import pattern detector if available
+try:
+    from .pattern_detector import WeightDistributionAnalyzer, DistributionAnalysis
+    PATTERN_DETECTOR_AVAILABLE = True
+except ImportError:
+    PATTERN_DETECTOR_AVAILABLE = False
+    WeightDistributionAnalyzer = None
+    DistributionAnalysis = None
+
+# Import CSR sparse compression if available
+try:
+    from .sparse_compressor import SparseCompressor, SparseCompressionResult
+    from .csr_sparse_matrix import CSRPadicMatrix
+    CSR_AVAILABLE = True
+except ImportError:
+    CSR_AVAILABLE = False
+    SparseCompressor = None
+    SparseCompressionResult = None
+    CSRPadicMatrix = None
 
 # Import neural analysis components
 from independent_core.compression_systems.neural_analysis.layer_analyzer import (
@@ -348,6 +370,7 @@ class PadicStrategy(CompressionStrategy):
         
         self.prime = prime
         self.precision = precision
+        self.default_prime = prime  # Store default for fallback
         
         # Create config for logarithmic encoder
         config = LogarithmicEncodingConfig()
@@ -355,11 +378,19 @@ class PadicStrategy(CompressionStrategy):
         config.precision = min(precision, 3)  # Use reduced precision for compression
         config.max_safe_precision = min(precision, 3)
         
+        # Enable adaptive Hensel lifting for better compression
+        config.enable_adaptive_hensel = True
+        config.hensel_target_error = 1e-10
+        
         self.encoder = PadicLogarithmicEncoder(config)
+        
+        # Initialize dynamic prime selector for strategy-level selection
+        from ..padic.dynamic_prime_selector import DynamicPrimeSelector
+        self.prime_selector = DynamicPrimeSelector(enable_caching=True)
         
     def compress(self, tensor: torch.Tensor, 
                 metadata: Optional[Dict[str, Any]] = None) -> CompressedData:
-        """Compress tensor using p-adic encoding"""
+        """Compress tensor using p-adic encoding with optimal prime selection"""
         start_time = time.time()
         
         # Validate input
@@ -370,6 +401,17 @@ class PadicStrategy(CompressionStrategy):
         
         original_shape = tensor.shape
         original_dtype = tensor.dtype
+        
+        # Select optimal prime based on tensor distribution
+        optimal_p = self.optimal_prime(tensor, metadata)
+        
+        # Update encoder if prime changed
+        if optimal_p != self.encoder.config.prime:
+            config = LogarithmicEncodingConfig()
+            config.prime = optimal_p
+            config.precision = min(self.precision, 3)
+            config.max_safe_precision = min(self.precision, 3)
+            self.encoder = PadicLogarithmicEncoder(config)
         
         # Encode tensor to p-adic using logarithmic encoding
         compressed_weights = self.encoder.encode_weights_logarithmically(tensor)
@@ -385,12 +427,30 @@ class PadicStrategy(CompressionStrategy):
         
         compression_time = time.time() - start_time
         
+        # Include prime selection details in metadata
+        prime_selection_metadata = {}
+        if hasattr(self, '_last_prime_selection'):
+            selection = self._last_prime_selection
+            prime_selection_metadata = {
+                "prime_selection": {
+                    "optimal_prime": selection.optimal_prime,
+                    "efficiency": selection.efficiency,
+                    "average_digits": selection.average_digits,
+                    "entropy": selection.entropy,
+                    "distribution_type": selection.distribution_type,
+                    "selection_rationale": selection.selection_rationale,
+                    "candidate_scores": selection.candidate_scores
+                }
+            }
+        
         return CompressedData(
             strategy_name="padic",
             compressed_bytes=compressed_bytes,
             metadata={
-                "prime": self.prime,
+                "prime": self.encoder.config.prime,  # Use actual prime used
                 "precision": self.precision,
+                "distribution_type": getattr(self, '_last_distribution_type', 'unknown'),
+                **prime_selection_metadata,
                 **(metadata or {})
             },
             compression_ratio=compression_ratio,
@@ -462,6 +522,279 @@ class PadicStrategy(CompressionStrategy):
     def get_strategy_name(self) -> str:
         """Return strategy identifier"""
         return "padic"
+    
+    def optimal_prime(self, tensor: torch.Tensor, metadata: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Select optimal prime for p-adic compression based on tensor distribution.
+        
+        Mathematical foundation: p* = argmin_p E[L_p] where L_p = -log_p(P(x))
+        
+        Distribution-based selection:
+        - Gaussian → small primes (2, 3, 5)
+        - Bimodal → 2^k based on separation
+        - Sparse → large primes
+        - Uniform → entropy-driven selection
+        
+        Args:
+            tensor: Input tensor to analyze
+            metadata: Optional metadata with entropy values from StrategySelector
+            
+        Returns:
+            Optimal prime for compression
+        """
+        # Use DynamicPrimeSelector for comprehensive analysis
+        prime_result = self.prime_selector.select_optimal_prime(tensor)
+        
+        # Store distribution type for metadata
+        self._last_distribution_type = prime_result.distribution_type
+        
+        # Store selection result for debugging/analysis
+        self._last_prime_selection = prime_result
+        
+        return prime_result.optimal_prime
+    
+    def detect_distribution_type(self, tensor: torch.Tensor) -> str:
+        """
+        Detect the distribution type of the tensor.
+        
+        Returns one of: "gaussian", "bimodal", "sparse", "uniform", "multimodal"
+        """
+        flat_tensor = tensor.flatten().detach().cpu().numpy()
+        
+        # Check for sparsity first
+        sparsity = (np.abs(flat_tensor) < 1e-10).mean()
+        if sparsity > 0.7:
+            return "sparse"
+        
+        # Remove zeros for distribution analysis
+        non_zero = flat_tensor[np.abs(flat_tensor) > 1e-10]
+        if len(non_zero) < 10:
+            return "sparse"
+        
+        # Calculate statistical measures
+        skewness = stats.skew(non_zero)
+        kurtosis = stats.kurtosis(non_zero)
+        
+        # Test for normality (Gaussian)
+        # Jarque-Bera test for normality
+        jb_stat = len(non_zero) / 6 * (skewness**2 + (kurtosis**2) / 4)
+        # Critical value at 5% significance level is ~5.99
+        if jb_stat < 5.99 and abs(skewness) < 0.5 and abs(kurtosis) < 1:
+            return "gaussian"
+        
+        # Test for bimodality using Hartigan's dip test approximation
+        is_bimodal = self._test_bimodality(non_zero)
+        if is_bimodal:
+            return "bimodal"
+        
+        # Test for uniformity using Kolmogorov-Smirnov test
+        if len(non_zero) > 30:
+            # Normalize to [0, 1] for uniform test
+            normalized = (non_zero - non_zero.min()) / (non_zero.max() - non_zero.min() + 1e-10)
+            ks_stat, p_value = stats.kstest(normalized, 'uniform')
+            if p_value > 0.05:  # Cannot reject uniformity
+                return "uniform"
+        
+        # Check for multimodality using kernel density estimation peaks
+        num_modes = self._count_modes(non_zero)
+        if num_modes > 2:
+            return "multimodal"
+        
+        # Default to uniform for unclassified distributions
+        return "uniform"
+    
+    def _test_bimodality(self, data: np.ndarray) -> bool:
+        """
+        Test for bimodality using simplified Hartigan's dip test.
+        """
+        if len(data) < 10:
+            return False
+        
+        # Sort data
+        sorted_data = np.sort(data)
+        n = len(sorted_data)
+        
+        # Calculate empirical CDF
+        ecdf = np.arange(1, n + 1) / n
+        
+        # Find maximum deviation from uniform CDF
+        # This is a simplified version of the dip statistic
+        uniform_cdf = (sorted_data - sorted_data[0]) / (sorted_data[-1] - sorted_data[0] + 1e-10)
+        max_deviation = np.max(np.abs(ecdf - uniform_cdf))
+        
+        # Heuristic threshold for bimodality
+        # Higher deviation suggests departure from unimodality
+        threshold = 0.05 + 0.15 / np.sqrt(n)
+        
+        # Additional check: look for gap in middle of distribution
+        mid_idx = n // 2
+        quarter_idx = n // 4
+        three_quarter_idx = 3 * n // 4
+        
+        if quarter_idx < mid_idx < three_quarter_idx:
+            gap_ratio = (sorted_data[three_quarter_idx] - sorted_data[quarter_idx]) / (sorted_data[-1] - sorted_data[0] + 1e-10)
+            if gap_ratio > 0.5 and max_deviation > threshold:
+                return True
+        
+        return max_deviation > threshold * 2  # Stricter threshold for bimodality
+    
+    def _calculate_bimodal_separation(self, tensor: torch.Tensor) -> float:
+        """
+        Calculate separation between modes in bimodal distribution.
+        """
+        flat_tensor = tensor.flatten().detach().cpu().numpy()
+        non_zero = flat_tensor[np.abs(flat_tensor) > 1e-10]
+        
+        if len(non_zero) < 10:
+            return 0.0
+        
+        # Use k-means with k=2 to find modes
+        from sklearn.cluster import KMeans
+        try:
+            kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
+            kmeans.fit(non_zero.reshape(-1, 1))
+            
+            # Calculate separation as distance between cluster centers
+            centers = kmeans.cluster_centers_.flatten()
+            separation = abs(centers[1] - centers[0])
+            
+            # Normalize by data range
+            data_range = non_zero.max() - non_zero.min()
+            if data_range > 0:
+                return separation / data_range
+            else:
+                return 0.0
+        except:
+            # Fallback: use simple percentile-based separation
+            p25 = np.percentile(non_zero, 25)
+            p75 = np.percentile(non_zero, 75)
+            data_range = non_zero.max() - non_zero.min()
+            if data_range > 0:
+                return (p75 - p25) / data_range
+            else:
+                return 0.0
+    
+    def _count_modes(self, data: np.ndarray) -> int:
+        """
+        Count the number of modes using kernel density estimation.
+        """
+        if len(data) < 10:
+            return 1
+        
+        from scipy.stats import gaussian_kde
+        try:
+            # Create kernel density estimate
+            kde = gaussian_kde(data)
+            
+            # Create fine grid for evaluation
+            x_grid = np.linspace(data.min(), data.max(), 1000)
+            density = kde(x_grid)
+            
+            # Find local maxima
+            from scipy.signal import find_peaks
+            peaks, _ = find_peaks(density, height=np.max(density) * 0.1)
+            
+            return max(1, len(peaks))
+        except:
+            return 1
+    
+    def _estimate_code_length(self, tensor: torch.Tensor, prime: int) -> float:
+        """
+        Estimate expected code length for given prime.
+        L_p = -log_p(P(x)) where P(x) is probability of value x.
+        """
+        flat_tensor = tensor.flatten().detach().cpu().numpy()
+        
+        # Quantize to p-adic representation precision
+        scale = prime ** self.precision
+        quantized = np.round(flat_tensor * scale) / scale
+        
+        # Calculate frequency distribution
+        unique, counts = np.unique(quantized, return_counts=True)
+        probabilities = counts / len(quantized)
+        
+        # Calculate expected code length
+        # Using Shannon entropy with base p
+        entropy = 0.0
+        for prob in probabilities:
+            if prob > 0:
+                entropy -= prob * np.log(prob) / np.log(prime)
+        
+        # Add overhead for p-adic representation
+        # Each digit requires log2(p) bits
+        overhead = self.precision * np.log2(prime)
+        
+        return entropy + overhead / 8  # Convert bits to bytes factor
+    
+    def _calculate_entropy(self, tensor: torch.Tensor) -> float:
+        """
+        Calculate Shannon entropy of tensor.
+        """
+        # Quantize values for histogram
+        num_bins = 256
+        tensor_np = tensor.detach().cpu().numpy()
+        
+        # Get min/max for binning
+        min_val = tensor_np.min()
+        max_val = tensor_np.max()
+        
+        if max_val == min_val:
+            return 0.0
+        
+        # Create histogram
+        histogram, _ = np.histogram(tensor_np, bins=num_bins)
+        
+        # Calculate probabilities
+        probabilities = histogram / len(tensor_np)
+        probabilities = probabilities[probabilities > 0]
+        
+        if len(probabilities) == 0:
+            return 0.0
+        
+        # Calculate entropy in bits
+        entropy = -np.sum(probabilities * np.log2(probabilities))
+        
+        return float(entropy)
+    
+    def is_prime(self, n: int) -> bool:
+        """
+        Check if a number is prime.
+        """
+        if n < 2:
+            return False
+        if n == 2:
+            return True
+        if n % 2 == 0:
+            return False
+        
+        # Check odd divisors up to sqrt(n)
+        for i in range(3, int(n**0.5) + 1, 2):
+            if n % i == 0:
+                return False
+        return True
+    
+    def next_prime(self, n: int) -> int:
+        """
+        Find the next prime number >= n.
+        """
+        if n <= 2:
+            return 2
+        
+        # Ensure we start with an odd number
+        if n % 2 == 0:
+            n += 1
+        else:
+            n += 2
+        
+        # Find next prime
+        while not self.is_prime(n):
+            n += 2
+            
+            # Safety check to prevent infinite loop
+            if n > 1000000:
+                return self.default_prime  # Fallback to default
+        
+        return n
 
 
 class HybridStrategy(CompressionStrategy):
@@ -654,8 +987,121 @@ class HybridStrategy(CompressionStrategy):
         return [TropicalNumber(float(val)) for val in array]
 
 
+class CSRStrategy(CompressionStrategy):
+    """CSR sparse matrix compression strategy for highly sparse layers"""
+    
+    def __init__(self, sparsity_threshold: float = 0.9, csr_threshold: float = 1e-6):
+        """Initialize CSR strategy"""
+        if not CSR_AVAILABLE:
+            raise ImportError("CSR compression not available. Install required dependencies.")
+        
+        self.sparse_compressor = SparseCompressor(
+            sparsity_threshold=sparsity_threshold,
+            csr_threshold=csr_threshold,
+            min_matrix_size=100
+        )
+        
+    def compress(self, tensor: torch.Tensor, 
+                metadata: Optional[Dict[str, Any]] = None) -> CompressedData:
+        """Compress tensor using CSR sparse matrix format"""
+        start_time = time.time()
+        
+        # Validate input
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError(f"Expected torch.Tensor, got {type(tensor)}")
+        if tensor.numel() == 0:
+            raise ValueError("Cannot compress empty tensor")
+        
+        original_shape = tensor.shape
+        original_dtype = tensor.dtype
+        
+        # Attempt CSR compression
+        result = self.sparse_compressor.compress(tensor, metadata)
+        
+        if result is None:
+            # Fallback: create minimal compression if CSR not suitable
+            import pickle
+            compressed_bytes = pickle.dumps(tensor.detach().cpu().numpy())
+            compression_ratio = 1.0
+            
+            return CompressedData(
+                strategy_name="csr",
+                compressed_bytes=compressed_bytes,
+                metadata={
+                    "csr_failed": True,
+                    "reason": "Insufficient sparsity for CSR",
+                    **(metadata or {})
+                },
+                compression_ratio=compression_ratio,
+                original_shape=original_shape,
+                original_dtype=original_dtype,
+                compression_time=time.time() - start_time,
+                strategy_specific_data=None
+            )
+        
+        # Successful CSR compression
+        return CompressedData(
+            strategy_name="csr",
+            compressed_bytes=result.compressed_data,
+            metadata={
+                "sparsity": result.sparsity,
+                "nnz": result.nnz,
+                "csr_threshold": result.metadata['csr_threshold'],
+                "density": result.metadata['density'],
+                "row_efficiency": result.metadata['row_efficiency'],
+                "bandwidth_reduction": result.metadata['bandwidth_reduction'],
+                **(metadata or {})
+            },
+            compression_ratio=result.compression_ratio,
+            original_shape=original_shape,
+            original_dtype=original_dtype,
+            compression_time=result.compression_time,
+            strategy_specific_data=result.csr_matrix
+        )
+    
+    def decompress(self, compressed: CompressedData) -> torch.Tensor:
+        """Decompress CSR data back to tensor"""
+        if compressed.strategy_name != "csr":
+            raise ValueError(f"Invalid strategy for CSRStrategy: {compressed.strategy_name}")
+        
+        # Check if CSR compression failed
+        if compressed.metadata.get('csr_failed', False):
+            # Deserialize directly
+            import pickle
+            array = pickle.loads(compressed.compressed_bytes)
+            tensor = torch.from_numpy(array).to(compressed.original_dtype)
+            return tensor.view(compressed.original_shape)
+        
+        # Decompress CSR
+        reconstructed = self.sparse_compressor.decompress(compressed.compressed_bytes)
+        
+        # Ensure correct shape and dtype
+        reconstructed = reconstructed.view(compressed.original_shape)
+        reconstructed = reconstructed.to(compressed.original_dtype)
+        
+        return reconstructed
+    
+    def estimate_compression_ratio(self, tensor: torch.Tensor) -> float:
+        """Estimate compression ratio for CSR strategy"""
+        # Analyze tensor for CSR benefit
+        analysis = self.sparse_compressor.analyze_benefit(tensor)
+        
+        if analysis.recommended:
+            return analysis.expected_compression_ratio
+        else:
+            return 1.0  # No compression benefit
+    
+    def supports_gradients(self) -> bool:
+        """CSR strategy preserves values exactly, supports gradients"""
+        return True
+    
+    def get_strategy_name(self) -> str:
+        """Return strategy identifier"""
+        return "csr"
+
+
 class StrategySelector:
-    """Intelligent strategy selection based on layer analysis"""
+    """Intelligent strategy selection based on layer analysis""
     
     def __init__(self, config: StrategyConfig):
         """Initialize strategy selector"""
@@ -664,6 +1110,13 @@ class StrategySelector:
         self.strategy_cache: Dict[str, CompressionStrategy] = {}
         self.performance_history: Dict[str, List[float]] = {}
         self.decision_cache: Dict[str, str] = {} if config.cache_decisions else None
+        
+        # Initialize pattern detector if available
+        self.distribution_analyzer = WeightDistributionAnalyzer() if PATTERN_DETECTOR_AVAILABLE else None
+        self.distribution_cache: Dict[str, DistributionAnalysis] = {}
+        
+        # Initialize CSR sparse compressor if available
+        self.sparse_compressor = SparseCompressor(sparsity_threshold=0.9) if CSR_AVAILABLE else None
         
         # Initialize strategies
         self._initialize_strategies()
@@ -685,6 +1138,14 @@ class StrategySelector:
         )
         self.strategy_cache['hybrid'] = HybridStrategy(conversion_config)
         
+        # Initialize CSR strategy if available
+        if CSR_AVAILABLE:
+            self.strategy_cache['csr'] = CSRStrategy(
+                sparsity_threshold=0.9,
+                csr_threshold=1e-6
+            )
+            logger.info("CSR sparse matrix strategy initialized successfully")
+        
         # Initialize JAX strategy if available
         try:
             from ..tropical.jax_tropical_strategy import JAXTropicalStrategy
@@ -696,13 +1157,19 @@ class StrategySelector:
             pass
     
     def select_strategy(self, tensor: torch.Tensor, 
-                       layer_name: str = "") -> CompressionStrategy:
-        """Select optimal compression strategy for tensor"""
+                       layer_name: str = "") -> Tuple[CompressionStrategy, Dict[str, float]]:
+        """Select optimal compression strategy for tensor
+        
+        Returns:
+            Tuple of (strategy, analysis) where analysis contains entropy values
+        """
         # Check cache if enabled
         if self.decision_cache is not None and layer_name in self.decision_cache:
             strategy_name = self.decision_cache[layer_name]
             logger.info(f"Using cached strategy '{strategy_name}' for layer '{layer_name}'")
-            return self.strategy_cache[strategy_name]
+            # Still need to analyze for entropy values
+            analysis = self.analyze_tensor(tensor)
+            return self.strategy_cache[strategy_name], analysis
         
         # Analyze tensor
         analysis = self.analyze_tensor(tensor)
@@ -720,7 +1187,7 @@ class StrategySelector:
         logger.info(f"Selected strategy '{best_strategy}' for layer '{layer_name}' "
                    f"(scores: {scores})")
         
-        return self.strategy_cache[best_strategy]
+        return self.strategy_cache[best_strategy], analysis
     
     def analyze_tensor(self, tensor: torch.Tensor) -> Dict[str, float]:
         """Comprehensive tensor analysis for strategy selection"""
@@ -731,6 +1198,7 @@ class StrategySelector:
         # Sparsity analysis
         analysis['sparsity'] = (flat_tensor.abs() < 1e-10).float().mean().item()
         analysis['near_zero_ratio'] = (flat_tensor.abs() < 1e-6).float().mean().item()
+        analysis['tensor_size'] = tensor.numel()  # Add tensor size for CSR decision
         
         # Rank analysis for 2D+ tensors
         if len(tensor.shape) >= 2:
@@ -780,24 +1248,237 @@ class StrategySelector:
         analysis['std'] = flat_tensor.std().item()
         analysis['kurtosis'] = ((flat_tensor - analysis['mean']) ** 4).mean().item() / (analysis['std'] ** 4) if analysis['std'] > 0 else 0
         
+        # Entropy analysis for local data windows
+        analysis['local_entropy'] = self._calculate_local_entropy(flat_tensor)
+        analysis['global_entropy'] = self._calculate_global_entropy(flat_tensor)
+        analysis['entropy_variance'] = self._calculate_entropy_variance(flat_tensor)
+        
+        # Add distribution analysis if available
+        if self.distribution_analyzer:
+            try:
+                dist_analysis = self.distribution_analyzer.analyze_distribution(tensor)
+                
+                # Add distribution metrics to analysis
+                analysis['dist_skewness'] = dist_analysis.skewness
+                analysis['dist_kurtosis'] = dist_analysis.kurtosis
+                analysis['num_modes'] = dist_analysis.num_modes
+                analysis['quantization_levels'] = dist_analysis.quantization_levels
+                analysis['distribution_type'] = dist_analysis.distribution_type
+                
+                # Cache the full analysis
+                cache_key = str(id(tensor))
+                self.distribution_cache[cache_key] = dist_analysis
+            except Exception as e:
+                # Pattern detection failed, continue without it
+                logger.warning(f"Pattern detection failed: {e}")
+        
         return analysis
+    
+    def _calculate_local_entropy(self, tensor: torch.Tensor, window_size: int = 256) -> float:
+        """
+        Calculate entropy for local data windows with sliding window approach.
+        Uses rolling histogram updates for O(1) complexity per window shift.
+        
+        Formula: H_local(x) = -sum(p(x_i) * log2(p(x_i)))
+        
+        Args:
+            tensor: Flattened tensor to analyze
+            window_size: Size of sliding window (default 256 weights)
+            
+        Returns:
+            Average local entropy across all windows
+        """
+        if len(tensor) < window_size:
+            # If tensor is smaller than window, calculate global entropy
+            return self._calculate_global_entropy(tensor)
+        
+        # Quantize values for histogram (256 bins for efficiency)
+        num_bins = 256
+        tensor_np = tensor.detach().cpu().numpy()
+        
+        # Get min/max for binning
+        min_val = tensor_np.min()
+        max_val = tensor_np.max()
+        
+        if max_val == min_val:
+            return 0.0  # No variation, entropy is 0
+        
+        # Compute bin edges
+        bins = np.linspace(min_val, max_val, num_bins + 1)
+        
+        # Digitize the entire tensor
+        digitized = np.digitize(tensor_np, bins) - 1  # -1 to make 0-indexed
+        digitized = np.clip(digitized, 0, num_bins - 1)  # Ensure within bounds
+        
+        # Initialize rolling histogram for first window
+        histogram = np.zeros(num_bins, dtype=np.int32)
+        for i in range(min(window_size, len(digitized))):
+            histogram[digitized[i]] += 1
+        
+        # Calculate entropy for first window
+        entropies = []
+        entropy = self._entropy_from_histogram(histogram, window_size)
+        entropies.append(entropy)
+        
+        # Slide window and update histogram O(1) per shift
+        for i in range(window_size, len(digitized)):
+            # Remove old value
+            old_bin = digitized[i - window_size]
+            histogram[old_bin] -= 1
+            
+            # Add new value
+            new_bin = digitized[i]
+            histogram[new_bin] += 1
+            
+            # Calculate entropy for current window
+            entropy = self._entropy_from_histogram(histogram, window_size)
+            entropies.append(entropy)
+        
+        # Return average local entropy
+        return float(np.mean(entropies)) if entropies else 0.0
+    
+    def _calculate_global_entropy(self, tensor: torch.Tensor) -> float:
+        """
+        Calculate global entropy for entire tensor.
+        
+        Formula: H(x) = -sum(p(x_i) * log2(p(x_i)))
+        
+        Args:
+            tensor: Flattened tensor to analyze
+            
+        Returns:
+            Global entropy value
+        """
+        # Quantize values for histogram
+        num_bins = 256
+        tensor_np = tensor.detach().cpu().numpy()
+        
+        # Get min/max for binning
+        min_val = tensor_np.min()
+        max_val = tensor_np.max()
+        
+        if max_val == min_val:
+            return 0.0  # No variation, entropy is 0
+        
+        # Create histogram
+        histogram, _ = np.histogram(tensor_np, bins=num_bins)
+        
+        # Calculate entropy
+        return self._entropy_from_histogram(histogram, len(tensor_np))
+    
+    def _calculate_entropy_variance(self, tensor: torch.Tensor, window_size: int = 256) -> float:
+        """
+        Calculate variance of entropy across local windows.
+        High variance indicates non-uniform distribution.
+        
+        Args:
+            tensor: Flattened tensor to analyze
+            window_size: Size of sliding window
+            
+        Returns:
+            Variance of local entropies
+        """
+        if len(tensor) < window_size * 2:
+            return 0.0  # Not enough data for meaningful variance
+        
+        # Calculate entropies for non-overlapping windows for efficiency
+        tensor_np = tensor.detach().cpu().numpy()
+        num_windows = len(tensor_np) // window_size
+        
+        entropies = []
+        for i in range(num_windows):
+            start = i * window_size
+            end = start + window_size
+            window = tensor_np[start:end]
+            
+            # Calculate entropy for this window
+            entropy = self._calculate_global_entropy(torch.from_numpy(window))
+            entropies.append(entropy)
+        
+        if len(entropies) < 2:
+            return 0.0
+        
+        return float(np.var(entropies))
+    
+    def _entropy_from_histogram(self, histogram: np.ndarray, total_count: int) -> float:
+        """
+        Calculate entropy from histogram using Shannon entropy formula.
+        
+        Formula: H = -sum(p(x_i) * log2(p(x_i)))
+        
+        Args:
+            histogram: Bin counts
+            total_count: Total number of samples
+            
+        Returns:
+            Entropy value in bits
+        """
+        if total_count == 0:
+            return 0.0
+        
+        # Calculate probabilities
+        probabilities = histogram / total_count
+        
+        # Remove zero probabilities to avoid log(0)
+        probabilities = probabilities[probabilities > 0]
+        
+        if len(probabilities) == 0:
+            return 0.0
+        
+        # Calculate entropy using base-2 logarithm (bits)
+        entropy = -np.sum(probabilities * np.log2(probabilities))
+        
+        return float(entropy)
     
     def compute_strategy_scores(self, analysis: Dict[str, float]) -> Dict[str, float]:
         """Score each strategy based on analysis"""
         scores = {}
         
-        # Tropical strategy score
+        # CSR strategy score for extreme sparsity (if available)
+        if CSR_AVAILABLE and analysis['sparsity'] > 0.9:
+            # CSR is optimal for very sparse matrices
+            csr_score = 0.0
+            
+            # Strong preference for CSR when sparsity is extreme
+            if analysis['sparsity'] > 0.95:
+                csr_score = 0.95  # Almost always use CSR
+            elif analysis['sparsity'] > 0.9:
+                csr_score = 0.8  # Strong preference
+            
+            # Additional factors
+            if analysis.get('distribution_type') == 'sparse':
+                csr_score = min(1.0, csr_score + 0.1)
+            
+            # Check matrix size (CSR needs sufficient size to be beneficial)
+            # Assuming we have access to tensor shape through analysis
+            if 'tensor_size' in analysis and analysis['tensor_size'] < 100:
+                csr_score *= 0.5  # Reduce score for small matrices
+            
+            scores['csr'] = csr_score
+        
+        # Tropical strategy score (reduced when CSR is better)
         tropical_score = 0.0
         if analysis['sparsity'] > self.config.sparsity_threshold:
-            tropical_score += 0.5
+            # If CSR is available and sparsity > 0.9, reduce tropical score
+            if CSR_AVAILABLE and analysis['sparsity'] > 0.9:
+                tropical_score += 0.2  # Reduced from 0.5
+            else:
+                tropical_score += 0.5
         if analysis['rank_ratio'] < self.config.rank_ratio_threshold:
             tropical_score += 0.3
         if analysis['near_zero_ratio'] > 0.5:
             tropical_score += 0.2
         
-        # Bonus for extreme sparsity
-        if analysis['sparsity'] > 0.9:
+        # Bonus for extreme sparsity (only if CSR not available)
+        if analysis['sparsity'] > 0.9 and not CSR_AVAILABLE:
             tropical_score *= 1.5
+        
+        # Distribution adjustments for tropical
+        dist_type = analysis.get('distribution_type', 'unknown')
+        if dist_type == 'sparse':
+            tropical_score += 0.3  # Sparse is ideal for tropical
+        elif dist_type == 'uniform':
+            tropical_score -= 0.1  # Uniform doesn't benefit from tropical
         
         scores['tropical'] = min(1.0, tropical_score)
         
@@ -810,11 +1491,37 @@ class StrategySelector:
         if analysis['condition_number'] > 100:
             padic_score += 0.2
         
+        # Entropy-based adjustments for P-adic
+        # Low entropy (< 4 bits) suggests structured data good for P-adic
+        if 'local_entropy' in analysis:
+            if analysis['local_entropy'] < 4.0:  # Low entropy, highly structured
+                padic_score += 0.2
+            elif analysis['local_entropy'] > 7.0:  # High entropy, random-like
+                padic_score -= 0.1
+        
+        # High entropy variance suggests non-uniform data, good for adaptive P-adic
+        if 'entropy_variance' in analysis and analysis['entropy_variance'] > 0.5:
+            padic_score += 0.1
+        
+        # Distribution-based adjustments for P-adic
+        dist_type = analysis.get('distribution_type', 'unknown')
+        if dist_type == 'gaussian':
+            # Gaussian distributions compress well with P-adic
+            padic_score += 0.2
+        elif dist_type == 'heavy_tailed':
+            # Heavy-tailed distributions benefit from P-adic's dynamic range handling
+            padic_score += 0.15
+        
+        # Quantization awareness
+        if analysis.get('quantization_levels', 256) < 32:
+            # Already quantized, P-adic can leverage this
+            padic_score += 0.1
+        
         # Bonus for extreme dynamic range
         if analysis['dynamic_range'] > 1e8:
             padic_score *= 1.5
         
-        scores['padic'] = min(1.0, padic_score)
+        scores['padic'] = min(1.0, max(0.0, padic_score))
         
         # Hybrid strategy score
         hybrid_score = 0.0
@@ -824,6 +1531,12 @@ class StrategySelector:
             hybrid_score = 0.6
         elif analysis['condition_number'] > 1000 and analysis['sparsity'] > 0.3:
             hybrid_score = 0.7
+        
+        # Distribution adjustments for hybrid
+        if dist_type == 'bimodal':
+            hybrid_score += 0.3  # Bimodal benefits from hybrid approach
+        elif dist_type == 'multimodal' and analysis.get('num_modes', 1) > 3:
+            hybrid_score += 0.25  # Complex multimodal needs hybrid
         
         scores['hybrid'] = min(1.0, hybrid_score)
         
@@ -905,12 +1618,12 @@ class AdaptiveStrategyManager:
                     
                     full_name = f"{name}.{param_name}" if name else param_name
                     
-                    # Select strategy
-                    strategy = self.selector.select_strategy(param.data, full_name)
+                    # Select strategy with analysis
+                    strategy, analysis = self.selector.select_strategy(param.data, full_name)
                     
-                    # Compress parameter
+                    # Compress parameter with analysis metadata
                     start_time = time.time()
-                    compressed = strategy.compress(param.data)
+                    compressed = strategy.compress(param.data, metadata=analysis)
                     compression_time = time.time() - start_time
                     
                     # Store result
@@ -1175,19 +1888,21 @@ def test_strategy_selector():
     sparse_tensor = torch.zeros(100, 100)
     sparse_tensor[torch.rand(100, 100) > 0.9] = torch.randn(1)
     
-    strategy = selector.select_strategy(sparse_tensor, "sparse_layer")
+    strategy, analysis = selector.select_strategy(sparse_tensor, "sparse_layer")
     assert strategy.get_strategy_name() in ["tropical", "hybrid"]
+    assert 'local_entropy' in analysis  # Check entropy is calculated
     
     # Test with periodic tensor (should select p-adic)
     periodic_tensor = torch.sin(torch.linspace(0, 10 * np.pi, 10000)).view(100, 100)
     
-    strategy = selector.select_strategy(periodic_tensor, "periodic_layer")
+    strategy, analysis = selector.select_strategy(periodic_tensor, "periodic_layer")
     # Strategy selection depends on analysis
     assert strategy.get_strategy_name() in ["padic", "tropical", "hybrid"]
+    assert 'local_entropy' in analysis
     
     # Test caching
     if config.cache_decisions:
-        strategy2 = selector.select_strategy(sparse_tensor, "sparse_layer")
+        strategy2, _ = selector.select_strategy(sparse_tensor, "sparse_layer")
         assert strategy.get_strategy_name() == strategy2.get_strategy_name()
     
     print("✓ StrategySelector tests passed")
@@ -1275,8 +1990,8 @@ def test_edge_cases():
     config = StrategyConfig()
     selector = StrategySelector(config)
     
-    strategy = selector.select_strategy(large_tensor)
-    compressed = strategy.compress(large_tensor)
+    strategy, analysis = selector.select_strategy(large_tensor)
+    compressed = strategy.compress(large_tensor, metadata=analysis)
     reconstructed = strategy.decompress(compressed)
     assert reconstructed.shape == large_tensor.shape
     

@@ -16,8 +16,12 @@ import weakref
 from contextlib import contextmanager
 
 from .padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
-from .padic_compressor import PadicCompressionSystem
 from .safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
+
+# Type hints only - avoid circular import
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .padic_compressor import PadicCompressionSystem
 
 
 class GPUProcessingError(Exception):
@@ -2406,7 +2410,7 @@ class PadicAdvancedIntegration:
     """Integration utilities for advanced P-adic features"""
     
     @staticmethod
-    def integrate_hensel_lifting(compression_system: PadicCompressionSystem,
+    def integrate_hensel_lifting(compression_system: 'PadicCompressionSystem',
                                 hensel_config: HenselLiftingConfig) -> HenselLiftingProcessor:
         """Integrate Hensel lifting with compression system"""
         hensel_processor = HenselLiftingProcessor(
@@ -2420,7 +2424,7 @@ class PadicAdvancedIntegration:
         return hensel_processor
     
     @staticmethod
-    def integrate_hierarchical_clustering(compression_system: PadicCompressionSystem,
+    def integrate_hierarchical_clustering(compression_system: 'PadicCompressionSystem',
                                         clustering_config: ClusteringConfig) -> HierarchicalClusteringManager:
         """Integrate hierarchical clustering with compression system"""
         clustering_manager = HierarchicalClusteringManager(
@@ -2435,7 +2439,7 @@ class PadicAdvancedIntegration:
         return clustering_manager
     
     @staticmethod
-    def integrate_gpu_decompression(compression_system: PadicCompressionSystem,
+    def integrate_gpu_decompression(compression_system: 'PadicCompressionSystem',
                                   gpu_config: GPUDecompressionConfig) -> PadicDecompressionEngine:
         """Integrate GPU decompression with compression system"""
         decompression_engine = PadicDecompressionEngine(
@@ -2449,7 +2453,7 @@ class PadicAdvancedIntegration:
         return decompression_engine
     
     @staticmethod
-    def integrate_optimization_manager(compression_system: PadicCompressionSystem) -> PadicOptimizationManager:
+    def integrate_optimization_manager(compression_system: 'PadicCompressionSystem') -> PadicOptimizationManager:
         """Integrate optimization manager with compression system"""
         optimization_manager = PadicOptimizationManager(compression_system.prime)
         

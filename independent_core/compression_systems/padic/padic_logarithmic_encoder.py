@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 # Import existing components for integration
 try:
-    from .padic_encoder import PadicWeight, PadicMathematicalOperations
+    from .padic_encoder import PadicWeight, PadicMathematicalOperations, AdaptiveHenselLifting
     from .safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
     from ..categorical.ieee754_channel_extractor import IEEE754Channels
 except ImportError:
-    from compression_systems.padic.padic_encoder import PadicWeight, PadicMathematicalOperations
+    from compression_systems.padic.padic_encoder import PadicWeight, PadicMathematicalOperations, AdaptiveHenselLifting
     from compression_systems.padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
     from compression_systems.categorical.ieee754_channel_extractor import IEEE754Channels
 
@@ -52,6 +52,12 @@ class LogarithmicEncodingConfig:
     enable_run_length_encoding: bool = True   # Use RLE for repeated values
     quantize_before_encoding: bool = True     # Quantize inputs for better compression
     quantization_levels: int = 1024           # Number of quantization levels
+    
+    # Adaptive Hensel lifting parameters
+    enable_adaptive_hensel: bool = True       # Enable adaptive precision Hensel lifting
+    hensel_target_error: float = 1e-10       # Target error for Hensel lifting
+    hensel_high_precision_threshold: float = 1e-8  # When to use Hensel for high precision
+    hensel_adapt_to_distribution: bool = True # Adapt Hensel parameters based on data distribution
     
     def __post_init__(self):
         """Validate configuration"""
@@ -125,19 +131,27 @@ class PadicLogarithmicEncoder(PadicMathematicalOperations):
         )
         self.safe_reconstructor = SafePadicReconstructor(reconstruction_config)
         
+        # Initialize adaptive Hensel lifting if enabled
+        if config.enable_adaptive_hensel:
+            self.hensel_lifter = AdaptiveHenselLifting(config.prime, config.precision)
+        else:
+            self.hensel_lifter = None
+        
         # Encoding statistics
         self.encoding_stats = {
             'total_encodings': 0,
             'logarithmic_encodings': 0,
             'direct_encodings': 0,
+            'hensel_lifts': 0,
+            'hensel_improvements': 0,
             'compression_ratios': [],
             'encoding_failures': 0,
             'channel_optimizations': 0,
             'average_precision_used': 0.0
         }
         
-        logger.info("PadicLogarithmicEncoder initialized with prime %d, precision %d, logarithmic encoding: %s",
-                   config.prime, config.precision, config.use_natural_log)
+        logger.info("PadicLogarithmicEncoder initialized with prime %d, precision %d, logarithmic encoding: %s, adaptive Hensel: %s",
+                   config.prime, config.precision, config.use_natural_log, config.enable_adaptive_hensel)
     
     def encode_ieee754_channels_logarithmically(self, channels: IEEE754Channels) -> List[LogarithmicPadicWeight]:
         """Encode IEEE 754 channels using logarithmic p-adic compression
@@ -414,6 +428,8 @@ class PadicLogarithmicEncoder(PadicMathematicalOperations):
     def _encode_log_value_to_padic(self, log_value: float, original_value: float) -> PadicWeight:
         """Encode logarithmically transformed value to p-adic representation
         
+        Uses adaptive Hensel lifting for high-precision values when enabled.
+        
         Args:
             log_value: Logarithmically transformed value
             original_value: Original value before transformation
@@ -439,6 +455,48 @@ class PadicLogarithmicEncoder(PadicMathematicalOperations):
                     digits=[0] * effective_precision
                 )
             
+            # Check if we should use adaptive Hensel lifting for high precision
+            if (self.config.enable_adaptive_hensel and 
+                self.hensel_lifter is not None and
+                abs(original_value) > self.config.hensel_high_precision_threshold):
+                
+                # Use adaptive Hensel lifting for high-precision encoding
+                try:
+                    # Determine target error based on value magnitude
+                    if self.config.hensel_adapt_to_distribution:
+                        # Adaptive target error based on value distribution
+                        value_magnitude = abs(original_value)
+                        if value_magnitude > 1.0:
+                            # Larger values need higher precision
+                            target_error = self.config.hensel_target_error / value_magnitude
+                        else:
+                            # Smaller values can use standard target
+                            target_error = self.config.hensel_target_error
+                    else:
+                        target_error = self.config.hensel_target_error
+                    
+                    # Perform adaptive Hensel lifting (ensure float type)
+                    lifted_weight, iterations = self.hensel_lifter.adaptive_precision_hensel(
+                        float(log_value), target_error, self.config.prime
+                    )
+                    
+                    # Update statistics
+                    self.encoding_stats['hensel_lifts'] += 1
+                    
+                    # Check if lifting improved precision
+                    if lifted_weight.precision > effective_precision:
+                        self.encoding_stats['hensel_improvements'] += 1
+                        logger.debug("Hensel lifting improved precision from %d to %d in %d iterations",
+                                   effective_precision, lifted_weight.precision, iterations)
+                    
+                    return lifted_weight
+                    
+                except Exception as hensel_error:
+                    logger.warning("Hensel lifting failed for value %f, falling back to standard encoding: %s",
+                                 log_value, hensel_error)
+                    # Fall through to standard encoding
+            
+            # Standard p-adic encoding (original code)
             # Convert to fraction for exact p-adic conversion
             try:
                 # Handle special float values that Fraction can't process directly

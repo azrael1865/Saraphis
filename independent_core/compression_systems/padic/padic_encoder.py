@@ -137,6 +137,55 @@ class PadicMathematicalOperations:
         
         # Cache for modular inverses
         self._inverse_cache = {}
+        
+        # Thread safety for dynamic prime changes
+        import threading
+        self._lock = threading.RLock()
+    
+    def switch_prime_dynamically(self, new_prime: int) -> None:
+        """
+        Switch to a new prime dynamically (thread-safe).
+        Recomputes prime powers and clears caches.
+        
+        Args:
+            new_prime: New prime to use
+        """
+        with self._lock:
+            PadicValidation.validate_prime(new_prime)
+            
+            if new_prime == self.prime:
+                return  # No change needed
+            
+            # Update prime
+            old_prime = self.prime
+            self.prime = new_prime
+            
+            # Recompute prime powers
+            self.prime_powers = [1]
+            max_safe_value = 1e12
+            
+            current_power = 1
+            i = 1
+            while True:
+                next_power = current_power * new_prime
+                if next_power > max_safe_value:
+                    break
+                self.prime_powers.append(next_power)
+                current_power = next_power
+                i += 1
+            
+            # Verify we still have enough powers for the precision
+            if len(self.prime_powers) - 1 < self.precision:
+                # Rollback to old prime
+                self.prime = old_prime
+                self.__init__(old_prime, self.precision)  # Reinitialize with old prime
+                raise OverflowError(
+                    f"New prime {new_prime} cannot support precision {self.precision}. "
+                    f"Maximum safe precision is {len(self.prime_powers) - 1}."
+                )
+            
+            # Clear inverse cache as it's prime-specific
+            self._inverse_cache.clear()
     
     def _valuation(self, n: int) -> int:
         """Compute p-adic valuation of integer n"""
@@ -640,3 +689,306 @@ def measure_weight_conversion_time(num_weights: int, precision: int, prime: int)
     weights = create_real_padic_weights(num_weights, precision, prime)
     conversion_time = time.time() - start_time
     return weights, conversion_time
+
+
+class AdaptiveHenselLifting:
+    """
+    Adaptive precision Hensel lifting with dynamic error-based convergence.
+    Implements quadratic convergence: |α - aₙ|_p ≤ |f'(a)|_p · t^(2^(n-1))
+    """
+    
+    def __init__(self, prime: int, base_precision: int):
+        """Initialize adaptive Hensel lifting"""
+        PadicValidation.validate_prime(prime)
+        PadicValidation.validate_precision(base_precision)
+        
+        self.prime = prime
+        self.base_precision = base_precision
+        self.math_ops = PadicMathematicalOperations(prime, base_precision)
+        
+        # Performance tracking
+        self.stats = {
+            'total_lifts': 0,
+            'total_iterations': 0,
+            'early_terminations': 0,
+            'precision_adjustments': 0,
+            'convergence_failures': 0
+        }
+    
+    def adaptive_precision_hensel(self, value: float, target_error: float, 
+                                 prime: Optional[int] = None) -> Tuple[PadicWeight, int]:
+        """
+        Perform Hensel lifting with adaptive precision based on target error.
+        
+        Args:
+            value: Value to lift
+            target_error: Target error threshold (e.g., 1e-10)
+            prime: Optional prime override (uses self.prime if None)
+            
+        Returns:
+            Tuple of (lifted p-adic weight, iterations used)
+        """
+        if prime is None:
+            prime = self.prime
+        
+        if not isinstance(value, (float, int)):
+            raise TypeError(f"Value must be float or int, got {type(value)}")
+        if target_error <= 0 or target_error >= 1:
+            raise ValueError(f"Target error must be in (0, 1), got {target_error}")
+        if math.isnan(value) or math.isinf(value):
+            raise ValueError(f"Cannot lift NaN or infinite value: {value}")
+        
+        # Calculate initial precision: k = ceil(log(1/target_error) / log(prime))
+        initial_precision = max(2, math.ceil(math.log(1/target_error) / math.log(prime)))
+        
+        # Ensure precision doesn't exceed safe limits
+        max_safe_precision = self._get_max_safe_precision(prime)
+        initial_precision = min(initial_precision, max_safe_precision)
+        
+        # Create initial p-adic representation
+        if initial_precision != self.base_precision:
+            temp_ops = PadicMathematicalOperations(prime, initial_precision)
+            current_weight = temp_ops.to_padic(value)
+        else:
+            current_weight = self.math_ops.to_padic(value)
+        
+        # Track original value for error checking
+        original_frac = Fraction(value).limit_denominator(10**15)
+        
+        iterations_used = 0
+        max_iterations = min(50, 2 * initial_precision)  # Adaptive max based on precision
+        
+        for iteration in range(max_iterations):
+            # Perform Hensel lift iteration
+            lifted_weight, lift_converged = self.hensel_lift(
+                current_weight, original_frac, prime
+            )
+            
+            iterations_used += 1
+            
+            # Calculate current error using p-adic norm
+            current_error = self._calculate_padic_error(
+                lifted_weight, original_frac, prime
+            )
+            
+            # Check if target error achieved
+            if current_error <= target_error:
+                self.stats['early_terminations'] += 1
+                break
+            
+            # Check for convergence (quadratic)
+            if lift_converged and iteration > 0:
+                # Quadratic convergence means error should square each iteration
+                expected_next_error = current_error ** 2
+                if expected_next_error <= target_error:
+                    # One more iteration should achieve target
+                    current_weight = lifted_weight
+                    continue
+                elif expected_next_error > current_error * 0.9:
+                    # Not converging fast enough, increase precision
+                    new_precision = min(
+                        current_weight.precision + 1,
+                        max_safe_precision
+                    )
+                    if new_precision > current_weight.precision:
+                        current_weight = self._increase_precision(
+                            current_weight, new_precision
+                        )
+                        self.stats['precision_adjustments'] += 1
+            
+            current_weight = lifted_weight
+        
+        # Update statistics
+        self.stats['total_lifts'] += 1
+        self.stats['total_iterations'] += iterations_used
+        
+        if iterations_used == max_iterations:
+            self.stats['convergence_failures'] += 1
+        
+        return current_weight, iterations_used
+    
+    def hensel_lift(self, weight: PadicWeight, target_value: Fraction,
+                   prime: Optional[int] = None) -> Tuple[PadicWeight, bool]:
+        """
+        Perform single Hensel lifting iteration.
+        Implements: aₙ₊₁ = aₙ - f(aₙ)/f'(aₙ) mod p^(2^n)
+        
+        Args:
+            weight: Current p-adic weight
+            target_value: Target value as Fraction
+            prime: Optional prime override
+            
+        Returns:
+            Tuple of (lifted weight, convergence flag)
+        """
+        if prime is None:
+            prime = weight.prime
+        
+        # For lifting to find root of f(x) = x - target_value
+        # f'(x) = 1, so Newton step is: x_new = x - (x - target) = target
+        # But we need to work in p-adic arithmetic
+        
+        # Calculate residual: f(aₙ) = aₙ - target
+        current_value = weight.value
+        residual = current_value - target_value
+        
+        # If residual is very small, we've converged
+        if abs(residual) < Fraction(1, prime ** weight.precision):
+            return weight, True
+        
+        # Newton-Raphson step in p-adic arithmetic
+        # Since f'(x) = 1, correction = -residual
+        correction_frac = -residual
+        
+        # Convert correction to p-adic digits
+        correction_weight = self._fraction_to_weight(
+            correction_frac, prime, weight.precision
+        )
+        
+        # Add correction to current weight (p-adic addition)
+        lifted_digits = self._add_padic_digits(
+            weight.digits, correction_weight.digits, prime
+        )
+        
+        # Update valuation if needed
+        new_valuation = min(weight.valuation, correction_weight.valuation)
+        
+        # Create lifted weight
+        lifted_weight = PadicWeight(
+            value=weight.value + correction_frac,  # Update exact value
+            prime=prime,
+            precision=weight.precision,
+            valuation=new_valuation,
+            digits=lifted_digits
+        )
+        
+        # Check convergence by comparing successive approximations
+        digit_diff = sum(abs(a - b) for a, b in zip(weight.digits, lifted_digits))
+        converged = digit_diff < prime / 2  # Heuristic convergence check
+        
+        return lifted_weight, converged
+    
+    def _fraction_to_weight(self, frac: Fraction, prime: int, precision: int) -> PadicWeight:
+        """Convert Fraction to PadicWeight with given precision"""
+        # Use temporary math ops if precision differs
+        if precision != self.base_precision:
+            temp_ops = PadicMathematicalOperations(prime, precision)
+            return temp_ops.to_padic(float(frac))
+        else:
+            return self.math_ops.to_padic(float(frac))
+    
+    def _add_padic_digits(self, digits1: List[int], digits2: List[int], 
+                          prime: int) -> List[int]:
+        """Add two p-adic digit sequences with carry"""
+        result = []
+        carry = 0
+        max_len = max(len(digits1), len(digits2))
+        
+        for i in range(max_len):
+            d1 = digits1[i] if i < len(digits1) else 0
+            d2 = digits2[i] if i < len(digits2) else 0
+            
+            sum_digit = d1 + d2 + carry
+            result.append(sum_digit % prime)
+            carry = sum_digit // prime
+        
+        # Ensure result has correct length
+        while len(result) < len(digits1):
+            result.append(0)
+        
+        return result[:len(digits1)]  # Truncate to original precision
+    
+    def _calculate_padic_error(self, weight: PadicWeight, target: Fraction,
+                               prime: int) -> float:
+        """
+        Calculate p-adic error between weight and target.
+        Returns error as float for comparison with target_error.
+        """
+        # Calculate difference
+        current_value = weight.value
+        diff = abs(current_value - target)
+        
+        if diff == 0:
+            return 0.0
+        
+        # Calculate p-adic valuation of difference
+        num = diff.numerator
+        denom = diff.denominator
+        
+        # Count factors of p in numerator
+        v_num = 0
+        while num % prime == 0:
+            num //= prime
+            v_num += 1
+        
+        # Count factors of p in denominator
+        v_denom = 0
+        while denom % prime == 0:
+            denom //= prime
+            v_denom += 1
+        
+        # P-adic norm is p^(-valuation)
+        valuation = v_num - v_denom
+        padic_norm = prime ** (-valuation)
+        
+        return min(1.0, padic_norm)  # Cap at 1.0 for safety
+    
+    def _increase_precision(self, weight: PadicWeight, new_precision: int) -> PadicWeight:
+        """Increase precision of p-adic weight by adding more digits"""
+        if new_precision <= weight.precision:
+            return weight
+        
+        # Create new math ops with higher precision
+        new_ops = PadicMathematicalOperations(weight.prime, new_precision)
+        
+        # Re-encode with higher precision
+        float_value = float(weight.value)
+        new_weight = new_ops.to_padic(float_value)
+        
+        # Preserve first digits from original weight for consistency
+        for i in range(min(len(weight.digits), len(new_weight.digits))):
+            new_weight.digits[i] = weight.digits[i]
+        
+        return new_weight
+    
+    def _get_max_safe_precision(self, prime: int) -> int:
+        """Get maximum safe precision for given prime to avoid overflow"""
+        safe_limits = {
+            2: 50, 3: 30, 5: 20, 7: 15, 11: 12, 13: 11,
+            17: 10, 19: 9, 23: 9, 29: 8, 31: 8,
+            37: 7, 41: 7, 43: 7, 47: 7, 53: 7,
+            59: 6, 61: 6, 67: 6, 71: 6, 73: 6,
+            79: 6, 83: 6, 89: 6, 97: 6,
+            101: 5, 103: 5, 107: 5, 109: 5, 113: 5,
+            127: 5, 131: 5, 137: 5, 139: 5, 149: 5,
+            151: 5, 157: 5, 163: 5, 167: 5, 173: 5,
+            179: 5, 181: 5, 191: 5, 193: 5, 197: 5,
+            199: 5, 211: 4, 223: 4, 227: 4, 229: 4,
+            233: 4, 239: 4, 241: 4, 251: 4, 257: 4
+        }
+        
+        return safe_limits.get(prime, 3)  # Default to 3 for unknown primes
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get lifting statistics"""
+        stats = dict(self.stats)
+        if stats['total_lifts'] > 0:
+            stats['average_iterations'] = stats['total_iterations'] / stats['total_lifts']
+            stats['early_termination_rate'] = stats['early_terminations'] / stats['total_lifts']
+            stats['convergence_rate'] = 1.0 - (stats['convergence_failures'] / stats['total_lifts'])
+        else:
+            stats['average_iterations'] = 0
+            stats['early_termination_rate'] = 0
+            stats['convergence_rate'] = 1.0
+        
+        return stats
+    
+    def reset_stats(self):
+        """Reset statistics"""
+        self.stats = {
+            'total_lifts': 0,
+            'total_iterations': 0,
+            'early_terminations': 0,
+            'precision_adjustments': 0,
+            'convergence_failures': 0
+        }

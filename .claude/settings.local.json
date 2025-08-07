@@ -9,7 +9,8 @@
       "Bash(PYTHONPATH=/Users/will/Desktop/trueSaraphis python -c \"from independent_core.compression_systems.tropical.tropical_polynomial import TropicalPolynomial, TropicalMonomial, TropicalPolynomialOperations; print(''✅ Module imports successfully''); print(f''Classes available: TropicalMonomial, TropicalPolynomial, TropicalPolynomialOperations'')\")",
       "Bash(ls:*)",
       "Bash(grep:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(tree:*)"
     ],
     "deny": []
   }
