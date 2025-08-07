@@ -1101,7 +1101,7 @@ class CSRStrategy(CompressionStrategy):
 
 
 class StrategySelector:
-    """Intelligent strategy selection based on layer analysis""
+    """Intelligent strategy selection based on layer analysis"""
     
     def __init__(self, config: StrategyConfig):
         """Initialize strategy selector"""
@@ -1146,15 +1146,7 @@ class StrategySelector:
             )
             logger.info("CSR sparse matrix strategy initialized successfully")
         
-        # Initialize JAX strategy if available
-        try:
-            from ..tropical.jax_tropical_strategy import JAXTropicalStrategy
-            if self.config.use_gpu:  # JAX strategy is beneficial on GPU
-                self.strategy_cache['jax'] = JAXTropicalStrategy()
-                logger.info("JAX tropical strategy initialized successfully")
-        except ImportError:
-            # JAX not available, skip JAX strategy
-            pass
+        # JAX strategy removed - no longer supported
     
     def select_strategy(self, tensor: torch.Tensor, 
                        layer_name: str = "") -> Tuple[CompressionStrategy, Dict[str, float]]:

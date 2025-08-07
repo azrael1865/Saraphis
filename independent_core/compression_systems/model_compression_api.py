@@ -63,15 +63,7 @@ from independent_core.compression_systems.base.compression_base import (
     CompressionMetrics
 )
 
-# Import JAX components with graceful fallback
-JAX_AVAILABLE = False
-try:
-    from independent_core.compression_systems.tropical.jax_tropical_strategy import JAXTropicalStrategy
-    from independent_core.compression_systems.tropical.jax_tropical_engine import TropicalJAXEngine
-    JAX_AVAILABLE = True
-except ImportError:
-    JAXTropicalStrategy = None
-    TropicalJAXEngine = None
+# JAX components removed - no longer supported
 
 
 @dataclass
@@ -80,7 +72,7 @@ class CompressionProfile:
     target_compression_ratio: float = 4.0
     mode: str = "balanced"  # "aggressive", "conservative", "balanced"
     preserve_accuracy_threshold: float = 0.99  # Maintain 99% accuracy
-    strategy: str = "auto"  # "auto", "tropical", "padic", "hybrid", "jax"
+    strategy: str = "auto"  # "auto", "tropical", "padic", "hybrid"
     enable_fine_tuning: bool = False
     fine_tuning_epochs: int = 5
     device: str = "auto"  # "auto", "cpu", "cuda"
@@ -104,15 +96,11 @@ class CompressionProfile:
             raise ValueError(f"Accuracy threshold must be in [0, 1], got {self.preserve_accuracy_threshold}")
         
         valid_strategies = ["auto", "tropical", "padic", "hybrid"]
-        if JAX_AVAILABLE:
-            valid_strategies.append("jax")
         
         if self.strategy not in valid_strategies:
             raise ValueError(f"Strategy must be one of {valid_strategies}, got {self.strategy}")
         
-        if self.strategy == "jax" and not JAX_AVAILABLE:
-            warnings.warn("JAX strategy requested but JAX is not available. Falling back to 'auto'.")
-            self.strategy = "auto"
+        # JAX strategy removed - no longer supported
         
         if self.fine_tuning_epochs < 0:
             raise ValueError(f"Fine-tuning epochs must be non-negative, got {self.fine_tuning_epochs}")
@@ -793,10 +781,7 @@ class ModelCompressionAPI:
         self.profile = profile or CompressionProfile()
         self.strategy_config = self.profile.to_strategy_config()
         
-        # Override strategy if JAX is specifically requested
-        if self.profile.strategy == "jax" and JAX_AVAILABLE:
-            # Use JAX-accelerated strategy manager
-            self.strategy_manager = self._create_jax_strategy_manager()
+        # JAX strategy removed - no longer supported
         else:
             self.strategy_manager = AdaptiveStrategyManager(self.strategy_config)
         
@@ -813,35 +798,6 @@ class ModelCompressionAPI:
         # Metrics tracking
         self.compression_history = []
     
-    def _create_jax_strategy_manager(self):
-        """Create JAX-enabled strategy manager"""
-        # Create a custom strategy manager that uses JAX
-        class JAXStrategyManager(AdaptiveStrategyManager):
-            def __init__(self, config):
-                super().__init__(config)
-                # Add JAX strategy to available strategies
-                if JAX_AVAILABLE and JAXTropicalStrategy:
-                    self.strategies['jax'] = JAXTropicalStrategy()
-            
-            def compress_model(self, model):
-                # Override to prefer JAX strategy when available
-                compressed_layers = {}
-                for name, param in model.state_dict().items():
-                    if param.numel() == 0:
-                        continue
-                    
-                    # Use JAX strategy if available and suitable
-                    if 'jax' in self.strategies and param.numel() > 1000:
-                        strategy = self.strategies['jax']
-                    else:
-                        strategy = self.selector.select_strategy(param, name)
-                    
-                    compressed = strategy.compress(param)
-                    compressed_layers[name] = compressed
-                
-                return compressed_layers
-        
-        return JAXStrategyManager(self.strategy_config)
     
     def compress(self, model: nn.Module, 
                 validation_data: Optional[DataLoader] = None) -> CompressedModel:
@@ -1451,9 +1407,7 @@ def decompress_state_dict(compressed: Dict[str, CompressedData]) -> Dict[str, to
         'hybrid': HybridStrategy()
     }
     
-    # Add JAX strategy if available
-    if JAX_AVAILABLE and JAXTropicalStrategy:
-        strategies['jax'] = JAXTropicalStrategy()
+    # JAX strategy removed - no longer supported
     
     decompressed_dict = {}
     

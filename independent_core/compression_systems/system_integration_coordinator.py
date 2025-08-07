@@ -42,31 +42,7 @@ try:
 except ImportError as e:
     raise RuntimeError(f"Failed to import compression components: {e}")
 
-# Import JAX components with graceful fallback
-JAX_AVAILABLE = False
-try:
-    from .tropical.jax_memory_pool import JAXMemoryPool
-    from .tropical.jax_tropical_bridge import TropicalJAXBridge
-    from .tropical.jax_device_manager import JAXDeviceManager
-    from .tropical.jax_memory_optimizer import JAXMemoryOptimizer
-    from .tropical.jax_config_adapter import JAXConfigAdapter
-    from .tropical.jax_compilation_optimizer import JAXCompilationOptimizer
-    from .tropical.jax_tropical_engine import TropicalJAXEngine
-    from .tropical.jax_tropical_strategy import JAXTropicalStrategy
-    from .tropical.jax_performance_monitor import JAXPerformanceMonitor
-    JAX_AVAILABLE = True
-except ImportError as jax_e:
-    # JAX components not available - will use fallback implementations
-    warnings.warn(f"JAX components not available: {jax_e}. JAX backend will be disabled.")
-    JAXMemoryPool = None
-    TropicalJAXBridge = None
-    JAXDeviceManager = None
-    JAXMemoryOptimizer = None
-    JAXConfigAdapter = None
-    JAXCompilationOptimizer = None
-    TropicalJAXEngine = None
-    JAXTropicalStrategy = None
-    JAXPerformanceMonitor = None
+# JAX components removed - no longer supported
 
 
 class SystemState(Enum):
@@ -86,7 +62,6 @@ class OptimizationStrategy(Enum):
     MEMORY = "memory"                # Minimize memory usage
     BALANCED = "balanced"            # Balance all metrics
     ADAPTIVE = "adaptive"            # Adapt based on workload
-    JAX_ACCELERATED = "jax_accelerated"  # JAX-optimized execution
 
 
 @dataclass
@@ -125,13 +100,6 @@ class SystemConfiguration:
     chunk_size: int = None                   # Auto-detected
     enable_hybrid: bool = True
     
-    # JAX Configuration
-    enable_jax: bool = True  # Enable JAX backend if available
-    jax_backend: str = "auto"  # "auto", "gpu", "cpu", "tpu"
-    jax_memory_fraction: float = 0.75  # Fraction of GPU memory for JAX
-    jax_compilation_cache_size: int = 128  # JIT compilation cache size
-    jax_enable_x64: bool = False  # Enable 64-bit precision in JAX
-    jax_parallel_devices: int = 1  # Number of devices for parallel execution
     
     # Performance Configuration
     optimization_strategy: OptimizationStrategy = OptimizationStrategy.BALANCED
@@ -764,9 +732,7 @@ class SystemIntegrationCoordinator:
             # Initialize compression systems
             self._initialize_compression_systems()
             
-            # Initialize JAX components if available and enabled
-            if self.config.enable_jax and JAX_AVAILABLE:
-                self._initialize_jax_components()
+            # JAX components removed - no longer supported
             
             # Initialize orchestrators
             self.pipeline_orchestrator = CompressionPipelineOrchestrator(self.config, self.components)
@@ -867,80 +833,6 @@ class SystemIntegrationCoordinator:
         from .padic.padic_compressor import PadicCompressionSystem
         self.components['padic_compressor'] = PadicCompressionSystem(padic_config)
     
-    def _initialize_jax_components(self) -> None:
-        """Initialize JAX acceleration components"""
-        try:
-            # Initialize JAX config adapter
-            jax_config = {
-                'backend': self.config.jax_backend,
-                'memory_fraction': self.config.jax_memory_fraction,
-                'enable_x64': self.config.jax_enable_x64,
-                'compilation_cache_size': self.config.jax_compilation_cache_size,
-                'parallel_devices': self.config.jax_parallel_devices
-            }
-            self.components['jax_config_adapter'] = JAXConfigAdapter(jax_config)
-            
-            # Initialize JAX device manager
-            self.components['jax_device_manager'] = JAXDeviceManager(
-                backend=self.config.jax_backend,
-                device_ids=self.config.device_ids
-            )
-            
-            # Initialize JAX memory pool
-            self.components['jax_memory_pool'] = JAXMemoryPool(
-                memory_fraction=self.config.jax_memory_fraction,
-                device_manager=self.components['jax_device_manager']
-            )
-            
-            # Initialize JAX memory optimizer
-            self.components['jax_memory_optimizer'] = JAXMemoryOptimizer(
-                memory_pool=self.components['jax_memory_pool'],
-                gpu_optimizer=self.components.get('gpu_optimizer')
-            )
-            
-            # Initialize JAX compilation optimizer
-            self.components['jax_compilation_optimizer'] = JAXCompilationOptimizer(
-                cache_size=self.config.jax_compilation_cache_size,
-                device_manager=self.components['jax_device_manager']
-            )
-            
-            # Initialize Tropical JAX engine
-            self.components['jax_tropical_engine'] = TropicalJAXEngine(
-                device_manager=self.components['jax_device_manager'],
-                memory_optimizer=self.components['jax_memory_optimizer'],
-                compilation_optimizer=self.components['jax_compilation_optimizer']
-            )
-            
-            # Initialize Tropical JAX bridge
-            self.components['jax_tropical_bridge'] = TropicalJAXBridge(
-                engine=self.components['jax_tropical_engine'],
-                config_adapter=self.components['jax_config_adapter']
-            )
-            
-            # Initialize JAX strategy
-            self.components['jax_strategy'] = JAXTropicalStrategy(
-                engine=self.components['jax_tropical_engine'],
-                bridge=self.components['jax_tropical_bridge']
-            )
-            
-            # Initialize JAX performance monitor
-            if 'jax_performance_monitor' in globals():
-                self.components['jax_performance_monitor'] = JAXPerformanceMonitor(
-                    device_manager=self.components['jax_device_manager']
-                )
-            
-            logger.info("JAX components initialized successfully")
-            
-        except Exception as e:
-            warnings.warn(f"Failed to initialize JAX components: {e}. JAX acceleration disabled.")
-            # Remove partially initialized JAX components
-            jax_component_keys = [
-                'jax_config_adapter', 'jax_device_manager', 'jax_memory_pool',
-                'jax_memory_optimizer', 'jax_compilation_optimizer', 'jax_tropical_engine',
-                'jax_tropical_bridge', 'jax_strategy', 'jax_performance_monitor'
-            ]
-            for key in jax_component_keys:
-                self.components.pop(key, None)
     
     def compress(self, tensor: torch.Tensor, priority: str = "normal", 
                  metadata: Optional[Dict[str, Any]] = None) -> CompressionResult:
@@ -1067,10 +959,7 @@ class SystemIntegrationCoordinator:
                     'auto_swap': 'active' if 'auto_swap' in self.components else 'inactive',
                     'cpu_bursting': 'active' if 'cpu_bursting' in self.components else 'inactive',
                     'memory_pressure': 'active' if 'memory_pressure_handler' in self.components else 'inactive',
-                    'hybrid_compressor': 'active' if 'hybrid_compressor' in self.components else 'inactive',
-                    'jax_backend': 'active' if 'jax_tropical_engine' in self.components else 'inactive',
-                    'jax_memory_pool': 'active' if 'jax_memory_pool' in self.components else 'inactive',
-                    'jax_strategy': 'active' if 'jax_strategy' in self.components else 'inactive'
+                    'hybrid_compressor': 'active' if 'hybrid_compressor' in self.components else 'inactive'
                 },
                 'statistics': dict(self.system_stats),
                 'performance': self.performance_manager.get_performance_summary() if self.performance_manager else {},

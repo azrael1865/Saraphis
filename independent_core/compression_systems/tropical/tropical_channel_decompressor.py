@@ -1,11 +1,11 @@
 """
 Tropical Channel-Based Decompression System (Stream M)
-High-performance decompression using JAX-accelerated channel processing
+High-performance decompression using GPU-accelerated channel processing
 NO PLACEHOLDERS - PRODUCTION READY - HARD FAILURES ONLY
 
 Complete implementation includes:
 - M1: Tropical Channel Architecture (coefficient/exponent/mantissa channels)
-- M2: JAX Channel Processing (batched/parallel/XLA-optimized operations)
+- M2: GPU Channel Processing (batched/parallel operations)
 - M3: Tropical GPU Reconstruction (polynomial/tensor reconstruction)
 - M4: Channel Integration (TropicalPolynomial/PyTorch conversion)
 
@@ -22,17 +22,7 @@ from enum import Enum
 import functools
 import hashlib
 
-# JAX imports with proper handling
-try:
-    import jax
-    import jax.numpy as jnp
-    from jax import jit, grad, vmap, pmap, value_and_grad
-    from jax import lax
-    from jax.experimental import mesh_utils
-    from jax.sharding import PositionalSharding
-    JAX_AVAILABLE = True
-except ImportError:
-    JAX_AVAILABLE = False
+# JAX removed - no longer supported
     jnp = None
     # Create decorator placeholders that handle kwargs
     def jit(f=None, **kwargs):
@@ -57,21 +47,13 @@ from independent_core.compression_systems.tropical.tropical_core import (
     TROPICAL_ZERO,
     TROPICAL_EPSILON
 )
-from independent_core.compression_systems.tropical.jax_tropical_engine import (
-    TropicalJAXEngine,
-    JAXChannelProcessor,
-    JAXTropicalConfig
-)
+# JAX tropical engine removed - no longer supported
 from independent_core.compression_systems.tropical.channel_validation import (
     TropicalChannelValidator,
     ChannelValidationConfig,
     ECCLevel
 )
-from independent_core.compression_systems.tropical.jax_config import (
-    JAXConfig,
-    JAXEnvironment,
-    JAXPyTorchBridge
-)
+# JAX config removed - no longer supported
 
 # Import GPU/CPU coordination
 from independent_core.compression_systems.gpu_memory.cpu_bursting_pipeline import (
@@ -108,8 +90,8 @@ class ReconstructionMethod(Enum):
 @dataclass
 class ChannelDecompressionConfig:
     """Configuration for channel-based tropical decompression"""
-    # JAX Configuration
-    enable_jax: bool = True
+    # GPU Configuration
+    enable_gpu: bool = True
     jax_chunk_size: int = 10000
     jax_precision: str = "float32"
     enable_vmap: bool = True
@@ -203,7 +185,7 @@ class DecompressionMetrics:
 class TropicalChannelDecompressor:
     """
     Main decompressor for tropical channel-based decompression.
-    Implements Stream M tasks M1-M4 with JAX acceleration.
+    Implements Stream M tasks M1-M4 with GPU acceleration.
     """
     
     def __init__(self, config: Optional[ChannelDecompressionConfig] = None):
@@ -216,24 +198,9 @@ class TropicalChannelDecompressor:
         self.config = config or ChannelDecompressionConfig()
         self.metrics = DecompressionMetrics()
         
-        # Validate JAX availability if required
-        if self.config.enable_jax and not JAX_AVAILABLE:
-            raise RuntimeError("JAX required but not available. Install with: pip install jax[cuda12_local]")
-        
-        # Initialize JAX engine if enabled
-        if self.config.enable_jax:
-            jax_config = JAXTropicalConfig(
-                enable_jit=True,
-                enable_vmap=self.config.enable_vmap,
-                enable_pmap=self.config.enable_pmap,
-                chunk_size=self.config.jax_chunk_size,
-                precision=self.config.jax_precision
-            )
-            self.jax_engine = TropicalJAXEngine(jax_config)
-            self.jax_processor = JAXChannelProcessor(self.jax_engine)
-        else:
-            self.jax_engine = None
-            self.jax_processor = None
+        # JAX engine removed - no longer supported
+        self.jax_engine = None
+        self.jax_processor = None
         
         # Initialize channel validator
         if self.config.enable_validation:

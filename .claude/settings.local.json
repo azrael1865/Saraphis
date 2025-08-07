@@ -10,7 +10,9 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(timeout:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(rm:*)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

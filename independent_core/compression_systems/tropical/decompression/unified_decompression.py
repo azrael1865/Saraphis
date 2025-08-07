@@ -33,11 +33,7 @@ from channel_decompressor import (
     DecompressionMode,
     DecompressionStats
 )
-from jax_channel_processor import (
-    JAXChannelProcessor,
-    JAXProcessorConfig,
-    JAXChannelData
-)
+# JAX channel processor removed - no longer supported
 from polynomial_reconstructor import (
     TropicalPolynomialReconstructor,
     TropicalToWeightConverter,
@@ -84,7 +80,7 @@ class UnifiedDecompressionConfig:
     max_error_threshold: float = 1e-6
     
     # Performance settings
-    enable_jax: bool = True
+    # JAX removed - no longer supported
     enable_gpu: bool = True
     enable_parallel: bool = True
     num_workers: int = 4
@@ -220,28 +216,15 @@ class UnifiedDecompressionPipeline:
         # Metadata handler
         self.metadata_handler = ChannelMetadataHandler()
         
-        # JAX processor
-        if self.config.enable_jax:
-            try:
-                jax_config = JAXProcessorConfig(
-                    enable_jit=True,
-                    enable_vmap=True,
-                    enable_streaming=self.config.enable_streaming,
-                    stream_chunk_size=self.config.stream_chunk_size
-                )
-                self.jax_processor = JAXChannelProcessor(jax_config)
-            except Exception as e:
-                logger.warning("Failed to initialize JAX processor: %s", e)
-                self.jax_processor = None
-        else:
-            self.jax_processor = None
+        # JAX processor removed - no longer supported
+        self.jax_processor = None
         
         # Reconstruction components
         recon_config = ReconstructionConfig(
             target_accuracy=self.config.target_accuracy,
             max_reconstruction_error=self.config.max_error_threshold,
             use_gpu=self.config.enable_gpu,
-            use_jax=self.config.enable_jax,
+            use_gpu=True,  # JAX removed, use GPU directly
             enable_caching=self.config.enable_caching
         )
         
@@ -695,9 +678,7 @@ class UnifiedDecompressionPipeline:
         if self.thread_pool:
             self.thread_pool.shutdown(wait=True)
         
-        # Shutdown JAX processor
-        if self.jax_processor:
-            self.jax_processor.shutdown()
+        # JAX processor removed - no longer needed
         
         # Clear GPU cache
         if self.device.type == "cuda":

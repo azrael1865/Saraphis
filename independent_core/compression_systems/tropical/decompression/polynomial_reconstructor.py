@@ -1,6 +1,6 @@
 """
 Tropical Polynomial Reconstruction from Channels
-GPU-accelerated polynomial and weight reconstruction using JAX
+GPU-accelerated polynomial and weight reconstruction
 PRODUCTION READY - NO PLACEHOLDERS - HARD FAILURES ONLY
 
 This module provides:
@@ -20,17 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
 
-# JAX imports
-try:
-    import jax
-    import jax.numpy as jnp
-    from jax import jit, vmap, pmap
-    JAX_AVAILABLE = True
-except ImportError:
-    JAX_AVAILABLE = False
-    jnp = None
-    jit = lambda f=None, **kwargs: f if f else lambda func: func
-    vmap = lambda f=None, **kwargs: f if f else lambda func: func
+# JAX removed - no longer supported
 
 # Import tropical and channel components
 import sys
@@ -56,11 +46,7 @@ from channel_decompressor import (
     ExponentChannelDecompressor,
     MantissaChannelDecompressor
 )
-from jax_channel_processor import (
-    JAXChannelProcessor,
-    JAXProcessorConfig,
-    JAXChannelData
-)
+# JAX channel processor removed - no longer supported
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +73,9 @@ class ReconstructionConfig:
     gpu_batch_size: int = 1000
     enable_mixed_precision: bool = False
     
-    # JAX settings
-    use_jax: bool = True
-    jax_compilation_level: int = 2  # 0=none, 1=basic, 2=aggressive
+    # GPU settings
+    use_gpu: bool = True
+    # JAX removed - compilation level no longer used
     
     # Memory optimization
     enable_memory_mapping: bool = True
@@ -142,7 +128,7 @@ class ReconstructionMetrics:
 class TropicalPolynomialReconstructor:
     """
     Reconstructs tropical polynomials from compressed channels.
-    Uses JAX for GPU acceleration when available.
+    Uses GPU acceleration when available.
     """
     
     def __init__(self, config: Optional[ReconstructionConfig] = None):
@@ -161,16 +147,8 @@ class TropicalPolynomialReconstructor:
         else:
             self.device = torch.device("cpu")
         
-        # Initialize JAX processor if available
-        if self.config.use_jax and JAX_AVAILABLE:
-            jax_config = JAXProcessorConfig(
-                enable_jit=True,
-                enable_vmap=True,
-                default_precision="float32" if not self.config.enable_mixed_precision else "float16"
-            )
-            self.jax_processor = JAXChannelProcessor(jax_config)
-        else:
-            self.jax_processor = None
+        # JAX processor removed - no longer supported
+        self.jax_processor = None
         
         # Initialize channel decompressors
         self.coeff_decompressor = CoefficientChannelDecompressor(
@@ -224,10 +202,8 @@ class TropicalPolynomialReconstructor:
         # Reconstruct polynomial
         reconstruction_start = time.time()
         
-        if self.jax_processor and self.config.use_jax:
-            polynomial = self._jax_reconstruct_polynomial(coefficients, exponents, channels.metadata)
-        else:
-            polynomial = self._torch_reconstruct_polynomial(coefficients, exponents, channels.metadata)
+        # Use PyTorch reconstruction
+        polynomial = self._torch_reconstruct_polynomial(coefficients, exponents, channels.metadata)
         
         self.metrics.polynomial_reconstruction_time += time.time() - reconstruction_start
         
@@ -275,27 +251,7 @@ class TropicalPolynomialReconstructor:
         
         return self.exp_decompressor.decompress(channels.exponent_channel, metadata)
     
-    def _jax_reconstruct_polynomial(self, 
-                                   coefficients: torch.Tensor,
-                                   exponents: torch.Tensor,
-                                   metadata: Dict[str, Any]) -> TropicalPolynomial:
-        """Reconstruct polynomial using JAX acceleration"""
-        # Convert to JAX arrays
-        coeffs_jax = self.jax_processor.torch_to_jax(coefficients)
-        exps_jax = self.jax_processor.torch_to_jax(exponents)
-        
-        # Create JAX channel data
-        jax_data = JAXChannelData(
-            coefficients=coeffs_jax,
-            exponents=exps_jax,
-            metadata=metadata
-        )
-        
-        # Process with JAX
-        processed = self.jax_processor.process_channels(jax_data)
-        
-        # Convert back and create polynomial
-        return self._create_polynomial_from_arrays(processed, exps_jax, metadata)
+    # JAX reconstruction method removed - no longer supported
     
     def _torch_reconstruct_polynomial(self, 
                                      coefficients: torch.Tensor,
@@ -325,14 +281,10 @@ class TropicalPolynomialReconstructor:
                                       coeffs_array: Any,
                                       exps_array: Any,
                                       metadata: Dict[str, Any]) -> TropicalPolynomial:
-        """Create TropicalPolynomial from JAX arrays"""
-        # Convert JAX arrays to numpy
-        if JAX_AVAILABLE:
-            coeffs_np = np.array(coeffs_array)
-            exps_np = np.array(exps_array)
-        else:
-            coeffs_np = coeffs_array
-            exps_np = exps_array
+        """Create TropicalPolynomial from arrays"""
+        # Convert to numpy if needed
+        coeffs_np = coeffs_array if isinstance(coeffs_array, np.ndarray) else np.array(coeffs_array)
+        exps_np = exps_array if isinstance(exps_array, np.ndarray) else np.array(exps_array)
         
         num_variables = metadata.get('num_variables', exps_np.shape[1] if len(exps_np.shape) > 1 else 1)
         
