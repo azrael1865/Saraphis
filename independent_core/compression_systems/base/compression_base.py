@@ -177,3 +177,16 @@ class CompressionMetrics:
             'relative_error': relative_error,
             'max_absolute_error': torch.max(torch.abs(original - reconstructed)).item()
         }
+
+
+class CompressionBase(CompressionAlgorithm):
+    """Base class for high-level compression systems (Tropical, Sheaf, etc.)."""
+    
+    def __init__(self, config: Dict[str, Any] = None):
+        if config is None:
+            config = {}
+        super().__init__(config)
+    
+    def _validate_config(self) -> None:
+        """Default validation - can be overridden."""
+        pass

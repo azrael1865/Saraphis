@@ -39,6 +39,13 @@ from .system_integration_coordinator import (
     load_compression_system
 )
 
+# Create alias for integration test compatibility
+MasterSystemCoordinator = SystemIntegrationCoordinator
+
+# Import GPU memory management components
+from .gpu_memory.smart_pool import SmartPool
+from .gpu_memory.auto_swap_manager import AutoSwapManager as AutoSwap
+
 __all__ = [
     # Tensor decomposition - temporarily disabled
     # 'HOSVDDecomposer',
@@ -58,12 +65,17 @@ __all__ = [
     
     # System integration
     'SystemIntegrationCoordinator',
+    'MasterSystemCoordinator',
     'SystemConfiguration',
     'OptimizationStrategy',
     'CompressionRequest',
     'CompressionResult',
     'create_compression_system',
-    'load_compression_system'
+    'load_compression_system',
+    
+    # GPU memory management
+    'SmartPool',
+    'AutoSwap'
 ]
 
 __version__ = '2.0.0'  # Updated for complete system integration

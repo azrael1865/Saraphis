@@ -1,18 +1,24 @@
 """
-Sliding Window Pattern Detector for P-adic Digit Compression
-Polynomial Rolling Hash with O(1) Window Comparison
-NO PLACEHOLDERS - PRODUCTION READY
+Fast Suffix Array Pattern Detector for P-adic Digit Compression
+O(n log n) Pattern Detection with Overflow-Free Rolling Hash
+PRODUCTION READY - FIXED INT32 PATTERN HANDLING
 """
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch import Tensor
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Set, Union, Any
 from dataclasses import dataclass, field
 import math
 from collections import defaultdict
+import heapq
+from functools import cmp_to_key
+import logging
+import time
+from .safe_suffix_array import SafeSuffixArrayBuilder, SuffixArrayResult
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,7 +28,9 @@ class PatternMatch:
     positions: List[int]
     frequency: int
     hash_value: int
-    length: int
+    length: int  # Length in BYTES (not elements)
+    element_count: int  # Number of elements (for proper reconstruction)
+    element_dtype: np.dtype  # Data type of elements
     
     def __post_init__(self):
         """Validate pattern match"""
@@ -32,8 +40,13 @@ class PatternMatch:
             raise ValueError("Pattern must have at least one position")
         if self.frequency != len(self.positions):
             raise ValueError(f"Frequency {self.frequency} doesn't match positions count {len(self.positions)}")
+        # FIXED: length is now in bytes, matching len(self.pattern)
         if self.length != len(self.pattern):
             raise ValueError(f"Length {self.length} doesn't match pattern length {len(self.pattern)}")
+        # Validate element count matches byte length
+        expected_bytes = self.element_count * self.element_dtype.itemsize
+        if expected_bytes != self.length:
+            raise ValueError(f"Element count {self.element_count} * dtype size {self.element_dtype.itemsize} = {expected_bytes} doesn't match byte length {self.length}")
 
 
 @dataclass
@@ -46,286 +59,597 @@ class PatternDetectionResult:
     total_patterns_found: int
     bytes_replaced: int
     original_size: int
+    element_dtype: np.dtype  # Data type of original elements
+
+
+class IntervalTree:
+    """Simple interval tree for efficient overlap detection"""
+    
+    def __init__(self):
+        self.intervals = []
+    
+    def insert(self, start: int, end: int):
+        """Insert an interval [start, end)"""
+        self.intervals.append((start, end))
+        if len(self.intervals) > 100:
+            # Merge overlapping intervals periodically
+            self._merge_intervals()
+    
+    def overlaps(self, start: int, end: int) -> bool:
+        """Check if [start, end) overlaps with any existing interval"""
+        for s, e in self.intervals:
+            if not (end <= s or start >= e):
+                return True
+        return False
+    
+    def _merge_intervals(self):
+        """Merge overlapping intervals to prevent quadratic growth"""
+        if not self.intervals:
+            return
+        
+        self.intervals.sort()
+        merged = []
+        
+        for start, end in self.intervals:
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        
+        self.intervals = merged
+
+
+class OptimizedIntervalTree:
+    """
+    Optimized interval tree for O(log n) overlap detection.
+    Uses augmented balanced BST for efficient interval operations.
+    """
+    
+    class Node:
+        """Node in the interval tree"""
+        def __init__(self, start: int, end: int):
+            self.start = start
+            self.end = end
+            self.max_end = end
+            self.left = None
+            self.right = None
+            self.height = 1
+    
+    def __init__(self):
+        """Initialize empty interval tree"""
+        self.root = None
+        self.size = 0
+        self._merge_threshold = 1000
+    
+    def insert(self, start: int, end: int):
+        """Insert an interval [start, end) in O(log n) time"""
+        if start >= end:
+            return
+        
+        self.root = self._insert_node(self.root, start, end)
+        self.size += 1
+        
+        if self.size > self._merge_threshold:
+            self._rebuild_tree()
+    
+    def overlaps(self, start: int, end: int) -> bool:
+        """Check if [start, end) overlaps with any existing interval in O(log n) time"""
+        if start >= end:
+            return False
+        
+        return self._overlaps_node(self.root, start, end)
+    
+    def _insert_node(self, node, start: int, end: int):
+        """Insert interval into subtree rooted at node"""
+        if node is None:
+            return self.Node(start, end)
+        
+        if start < node.start:
+            node.left = self._insert_node(node.left, start, end)
+        else:
+            node.right = self._insert_node(node.right, start, end)
+        
+        node.height = 1 + max(self._get_height(node.left), self._get_height(node.right))
+        node.max_end = max(node.end,
+                          self._get_max_end(node.left),
+                          self._get_max_end(node.right))
+        
+        return self._balance(node)
+    
+    def _overlaps_node(self, node, start: int, end: int) -> bool:
+        """Check if query interval overlaps with any interval in subtree"""
+        if node is None:
+            return False
+        
+        if not (end <= node.start or start >= node.end):
+            return True
+        
+        if node.left is not None and node.left.max_end > start:
+            if self._overlaps_node(node.left, start, end):
+                return True
+        
+        if node.right is not None and node.start < end:
+            if self._overlaps_node(node.right, start, end):
+                return True
+        
+        return False
+    
+    def _get_height(self, node):
+        """Get height of node"""
+        return node.height if node else 0
+    
+    def _get_max_end(self, node):
+        """Get max_end of node"""
+        return node.max_end if node else float('-inf')
+    
+    def _get_balance(self, node):
+        """Get balance factor of node"""
+        if node is None:
+            return 0
+        return self._get_height(node.left) - self._get_height(node.right)
+    
+    def _balance(self, node):
+        """Balance the tree using AVL rotations"""
+        if node is None:
+            return None
+        
+        balance = self._get_balance(node)
+        
+        if balance > 1:
+            if self._get_balance(node.left) < 0:
+                node.left = self._rotate_left(node.left)
+            return self._rotate_right(node)
+        
+        if balance < -1:
+            if self._get_balance(node.right) > 0:
+                node.right = self._rotate_right(node.right)
+            return self._rotate_left(node)
+        
+        return node
+    
+    def _rotate_left(self, z):
+        """Perform left rotation"""
+        y = z.right
+        T2 = y.left
+        
+        y.left = z
+        z.right = T2
+        
+        z.height = 1 + max(self._get_height(z.left), self._get_height(z.right))
+        y.height = 1 + max(self._get_height(y.left), self._get_height(y.right))
+        
+        z.max_end = max(z.end, self._get_max_end(z.left), self._get_max_end(z.right))
+        y.max_end = max(y.end, self._get_max_end(y.left), self._get_max_end(y.right))
+        
+        return y
+    
+    def _rotate_right(self, z):
+        """Perform right rotation"""
+        y = z.left
+        T3 = y.right
+        
+        y.right = z
+        z.left = T3
+        
+        z.height = 1 + max(self._get_height(z.left), self._get_height(z.right))
+        y.height = 1 + max(self._get_height(y.left), self._get_height(y.right))
+        
+        z.max_end = max(z.end, self._get_max_end(z.left), self._get_max_end(z.right))
+        y.max_end = max(y.end, self._get_max_end(y.left), self._get_max_end(y.right))
+        
+        return y
+    
+    def _collect_intervals(self, node, intervals):
+        """Collect all intervals in the tree"""
+        if node is None:
+            return
+        
+        self._collect_intervals(node.left, intervals)
+        intervals.append((node.start, node.end))
+        self._collect_intervals(node.right, intervals)
+    
+    def _merge_intervals(self, intervals):
+        """Merge overlapping intervals"""
+        if not intervals:
+            return []
+        
+        intervals.sort()
+        merged = [intervals[0]]
+        
+        for start, end in intervals[1:]:
+            if start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        
+        return merged
+    
+    def _rebuild_tree(self):
+        """Rebuild tree with merged intervals to prevent degradation"""
+        intervals = []
+        self._collect_intervals(self.root, intervals)
+        
+        merged = self._merge_intervals(intervals)
+        
+        if len(merged) < len(intervals) * 0.8:
+            self.root = None
+            self.size = 0
+            
+            for start, end in merged:
+                self.root = self._insert_node(self.root, start, end)
+                self.size += 1
+    
+    @property
+    def intervals(self):
+        """Get all intervals (for compatibility with basic IntervalTree)"""
+        result = []
+        self._collect_intervals(self.root, result)
+        return result
+    
+    def clear(self):
+        """Clear all intervals"""
+        self.root = None
+        self.size = 0
+
+
+class OverflowFreeRollingHash:
+    """Rolling hash with proper modular arithmetic to prevent overflow"""
+    
+    MODULUS = 2147483647  # 2^31 - 1
+    BASE = 257  # Prime larger than alphabet size (256)
+    
+    def __init__(self, window_size: int):
+        """Initialize rolling hash with precomputed powers"""
+        self.window_size = window_size
+        self.base_power = 1
+        
+        for _ in range(window_size - 1):
+            self.base_power = (self.base_power * self.BASE) % self.MODULUS
+    
+    def compute_hash(self, data: np.ndarray, start: int) -> int:
+        """Compute hash for window starting at position start"""
+        h = 0
+        for i in range(self.window_size):
+            if start + i >= len(data):
+                break
+            h = (h * self.BASE + int(data[start + i])) % self.MODULUS
+        return h
+    
+    def roll_hash(self, old_hash: int, old_byte: int, new_byte: int) -> int:
+        """Roll hash by removing old byte and adding new byte"""
+        old_contribution = (old_byte * self.base_power) % self.MODULUS
+        h = (old_hash - old_contribution + self.MODULUS) % self.MODULUS
+        
+        h = (h * self.BASE + new_byte) % self.MODULUS
+        return h
 
 
 class SlidingWindowPatternDetector(nn.Module):
     """
-    Sliding window pattern detector using polynomial rolling hash for O(1) comparison.
-    Detects repeated byte sequences in p-adic digits for compression.
+    Fast pattern detector using suffix arrays and rolling hash.
+    O(n log n) time complexity with overflow-free operations.
+    FIXED: Proper handling of int32 p-adic digit patterns.
     """
-    
-    # Large primes for hashing to minimize collisions
-    HASH_MODULUS = 2**31 - 1  # Mersenne prime for fast modulo
-    SECONDARY_MODULUS = 2**61 - 1  # Another large prime for double hashing
     
     def __init__(
         self,
         min_pattern_length: int = 4,
         max_pattern_length: int = 32,
         min_frequency: int = 3,
-        hash_prime: int = 31,
-        device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-        enable_compile: bool = True
+        hash_prime: int = 257,
+        device: str = 'cpu',
+        enable_compile: bool = True,
+        max_patterns: int = 1000,
+        use_suffix_array: bool = True
     ):
-        """
-        Initialize sliding window pattern detector.
-        
-        Args:
-            min_pattern_length: Minimum pattern length to detect
-            max_pattern_length: Maximum pattern length to detect
-            min_frequency: Minimum occurrence frequency for a pattern
-            hash_prime: Prime number for polynomial rolling hash
-            device: Device for tensor operations
-            enable_compile: Whether to use torch.compile optimization
-        """
+        """Initialize fast pattern detector"""
         super().__init__()
         
-        # Validate parameters
         if min_pattern_length < 2:
             raise ValueError(f"min_pattern_length must be >= 2, got {min_pattern_length}")
         if max_pattern_length < min_pattern_length:
             raise ValueError(f"max_pattern_length {max_pattern_length} < min_pattern_length {min_pattern_length}")
         if min_frequency < 2:
             raise ValueError(f"min_frequency must be >= 2, got {min_frequency}")
-        if hash_prime < 2:
-            raise ValueError(f"hash_prime must be >= 2, got {hash_prime}")
         
         self.min_pattern_length = min_pattern_length
         self.max_pattern_length = max_pattern_length
         self.min_frequency = min_frequency
-        self.hash_prime = hash_prime
         self.device = torch.device(device)
+        self.max_patterns = max_patterns
+        self.use_suffix_array = use_suffix_array
         
-        # Precompute prime powers for rolling hash
-        self.prime_powers = self._precompute_prime_powers()
+        self.suffix_builder = SafeSuffixArrayBuilder(
+            max_length=10_000_000,
+            device=str(self.device)
+        )
         
-        # Compile critical methods if enabled
-        if enable_compile and device == 'cuda':
-            self._compute_rolling_hashes = torch.compile(
-                self._compute_rolling_hashes,
-                mode='reduce-overhead'
-            )
+        self.rolling_hashes = {}
+        for size in range(min_pattern_length, min(max_pattern_length + 1, 128)):
+            self.rolling_hashes[size] = OverflowFreeRollingHash(size)
     
-    def _precompute_prime_powers(self) -> torch.Tensor:
-        """Precompute prime powers for efficient rolling hash computation"""
-        max_power = self.max_pattern_length
-        powers = torch.zeros(max_power + 1, dtype=torch.int64, device=self.device)
-        powers[0] = 1
+    def _convert_input_safe(self, data: Union[torch.Tensor, np.ndarray, bytes]) -> Tuple[np.ndarray, np.dtype]:
+        """
+        Convert input data safely without corruption for p-adic digits.
+        Returns both the data and its dtype for proper pattern handling.
+        """
+        if isinstance(data, bytes):
+            return np.frombuffer(data, dtype=np.uint8), np.dtype('uint8')
         
-        for i in range(1, max_power + 1):
-            powers[i] = (powers[i-1] * self.hash_prime) % self.HASH_MODULUS
+        elif isinstance(data, torch.Tensor):
+            data_np = data.cpu().numpy()
+            
+            if data_np.dtype in [np.int32, np.int64]:
+                min_val, max_val = data_np.min(), data_np.max()
+                
+                if min_val >= 0:
+                    # P-adic digits - keep as int32
+                    return data_np.astype(np.int32), np.dtype('int32')
+                else:
+                    # Other integer data
+                    if min_val >= -128 and max_val <= 127:
+                        return data_np.astype(np.int8), np.dtype('int8')
+                    elif min_val >= -32768 and max_val <= 32767:
+                        return data_np.astype(np.int16), np.dtype('int16')
+                    else:
+                        return data_np.astype(np.int32), np.dtype('int32')
+            
+            elif data_np.dtype in [np.float32, np.float64]:
+                rounded = np.round(data_np).astype(np.int32)
+                return self._convert_input_safe(torch.from_numpy(rounded))
+            
+            else:
+                return data_np, data_np.dtype
         
-        return powers
+        elif isinstance(data, np.ndarray):
+            if data.dtype in [np.int32, np.int64]:
+                min_val, max_val = data.min(), data.max()
+                
+                if min_val >= 0:
+                    return data.astype(np.int32), np.dtype('int32')
+                else:
+                    if min_val >= -128 and max_val <= 127:
+                        return data.astype(np.int8), np.dtype('int8')
+                    elif min_val >= -32768 and max_val <= 32767:
+                        return data.astype(np.int16), np.dtype('int16')
+                    else:
+                        return data.astype(np.int32), np.dtype('int32')
+            
+            elif data.dtype in [np.float32, np.float64]:
+                rounded = np.round(data).astype(np.int32)
+                return self._convert_input_safe(rounded)
+            
+            else:
+                return data, data.dtype
+        
+        else:
+            raise TypeError(f"Unsupported data type: {type(data)}")
     
-    def _compute_rolling_hashes(
-        self,
-        data: torch.Tensor,
-        window_size: int
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute rolling polynomial hashes for all windows of given size.
-        Uses double hashing to minimize collisions.
+    def _find_patterns_suffix_array(self, data: np.ndarray, element_dtype: np.dtype) -> Dict[int, PatternMatch]:
+        """Find patterns using suffix array algorithm - O(n log n) with proper dtype handling"""
+        n = len(data)
+        if n < self.min_pattern_length:
+            return {}
         
-        Args:
-            data: Input byte tensor
-            window_size: Size of sliding window
+        sa_result = self.suffix_builder.build(data)
+        suffix_array = sa_result.suffix_array
+        lcp_array = sa_result.lcp_array
+        
+        patterns_found = {}
+        pattern_id = 0
+        
+        interval_tree = OptimizedIntervalTree()
+        
+        pattern_queue = []
+        
+        i = 0
+        while i < n - 1:
+            lcp_val = lcp_array[i]
+            if lcp_val >= self.min_pattern_length:
+                pattern_length = min(lcp_val, self.max_pattern_length)
+                
+                positions = [suffix_array[i]]
+                j = i + 1
+                
+                while j < n:
+                    if j - 1 < len(lcp_array) and lcp_array[j - 1] >= pattern_length:
+                        positions.append(suffix_array[j])
+                        j += 1
+                    else:
+                        break
+                
+                if len(positions) >= self.min_frequency:
+                    pattern_start = positions[0]
+                    pattern_data = data[pattern_start:pattern_start + pattern_length]
+                    
+                    value = pattern_length * len(positions)
+                    
+                    # Store pattern with element information
+                    heapq.heappush(pattern_queue, 
+                                   (-value, pattern_length, pattern_data, positions))
+                
+                i = j
+            else:
+                i += 1
+        
+        while pattern_queue and len(patterns_found) < self.max_patterns:
+            _, pattern_element_count, pattern_data, positions = heapq.heappop(pattern_queue)
             
-        Returns:
-            Tuple of (primary_hashes, secondary_hashes) for collision detection
-        """
-        if data.dim() != 1:
-            raise ValueError(f"Data must be 1D tensor, got shape {data.shape}")
-        
-        n = data.size(0)
-        if n < window_size:
-            return torch.tensor([], dtype=torch.int64, device=self.device), \
-                   torch.tensor([], dtype=torch.int64, device=self.device)
-        
-        num_windows = n - window_size + 1
-        
-        # Convert to int64 for hash computation
-        data_int = data.to(torch.int64)
-        
-        # Primary hashes using HASH_MODULUS
-        primary_hashes = torch.zeros(num_windows, dtype=torch.int64, device=self.device)
-        
-        # Compute first window hash
-        first_hash = torch.zeros(1, dtype=torch.int64, device=self.device)
-        for i in range(window_size):
-            first_hash = (first_hash + data_int[i] * self.prime_powers[i]) % self.HASH_MODULUS
-        primary_hashes[0] = first_hash
-        
-        # Rolling hash for subsequent windows
-        # Formula: new_hash = (old_hash - old_first * prime^0) / prime + new_last * prime^(size-1)
-        max_power = self.prime_powers[window_size - 1]
-        prime_inv = pow(self.hash_prime, self.HASH_MODULUS - 2, self.HASH_MODULUS)  # Modular inverse
-        
-        for i in range(1, num_windows):
-            old_byte = data_int[i - 1]
-            new_byte = data_int[i + window_size - 1]
+            valid_positions = []
             
-            # Remove old first byte and shift
-            temp = (primary_hashes[i-1] - old_byte + self.HASH_MODULUS) % self.HASH_MODULUS
-            temp = (temp * prime_inv) % self.HASH_MODULUS
+            for pos in positions:
+                if not interval_tree.overlaps(pos, pos + pattern_element_count):
+                    valid_positions.append(pos)
             
-            # Add new last byte
-            primary_hashes[i] = (temp + new_byte * max_power) % self.HASH_MODULUS
+            if len(valid_positions) >= self.min_frequency:
+                # FIXED: Convert to bytes and track both byte length and element count
+                pattern_bytes = pattern_data.tobytes()
+                pattern_byte_length = len(pattern_bytes)
+                
+                # Create pattern match with proper length tracking
+                pattern_match = PatternMatch(
+                    pattern=pattern_bytes,
+                    positions=sorted(valid_positions),
+                    frequency=len(valid_positions),
+                    hash_value=hash(pattern_bytes),
+                    length=pattern_byte_length,  # Length in BYTES
+                    element_count=pattern_element_count,  # Number of elements
+                    element_dtype=element_dtype  # Data type for reconstruction
+                )
+                
+                patterns_found[pattern_id] = pattern_match
+                pattern_id += 1
+                
+                for pos in valid_positions:
+                    interval_tree.insert(pos, pos + pattern_element_count)
         
-        # Secondary hashes for collision detection (different prime and modulus)
-        secondary_prime = 37
-        secondary_hashes = torch.zeros(num_windows, dtype=torch.int64, device=self.device)
-        
-        # Compute secondary hashes
-        for i in range(num_windows):
-            window = data_int[i:i+window_size]
-            hash_val = torch.zeros(1, dtype=torch.int64, device=self.device)
-            for j, byte_val in enumerate(window):
-                hash_val = (hash_val + byte_val * pow(secondary_prime, j, self.SECONDARY_MODULUS)) % self.SECONDARY_MODULUS
-            secondary_hashes[i] = hash_val
-        
-        return primary_hashes, secondary_hashes
+        return patterns_found
     
-    def _verify_pattern_match(
-        self,
-        data: torch.Tensor,
-        positions: List[int],
-        window_size: int
-    ) -> bool:
-        """
-        Verify that positions actually contain the same pattern (avoid hash collisions).
+    def _find_patterns_rolling_hash(self, data: np.ndarray, element_dtype: np.dtype) -> Dict[int, PatternMatch]:
+        """Find patterns using rolling hash with proper dtype handling"""
+        n = len(data)
+        patterns_found = {}
+        pattern_id = 0
+        covered_positions = set()
         
-        Args:
-            data: Original data tensor
-            positions: List of starting positions
-            window_size: Pattern length
+        for window_size in range(self.min_pattern_length, 
+                                min(self.max_pattern_length + 1, n + 1)):
+            if window_size not in self.rolling_hashes:
+                continue
+                
+            hasher = self.rolling_hashes[window_size]
+            hash_to_positions = defaultdict(list)
             
-        Returns:
-            True if all positions contain identical patterns
-        """
-        if len(positions) < 2:
-            return True
+            current_hash = hasher.compute_hash(data, 0)
+            hash_to_positions[current_hash].append(0)
+            
+            for i in range(1, n - window_size + 1):
+                old_byte = int(data[i - 1])
+                new_byte = int(data[i + window_size - 1])
+                current_hash = hasher.roll_hash(current_hash, old_byte, new_byte)
+                
+                hash_to_positions[current_hash].append(i)
+            
+            for hash_val, positions in hash_to_positions.items():
+                if len(positions) < self.min_frequency:
+                    continue
+                
+                ref_pattern = data[positions[0]:positions[0] + window_size]
+                valid_positions = []
+                
+                for pos in positions:
+                    if np.array_equal(data[pos:pos + window_size], ref_pattern):
+                        if not any(pos >= cp and pos < cp + clen 
+                                  for cp, clen in covered_positions):
+                            valid_positions.append(pos)
+                
+                if len(valid_positions) >= self.min_frequency:
+                    pattern_bytes = ref_pattern.tobytes()
+                    
+                    # FIXED: Proper length tracking
+                    pattern_match = PatternMatch(
+                        pattern=pattern_bytes,
+                        positions=sorted(valid_positions),
+                        frequency=len(valid_positions),
+                        hash_value=hash_val,
+                        length=len(pattern_bytes),  # Byte length
+                        element_count=window_size,  # Element count
+                        element_dtype=element_dtype  # Data type
+                    )
+                    
+                    patterns_found[pattern_id] = pattern_match
+                    pattern_id += 1
+                    
+                    for pos in valid_positions:
+                        covered_positions.add((pos, window_size))
+                    
+                    if len(patterns_found) >= self.max_patterns:
+                        return patterns_found
         
-        # Get first pattern as reference
-        reference = data[positions[0]:positions[0] + window_size]
-        
-        # Check all other positions
-        for pos in positions[1:]:
-            if pos + window_size > data.size(0):
-                return False
-            candidate = data[pos:pos + window_size]
-            if not torch.equal(reference, candidate):
-                return False
-        
-        return True
+        return patterns_found
     
     def find_patterns(
         self,
         data: Union[torch.Tensor, np.ndarray, bytes],
         batch_process: bool = True
     ) -> PatternDetectionResult:
-        """
-        Find repeated patterns in input data using sliding window with rolling hash.
+        """Find repeated patterns in input data with proper dtype handling"""
+        # FIXED: Get both data and dtype
+        data, element_dtype = self._convert_input_safe(data)
         
-        Args:
-            data: Input data (p-adic digits as bytes/tensor)
-            batch_process: Whether to process multiple pattern lengths in parallel
-            
-        Returns:
-            PatternDetectionResult with detected patterns and metadata
-        """
-        # Convert input to tensor
-        if isinstance(data, bytes):
-            data = torch.frombuffer(data, dtype=torch.uint8).to(self.device)
-        elif isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).to(torch.uint8).to(self.device)
-        elif isinstance(data, torch.Tensor):
-            data = data.to(torch.uint8).to(self.device)
-        else:
-            raise TypeError(f"Unsupported data type: {type(data)}")
-        
-        if data.dim() != 1:
+        if data.ndim != 1:
             data = data.flatten()
         
-        n = data.size(0)
-        patterns_found = {}
-        pattern_id_counter = 0
+        n = len(data)
         
-        # Track which positions are already covered by patterns
-        covered_positions = set()
+        if n < self.min_pattern_length * self.min_frequency:
+            return PatternDetectionResult(
+                patterns={},
+                pattern_mask=torch.zeros(n, dtype=torch.bool, device=self.device),
+                pattern_indices=torch.full((n,), -1, dtype=torch.int32, device=self.device),
+                compression_potential=0.0,
+                total_patterns_found=0,
+                bytes_replaced=0,
+                original_size=n * element_dtype.itemsize,  # Size in bytes
+                element_dtype=element_dtype
+            )
         
-        # Process each window size
-        for window_size in range(self.min_pattern_length, min(self.max_pattern_length + 1, n + 1)):
-            if n < window_size:
-                continue
+        if n > 100:
+            sample_size = min(1000, n)
+            sample_data = data[:sample_size] if n > sample_size else data
+            unique_bytes = len(np.unique(sample_data))
+            entropy_ratio = unique_bytes / sample_size
             
-            # Compute rolling hashes for this window size
-            primary_hashes, secondary_hashes = self._compute_rolling_hashes(data, window_size)
-            
-            if primary_hashes.numel() == 0:
-                continue
-            
-            # Group positions by hash value
-            hash_to_positions = defaultdict(list)
-            for i, (p_hash, s_hash) in enumerate(zip(primary_hashes, secondary_hashes)):
-                # Use combined hash to reduce collisions
-                combined_hash = (p_hash.item(), s_hash.item())
-                hash_to_positions[combined_hash].append(i)
-            
-            # Find patterns that meet frequency threshold
-            for combined_hash, positions in hash_to_positions.items():
-                if len(positions) < self.min_frequency:
-                    continue
-                
-                # Filter out positions already covered by longer patterns
-                valid_positions = [
-                    pos for pos in positions 
-                    if not any(pos >= cp and pos < cp + clen 
-                              for cp, clen in covered_positions)
-                ]
-                
-                if len(valid_positions) < self.min_frequency:
-                    continue
-                
-                # Verify actual pattern match (avoid hash collisions)
-                if not self._verify_pattern_match(data, valid_positions, window_size):
-                    continue
-                
-                # Extract pattern bytes
-                pattern_bytes = data[valid_positions[0]:valid_positions[0] + window_size].cpu().numpy().tobytes()
-                
-                # Create pattern match
-                pattern_match = PatternMatch(
-                    pattern=pattern_bytes,
-                    positions=valid_positions,
-                    frequency=len(valid_positions),
-                    hash_value=combined_hash[0],  # Primary hash
-                    length=window_size
+            if entropy_ratio > 0.8:
+                return PatternDetectionResult(
+                    patterns={},
+                    pattern_mask=torch.zeros(n, dtype=torch.bool, device=self.device),
+                    pattern_indices=torch.full((n,), -1, dtype=torch.int32, device=self.device),
+                    compression_potential=0.0,
+                    total_patterns_found=0,
+                    bytes_replaced=0,
+                    original_size=n * element_dtype.itemsize,
+                    element_dtype=element_dtype
                 )
-                
-                patterns_found[pattern_id_counter] = pattern_match
-                pattern_id_counter += 1
-                
-                # Mark positions as covered
-                for pos in valid_positions:
-                    covered_positions.add((pos, window_size))
         
-        # Create pattern mask and indices
+        algorithm_start_time = time.perf_counter()
+        
+        # Choose algorithm and pass element_dtype
+        if n <= 10000:
+            patterns_found = self._find_patterns_rolling_hash(data, element_dtype)
+            algorithm_used = "rolling_hash_small"
+        elif n <= 50000:
+            if entropy_ratio > 0.6:
+                patterns_found = self._find_patterns_rolling_hash(data, element_dtype)
+                algorithm_used = "rolling_hash_medium"
+            else:
+                patterns_found = self._find_patterns_suffix_array(data, element_dtype)
+                algorithm_used = "suffix_array_medium"
+        else:
+            patterns_found = self._find_patterns_suffix_array(data, element_dtype)
+            algorithm_used = "suffix_array_large"
+        
+        algorithm_time = time.perf_counter() - algorithm_start_time
+        
+        if algorithm_time > 1.0:
+            logger.info(f"Pattern detection: {algorithm_used}, {n} elements, {algorithm_time:.3f}s")
+        
         pattern_mask = torch.zeros(n, dtype=torch.bool, device=self.device)
         pattern_indices = torch.full((n,), -1, dtype=torch.int32, device=self.device)
         
         bytes_replaced = 0
         for pattern_id, pattern_match in patterns_found.items():
             for pos in pattern_match.positions:
-                pattern_mask[pos:pos + pattern_match.length] = True
-                pattern_indices[pos:pos + pattern_match.length] = pattern_id
-                bytes_replaced += pattern_match.length
+                # Use element_count for mask indexing
+                pattern_mask[pos:pos + pattern_match.element_count] = True
+                pattern_indices[pos:pos + pattern_match.element_count] = pattern_id
+                bytes_replaced += pattern_match.length  # Count bytes
         
-        # Calculate compression potential
-        # Assuming each pattern reference takes 4 bytes (pattern ID + position)
-        pattern_overhead = len(patterns_found) * 4  # Pattern dictionary overhead
+        pattern_overhead = len(patterns_found) * 4
         reference_size = sum(len(p.positions) * 4 for p in patterns_found.values())
-        compressed_size = n - bytes_replaced + pattern_overhead + reference_size
-        compression_potential = 1.0 - (compressed_size / n) if n > 0 else 0.0
+        original_byte_size = n * element_dtype.itemsize
+        compressed_size = original_byte_size - bytes_replaced + pattern_overhead + reference_size
+        compression_potential = 1.0 - (compressed_size / original_byte_size) if original_byte_size > 0 else 0.0
         
         return PatternDetectionResult(
             patterns=patterns_found,
@@ -334,7 +658,8 @@ class SlidingWindowPatternDetector(nn.Module):
             compression_potential=compression_potential,
             total_patterns_found=len(patterns_found),
             bytes_replaced=bytes_replaced,
-            original_size=n
+            original_size=original_byte_size,
+            element_dtype=element_dtype
         )
     
     def encode_with_patterns(
@@ -342,54 +667,54 @@ class SlidingWindowPatternDetector(nn.Module):
         data: Union[torch.Tensor, np.ndarray, bytes],
         pattern_result: Optional[PatternDetectionResult] = None
     ) -> Tuple[torch.Tensor, Dict[int, bytes], torch.Tensor]:
-        """
-        Encode data by replacing detected patterns with indices.
-        
-        Args:
-            data: Original data to encode
-            pattern_result: Pre-computed pattern detection result (optional)
-            
-        Returns:
-            Tuple of (encoded_data, pattern_dictionary, pattern_lengths)
-        """
-        # Convert input to tensor
+        """Encode data by replacing detected patterns with indices"""
+        # Convert input, preserving dtype information
         if isinstance(data, bytes):
             data = torch.frombuffer(data, dtype=torch.uint8).to(self.device)
+            element_dtype = np.dtype('uint8')
         elif isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).to(torch.uint8).to(self.device)
+            element_dtype = data.dtype
+            # Preserve original dtype in torch tensor
+            if element_dtype == np.int32:
+                data = torch.from_numpy(data).to(torch.int32).to(self.device)
+            elif element_dtype == np.int16:
+                data = torch.from_numpy(data).to(torch.int16).to(self.device)
+            else:
+                data = torch.from_numpy(data).to(torch.uint8).to(self.device)
         elif isinstance(data, torch.Tensor):
-            data = data.to(torch.uint8).to(self.device)
+            data = data.to(self.device)
+            # Infer dtype from tensor
+            if data.dtype == torch.int32:
+                element_dtype = np.dtype('int32')
+            elif data.dtype == torch.int16:
+                element_dtype = np.dtype('int16')
+            else:
+                element_dtype = np.dtype('uint8')
         else:
             raise TypeError(f"Unsupported data type: {type(data)}")
         
         if data.dim() != 1:
             data = data.flatten()
         
-        # Find patterns if not provided
         if pattern_result is None:
             pattern_result = self.find_patterns(data)
         
         if not pattern_result.patterns:
-            # No patterns found, return original data
             return data, {}, torch.tensor([], dtype=torch.int32, device=self.device)
         
-        # Create encoded output
-        encoded_parts = []
         pattern_dictionary = {}
         pattern_lengths = []
-        current_pos = 0
         
-        # Sort patterns by position for sequential encoding
         pattern_positions = []
         for pattern_id, pattern_match in pattern_result.patterns.items():
             pattern_dictionary[pattern_id] = pattern_match.pattern
-            pattern_lengths.append(pattern_match.length)
+            # Store element count, not byte length
+            pattern_lengths.append(pattern_match.element_count)
             for pos in pattern_match.positions:
-                pattern_positions.append((pos, pattern_id, pattern_match.length))
+                pattern_positions.append((pos, pattern_id, pattern_match.element_count))
         
         pattern_positions.sort(key=lambda x: x[0])
         
-        # Encode data with pattern replacements
         encoded_data = []
         skip_until = 0
         
@@ -397,23 +722,18 @@ class SlidingWindowPatternDetector(nn.Module):
             if i < skip_until:
                 continue
             
-            # Check if current position starts a pattern
             pattern_found = False
-            for pos, pattern_id, pattern_len in pattern_positions:
+            for pos, pattern_id, element_count in pattern_positions:
                 if pos == i:
-                    # Encode pattern reference (using special marker + pattern ID)
-                    # Use values > 255 to distinguish from regular bytes
                     marker = torch.tensor([256 + pattern_id], dtype=torch.int32, device=self.device)
                     encoded_data.append(marker)
-                    skip_until = i + pattern_len
+                    skip_until = i + element_count
                     pattern_found = True
                     break
             
             if not pattern_found:
-                # Copy original byte
                 encoded_data.append(data[i:i+1].to(torch.int32))
         
-        # Concatenate encoded data
         if encoded_data:
             encoded_tensor = torch.cat(encoded_data)
         else:
@@ -427,21 +747,27 @@ class SlidingWindowPatternDetector(nn.Module):
         self,
         encoded_data: torch.Tensor,
         pattern_dictionary: Dict[int, bytes],
-        pattern_lengths: torch.Tensor
+        pattern_lengths: torch.Tensor,
+        element_dtype: Optional[np.dtype] = None
     ) -> torch.Tensor:
-        """
-        Decode data by replacing pattern indices with original patterns.
-        
-        Args:
-            encoded_data: Encoded data with pattern references
-            pattern_dictionary: Mapping of pattern IDs to original bytes
-            pattern_lengths: Length of each pattern
-            
-        Returns:
-            Decoded original data
-        """
+        """Decode data by replacing pattern indices with original patterns"""
         if encoded_data.dim() != 1:
             raise ValueError(f"Encoded data must be 1D, got shape {encoded_data.shape}")
+        
+        # FIXED: Proper dtype handling for p-adic digits
+        if element_dtype is not None:
+            target_dtype = element_dtype
+            if element_dtype == np.dtype('int32'):
+                torch_dtype = torch.int32
+            elif element_dtype == np.dtype('int16'):
+                torch_dtype = torch.int16
+            elif element_dtype == np.dtype('int8'):
+                torch_dtype = torch.int8
+            else:
+                torch_dtype = torch.uint8
+        else:
+            target_dtype = np.dtype('uint8')
+            torch_dtype = torch.uint8
         
         decoded_parts = []
         
@@ -449,67 +775,55 @@ class SlidingWindowPatternDetector(nn.Module):
             value = encoded_data[i].item()
             
             if value >= 256:
-                # Pattern reference
                 pattern_id = value - 256
                 if pattern_id in pattern_dictionary:
                     pattern_bytes = pattern_dictionary[pattern_id]
-                    # Create a copy to avoid non-writable buffer warning
-                    pattern_array = np.frombuffer(pattern_bytes, dtype=np.uint8).copy()
-                    pattern_tensor = torch.from_numpy(pattern_array).to(self.device)
+                    # Decode using appropriate dtype
+                    pattern_array = np.frombuffer(pattern_bytes, dtype=target_dtype).copy()
+                    pattern_tensor = torch.from_numpy(pattern_array).to(dtype=torch_dtype, device=self.device)
                     decoded_parts.append(pattern_tensor)
                 else:
                     raise ValueError(f"Invalid pattern ID: {pattern_id}")
             else:
-                # Regular byte
-                decoded_parts.append(torch.tensor([value], dtype=torch.uint8, device=self.device))
+                decoded_parts.append(torch.tensor([value], dtype=torch_dtype, device=self.device))
         
         if decoded_parts:
             return torch.cat(decoded_parts)
         else:
-            return torch.tensor([], dtype=torch.uint8, device=self.device)
+            return torch.tensor([], dtype=torch_dtype, device=self.device)
     
     def analyze_compression_efficiency(
         self,
         data: Union[torch.Tensor, np.ndarray, bytes]
     ) -> Dict[str, Any]:
-        """
-        Analyze potential compression efficiency for given data.
-        
-        Args:
-            data: Input data to analyze
-            
-        Returns:
-            Dictionary with compression analysis metrics
-        """
-        # Find patterns
+        """Analyze potential compression efficiency for given data"""
         pattern_result = self.find_patterns(data)
         
-        # Encode with patterns
         encoded_data, pattern_dict, pattern_lengths = self.encode_with_patterns(
             data, 
             pattern_result
         )
         
-        # Calculate metrics
+        # Calculate metrics using proper byte sizes
         original_size = pattern_result.original_size
-        encoded_size = encoded_data.size(0) * 4  # int32 elements
+        encoded_size = encoded_data.size(0) * 4
         pattern_dict_size = sum(len(p) for p in pattern_dict.values())
         total_compressed_size = encoded_size + pattern_dict_size
         
         compression_ratio = original_size / total_compressed_size if total_compressed_size > 0 else 1.0
         space_savings = 1.0 - (total_compressed_size / original_size) if original_size > 0 else 0.0
         
-        # Pattern statistics
         pattern_stats = {}
         if pattern_result.patterns:
-            pattern_lengths_list = [p.length for p in pattern_result.patterns.values()]
+            # Use element_count for statistics
+            pattern_element_counts = [p.element_count for p in pattern_result.patterns.values()]
             pattern_freqs = [p.frequency for p in pattern_result.patterns.values()]
             
             pattern_stats = {
                 'num_patterns': len(pattern_result.patterns),
-                'avg_pattern_length': np.mean(pattern_lengths_list),
-                'max_pattern_length': max(pattern_lengths_list),
-                'min_pattern_length': min(pattern_lengths_list),
+                'avg_pattern_length': np.mean(pattern_element_counts),
+                'max_pattern_length': max(pattern_element_counts),
+                'min_pattern_length': min(pattern_element_counts),
                 'avg_pattern_frequency': np.mean(pattern_freqs),
                 'max_pattern_frequency': max(pattern_freqs),
                 'total_bytes_in_patterns': pattern_result.bytes_replaced
@@ -529,39 +843,39 @@ class SlidingWindowPatternDetector(nn.Module):
 
 
 def benchmark_pattern_detector():
-    """Benchmark the sliding window pattern detector"""
+    """Benchmark the fixed pattern detector with int32 data"""
     import time
     
-    # Create detector
     detector = SlidingWindowPatternDetector(
         min_pattern_length=4,
         max_pattern_length=32,
         min_frequency=3,
-        hash_prime=31
+        use_suffix_array=True
     )
     
-    # Generate test data with repeating patterns
+    # Test with int32 data (simulating p-adic digits)
     np.random.seed(42)
-    base_pattern = np.random.randint(0, 256, 20, dtype=np.uint8)
     
-    # Create data with multiple occurrences of patterns
+    # Create int32 pattern (p-adic digits are typically 0-256)
+    base_pattern = np.random.randint(0, 257, 20, dtype=np.int32)
+    
     test_data = []
     for _ in range(100):
-        if np.random.random() < 0.3:  # 30% chance to insert pattern
+        if np.random.random() < 0.3:
             test_data.extend(base_pattern)
         else:
-            test_data.extend(np.random.randint(0, 256, 10, dtype=np.uint8))
+            test_data.extend(np.random.randint(0, 257, 10, dtype=np.int32))
     
-    # Add some shorter repeating patterns
-    short_pattern = np.array([1, 2, 3, 4, 5], dtype=np.uint8)
+    short_pattern = np.array([1, 2, 3, 4, 5], dtype=np.int32)
     for i in range(0, len(test_data), 50):
         test_data[i:i+5] = short_pattern
     
-    test_data = np.array(test_data, dtype=np.uint8)
+    test_data = np.array(test_data, dtype=np.int32)
     
-    print(f"Test data size: {len(test_data)} bytes")
+    print(f"Test data: {len(test_data)} int32 elements")
+    print(f"Byte size: {len(test_data) * 4} bytes")
     
-    # Benchmark pattern detection
+    # Test pattern detection
     start_time = time.time()
     pattern_result = detector.find_patterns(test_data)
     detection_time = time.time() - start_time
@@ -571,8 +885,9 @@ def benchmark_pattern_detector():
     print(f"  Patterns found: {pattern_result.total_patterns_found}")
     print(f"  Bytes replaced: {pattern_result.bytes_replaced}")
     print(f"  Compression potential: {pattern_result.compression_potential:.2%}")
+    print(f"  Element dtype: {pattern_result.element_dtype}")
     
-    # Benchmark encoding
+    # Test encoding
     start_time = time.time()
     encoded_data, pattern_dict, pattern_lengths = detector.encode_with_patterns(
         test_data, 
@@ -582,22 +897,33 @@ def benchmark_pattern_detector():
     
     print(f"\nEncoding Results:")
     print(f"  Time: {encoding_time:.4f} seconds")
-    print(f"  Original size: {len(test_data)} bytes")
+    print(f"  Original size: {len(test_data) * 4} bytes")
     print(f"  Encoded size: {encoded_data.size(0) * 4} bytes")
     
-    # Benchmark decoding
+    # Test decoding with proper dtype
     start_time = time.time()
     decoded_data = detector.decode_with_patterns(
         encoded_data, 
         pattern_dict, 
-        pattern_lengths
+        pattern_lengths,
+        element_dtype=np.dtype('int32')  # Pass the correct dtype
     )
     decoding_time = time.time() - start_time
     
     print(f"\nDecoding Results:")
     print(f"  Time: {decoding_time:.4f} seconds")
-    print(f"  Decoded size: {decoded_data.size(0)} bytes")
-    print(f"  Reconstruction accurate: {torch.equal(decoded_data.cpu(), torch.from_numpy(test_data))}")
+    print(f"  Decoded size: {decoded_data.size(0)} elements")
+    
+    # Verify reconstruction
+    original_tensor = torch.from_numpy(test_data)
+    match = torch.equal(decoded_data.cpu(), original_tensor)
+    print(f"  Reconstruction accurate: {match}")
+    
+    if not match:
+        print(f"  ERROR: Mismatch at indices where values differ")
+        diff_indices = torch.where(decoded_data.cpu() != original_tensor)[0]
+        if len(diff_indices) > 0:
+            print(f"  First mismatch at index {diff_indices[0]}: {decoded_data[diff_indices[0]]} != {original_tensor[diff_indices[0]]}")
     
     # Analyze compression efficiency
     analysis = detector.analyze_compression_efficiency(test_data)
@@ -607,10 +933,9 @@ def benchmark_pattern_detector():
     print(f"  Space savings: {analysis['space_savings_percent']:.1f}%")
     if analysis['pattern_statistics']:
         stats = analysis['pattern_statistics']
-        print(f"  Average pattern length: {stats['avg_pattern_length']:.1f}")
+        print(f"  Average pattern length: {stats['avg_pattern_length']:.1f} elements")
         print(f"  Average pattern frequency: {stats['avg_pattern_frequency']:.1f}")
 
 
 if __name__ == "__main__":
-    # Run benchmark
     benchmark_pattern_detector()

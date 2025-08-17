@@ -51,8 +51,15 @@ from .padic_encoder import (
     AdaptiveHenselLifting
 )
 from .padic_logarithmic_encoder import LogarithmicPadicWeight
-from .safe_reconstruction import SafePadicReconstructor as SafeReconstruction
+from .safe_reconstruction import SafePadicReconstructor as SafeReconstruction, ReconstructionConfig
 from .memory_pressure_handler import MemoryPressureHandler
+
+# Import compatibility config (used by integration tests)
+try:
+    from .compression_config_compat import CompressionConfig as CompatCompressionConfig
+    USE_COMPAT_CONFIG = True
+except ImportError:
+    USE_COMPAT_CONFIG = False
 
 
 class CompressionStage(Enum):
@@ -101,11 +108,33 @@ class CompressionConfig:
     gpu_memory_limit_mb: int = 1024
     enable_memory_monitoring: bool = True
     
+    # Device configuration (for integration test compatibility)
+    compression_device: str = "cpu"
+    decompression_device: str = "cpu"
+    enable_device_fallback: bool = True
+    
     # Validation and safety
     validate_reconstruction: bool = True
     max_reconstruction_error: float = 1e-5
     enable_logging: bool = True
     raise_on_error: bool = True  # NO FALLBACKS - HARD FAILURES
+    
+    # NEW: Parallel processing support
+    enable_parallel: bool = False
+    enable_memory_tracking: bool = True
+    enable_dynamic_switching: bool = True
+    batch_size: int = 32
+    
+    # NEW: Storage for experimental parameters
+    extra_params: Dict[str, Any] = field(default_factory=dict)
+    
+    def get_experimental_param(self, key: str, default=None):
+        """Get an experimental parameter by key."""
+        return self.extra_params.get(key, default)
+    
+    def has_experimental_param(self, key: str) -> bool:
+        """Check if an experimental parameter exists."""
+        return key in self.extra_params
     
     def __post_init__(self):
         """Validate configuration parameters"""
@@ -159,13 +188,63 @@ class PadicCompressionSystem:
     Integrates all components in a sequential pipeline
     """
     
-    def __init__(self, config: Optional[CompressionConfig] = None):
-        """Initialize P-adic compression system
+    def __init__(self, config=None):
+        """Initialize P-adic compression system with flexible config handling"""
         
-        Args:
-            config: System configuration (uses defaults if None)
-        """
-        self.config = config or CompressionConfig()
+        # Handle different config types
+        if config is None:
+            # Use internal default
+            self.config = CompressionConfig()
+        elif isinstance(config, dict):
+            # Create from dictionary
+            self.config = CompressionConfig(**config)
+        elif hasattr(config, '__dict__'):
+            # Handle CompressionConfigCompat or any config-like object
+            # Extract all attributes and separate known from unknown
+            
+            # Known parameters that map directly to CompressionConfig fields
+            known_params = {
+                'prime', 'base_precision', 'min_precision', 'max_precision',
+                'compression_device', 'decompression_device', 'enable_device_fallback',
+                'target_error', 'importance_threshold', 'batch_size', 'chunk_size',
+                'enable_parallel', 'enable_gpu', 'gpu_memory_limit_mb',
+                'compression_priority', 'enable_memory_tracking', 'enable_dynamic_switching',
+                'sparsity_threshold', 'target_sparsity', 'optimize_patterns',
+                'huffman_threshold', 'arithmetic_threshold', 'enable_hybrid_entropy',
+                'max_tensor_size', 'enable_memory_monitoring', 'validate_reconstruction',
+                'max_reconstruction_error', 'enable_logging', 'raise_on_error',
+                'min_pattern_length', 'max_pattern_length', 'min_pattern_frequency',
+                'pattern_hash_prime'
+            }
+            
+            config_dict = {}
+            extra_params = {}
+            
+            # Extract all attributes from the config object
+            for attr in dir(config):
+                if not attr.startswith('_') and hasattr(config, attr):
+                    value = getattr(config, attr)
+                    if not callable(value):  # Skip methods
+                        if attr in known_params:
+                            # Handle device string conversions
+                            if attr in ['compression_device', 'decompression_device'] and value:
+                                config_dict[attr] = str(value)
+                            else:
+                                config_dict[attr] = value
+                        else:
+                            # Store unknown parameters as experimental
+                            extra_params[attr] = value
+            
+            # Add extra_params to config_dict
+            config_dict['extra_params'] = extra_params
+            
+            # Create internal config with only known parameters
+            self.config = CompressionConfig(**config_dict)
+        elif isinstance(config, CompressionConfig):
+            # Already internal type
+            self.config = config
+        else:
+            raise TypeError(f"Unsupported config type: {type(config)}")
         
         # Validate configuration
         logger.info(f"Initializing P-adic Compression System with prime={self.config.prime}")
@@ -176,7 +255,11 @@ class PadicCompressionSystem:
         )
         logger.info(f"Using device: {self.device}")
         
-        # Initialize all components
+        # Log experimental parameters if any
+        if self.config.extra_params:
+            logger.info(f"Experimental parameters: {list(self.config.extra_params.keys())}")
+        
+        # Initialize components with validated internal config
         self._initialize_components()
         
         # Performance tracking
@@ -195,21 +278,40 @@ class PadicCompressionSystem:
         self.memory_handler = None  # Simplified for testing
     
     def _initialize_components(self):
-        """Initialize all compression components"""
+        """Initialize all compression components with proper error handling"""
         try:
+            # Ensure compression_priority exists with default if missing
+            if not hasattr(self.config, 'compression_priority'):
+                self.config.compression_priority = 0.5
+            
+            # INTEGRATION FIX: Create math_ops FIRST (before adaptive precision)
+            self.math_ops = PadicMathematicalOperations(
+                self.config.prime,
+                self.config.base_precision
+            )
+            logger.info("✓ P-adic Mathematical Operations initialized")
+            
             # Stage 1: Adaptive Precision
             precision_config = AdaptivePrecisionConfig(
                 prime=self.config.prime,
                 base_precision=self.config.base_precision,
-                min_precision=self.config.min_precision,
-                max_precision=self.config.max_precision,
-                target_error=self.config.target_error,
-                importance_threshold=self.config.importance_threshold,
-                compression_priority=self.config.compression_priority,
-                enable_gpu_acceleration=self.config.enable_gpu
+                min_precision=getattr(self.config, 'min_precision', 2),
+                max_precision=getattr(self.config, 'max_precision', 4),
+                target_error=getattr(self.config, 'target_error', 1e-6),
+                importance_threshold=getattr(self.config, 'importance_threshold', 0.1),
+                compression_priority=getattr(self.config, 'compression_priority', 0.5),
+                enable_gpu_acceleration=getattr(self.config, 'enable_gpu', True),
+                batch_size=getattr(self.config, 'batch_size', 1024),
+                enable_memory_tracking=getattr(self.config, 'enable_memory_tracking', True),
+                enable_dynamic_switching=getattr(self.config, 'enable_dynamic_switching', True)
             )
-            self.adaptive_precision = AdaptivePrecisionWrapper(precision_config)
-            logger.info("✓ Adaptive Precision Wrapper initialized")
+            # INTEGRATION FIX: Pass math_ops to adaptive precision wrapper
+            self.adaptive_precision = AdaptivePrecisionWrapper(
+                precision_config,
+                math_ops=self.math_ops,  # Provide math_ops at construction
+                device=self.device
+            )
+            logger.info("✓ Adaptive Precision Wrapper initialized with math_ops")
             
             # Stage 2: Pattern Detection
             self.pattern_detector = SlidingWindowPatternDetector(
@@ -218,7 +320,9 @@ class PadicCompressionSystem:
                 min_frequency=self.config.min_pattern_frequency,
                 hash_prime=self.config.pattern_hash_prime,
                 device=str(self.device),
-                enable_compile=self.device.type == 'cuda'
+                enable_compile=self.device.type == 'cuda',
+                max_patterns=getattr(self.config, 'max_patterns', 1000),  # NEW: Control memory usage
+                use_suffix_array=getattr(self.config, 'use_suffix_array', True)  # NEW: Algorithm selection
             )
             logger.info("✓ Pattern Detector initialized")
             
@@ -253,16 +357,12 @@ class PadicCompressionSystem:
             logger.info("✓ Metadata Compressor initialized")
             
             # Additional components
-            from .safe_reconstruction import ReconstructionConfig
             recon_config = ReconstructionConfig(
                 prime=self.config.prime,
                 max_safe_precision=self.config.base_precision
             )
             self.safe_reconstruction = SafeReconstruction(recon_config)
-            self.math_ops = PadicMathematicalOperations(
-                self.config.prime,
-                self.config.base_precision
-            )
+            # math_ops already created above - no need to duplicate
             self.hensel = AdaptiveHenselLifting(
                 self.config.prime,
                 self.config.base_precision
@@ -272,8 +372,7 @@ class PadicCompressionSystem:
             
         except Exception as e:
             logger.error(f"Failed to initialize components: {e}")
-            if self.config.raise_on_error:
-                raise
+            raise RuntimeError(f"Failed to initialize compression components: {e}")
     
     def compress(self, tensor: torch.Tensor, 
                 importance_scores: Optional[torch.Tensor] = None) -> CompressionResult:
@@ -311,7 +410,7 @@ class PadicCompressionSystem:
                 importance_scores
             )
             
-            padic_weights = allocation.weights
+            padic_weights = allocation.padic_weights
             precision_map = allocation.precision_map
             
             stage_metrics['adaptive_precision'] = {
@@ -404,6 +503,15 @@ class PadicCompressionSystem:
             stage_start = time.perf_counter()
             logger.info("Stage 5: Metadata Compression")
             
+            # Debug: log what entropy_metadata contains before compression
+            logger.warning(f"DEBUG - entropy_metadata keys before compression: {list(entropy_metadata.keys()) if entropy_metadata else 'None'}")
+            if entropy_metadata and 'encoding_metadata' in entropy_metadata:
+                logger.warning(f"DEBUG - encoding_metadata keys: {list(entropy_metadata['encoding_metadata'].keys())}")
+                if 'frequency_table' in entropy_metadata['encoding_metadata']:
+                    logger.warning("DEBUG - frequency_table present in encoding_metadata")
+                else:
+                    logger.warning("DEBUG - frequency_table MISSING from encoding_metadata")
+            
             # Prepare metadata
             metadata = {
                 'version': 1,
@@ -413,7 +521,7 @@ class PadicCompressionSystem:
                 'precision_map': precision_map.cpu().numpy().tolist(),
                 'pattern_dict': pattern_dict,
                 'pattern_lengths': pattern_lengths.cpu().numpy().tolist() if pattern_lengths.numel() > 0 else [],
-                'sparse_indices': sparse_tensor.indices().cpu().numpy() if sparse_tensor._nnz() > 0 else None,
+                'sparse_indices': self._extract_sparse_indices(sparse_tensor),
                 'sparse_shape': list(sparse_tensor.shape),
                 'valuations': valuations.cpu().numpy().tolist(),
                 'entropy_metadata': entropy_metadata,
@@ -536,6 +644,17 @@ class PadicCompressionSystem:
             
             metadata = self.metadata_compressor.decompress_metadata(compressed_metadata)
             
+            # Debug: check decompressed metadata
+            logger.warning(f"DEBUG - Decompressed metadata keys: {list(metadata.keys())}")
+            if 'entropy_metadata' in metadata:
+                logger.warning(f"DEBUG - entropy_metadata keys after decompression: {list(metadata['entropy_metadata'].keys())}")
+                if 'encoding_metadata' in metadata['entropy_metadata']:
+                    logger.warning("DEBUG - encoding_metadata found after decompression")
+                else:
+                    logger.warning("DEBUG - encoding_metadata MISSING after decompression")
+            else:
+                logger.warning("DEBUG - entropy_metadata MISSING from decompressed metadata")
+            
             stage_metrics['metadata_decompression'] = {
                 'time': time.perf_counter() - stage_start,
                 'metadata_size': len(compressed_metadata)
@@ -546,6 +665,18 @@ class PadicCompressionSystem:
             logger.info("Stage 2: Entropy Decoding")
             
             if entropy_compressed and not metadata.get('entropy_metadata', {}).get('empty'):
+                # Debug: log what we're passing to decode
+                em = metadata.get('entropy_metadata', {})
+                logger.debug(f"Entropy metadata keys: {list(em.keys())}")
+                if 'encoding_metadata' in em:
+                    logger.debug(f"Encoding metadata keys: {list(em.get('encoding_metadata', {}).keys())}")
+                    if 'frequency_table' in em.get('encoding_metadata', {}):
+                        logger.debug("Frequency table found in encoding_metadata")
+                    else:
+                        logger.warning("Frequency table NOT found in encoding_metadata")
+                else:
+                    logger.warning("encoding_metadata not found in entropy_metadata")
+                
                 sparse_values_tensor = self.entropy_bridge.decode_padic_tensor(
                     entropy_compressed,
                     metadata['entropy_metadata']
@@ -569,7 +700,7 @@ class PadicCompressionSystem:
                 
                 # Create sparse tensor
                 sparse_tensor = torch.sparse_coo_tensor(
-                    indices.T,
+                    indices,
                     sparse_values_tensor,
                     sparse_shape,
                     device=self.device
@@ -607,11 +738,16 @@ class PadicCompressionSystem:
                     device=self.device
                 )
                 
+                # FIXED: Pass element dtype for proper decoding
+                # P-adic digits are always int32 in this pipeline
+                element_dtype = np.dtype('int32')
+                
                 # Decode patterns
                 decoded_digits = self.pattern_detector.decode_with_patterns(
                     pattern_tensor,
                     metadata['pattern_dict'],
-                    pattern_lengths
+                    pattern_lengths,
+                    element_dtype=element_dtype
                 )
                 
                 # Use pattern-decoded data if available
@@ -638,7 +774,12 @@ class PadicCompressionSystem:
                 digits = digit_tensor[i, :precision].cpu().numpy().tolist()
                 valuation = valuations[i].item() if i < valuations.shape[0] else 0
                 
+                # Reconstruct the Fraction value from digits and valuation
+                # Use the same logic as in PadicEncoder._padic_to_rational_exact
+                value = self._reconstruct_fraction_from_digits(digits, valuation, metadata['prime'])
+                
                 weight = PadicWeight(
+                    value=value,
                     digits=digits,
                     valuation=valuation,
                     prime=metadata['prime'],
@@ -794,6 +935,62 @@ class PadicCompressionSystem:
         self.sparse_bridge.clear_cache()
         self.entropy_bridge.reset_statistics()
         self.metadata_compressor.reset_statistics()
+    
+    def _extract_sparse_indices(self, sparse_tensor: torch.sparse.Tensor) -> Optional[np.ndarray]:
+        """Extract indices from sparse tensor, handling both COO and CSR formats"""
+        if sparse_tensor._nnz() == 0:
+            return None
+            
+        # Check if it's a CSR tensor
+        if hasattr(sparse_tensor, 'crow_indices'):
+            # CSR format - convert to COO for indices extraction
+            coo_tensor = sparse_tensor.to_sparse_coo()
+            return coo_tensor.indices().cpu().numpy()
+        else:
+            # Already COO format
+            return sparse_tensor.indices().cpu().numpy()
+    
+    def _reconstruct_fraction_from_digits(self, digits: List[int], valuation: int, prime: int) -> 'Fraction':
+        """Reconstruct Fraction value from p-adic digits and valuation
+        
+        This implements the same logic as PadicEncoder._padic_to_rational_exact
+        """
+        from fractions import Fraction
+        
+        # Check for negative number (high digits are p-1)
+        is_negative = len(digits) > 3 and all(d == prime - 1 for d in digits[-3:])
+        
+        # Precompute prime powers for efficiency
+        prime_powers = [1]
+        for i in range(1, len(digits)):
+            prime_powers.append(prime_powers[-1] * prime)
+        
+        if is_negative:
+            # Handle negative complement
+            # Find where the p-1 pattern starts
+            pattern_start = next((i for i in range(len(digits)-1, -1, -1) 
+                                if digits[i] != prime - 1), len(digits)) + 1
+            
+            # Compute value of finite part
+            finite_value = sum(digits[i] * prime_powers[i] 
+                             for i in range(pattern_start))
+            
+            # The infinite sum of (p-1)*p^i from i=pattern_start to infinity
+            # equals p^pattern_start
+            value = finite_value - prime_powers[pattern_start]
+            
+            result = Fraction(value, 1)
+        else:
+            # Positive number - finite expansion
+            value = sum(digits[i] * prime_powers[i] 
+                        for i in range(len(digits)))
+            result = Fraction(value, 1)
+        
+        # Apply valuation
+        if valuation != 0:
+            result *= Fraction(prime ** valuation, 1)
+        
+        return result
     
     def cleanup(self):
         """Clean up resources"""

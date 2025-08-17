@@ -100,6 +100,14 @@ class SystemConfiguration:
     chunk_size: int = None                   # Auto-detected
     enable_hybrid: bool = True
     
+    # NEW: Parallel processing support
+    enable_parallel: bool = False
+    parallel_workers: int = None             # Auto-detected
+    parallel_batch_size: int = 1000
+    
+    # NEW: Memory tracking
+    enable_memory_tracking: bool = True
+    enable_dynamic_switching: bool = True
     
     # Performance Configuration
     optimization_strategy: OptimizationStrategy = OptimizationStrategy.BALANCED
@@ -117,6 +125,17 @@ class SystemConfiguration:
     
     # Flag to track if auto-configuration has been applied
     _auto_configured: bool = False
+    
+    # NEW: Experimental parameters storage
+    experimental_params: Dict[str, Any] = field(default_factory=dict)
+    
+    def get_experimental_param(self, key: str, default=None):
+        """Get an experimental parameter by key."""
+        return self.experimental_params.get(key, default)
+    
+    def has_experimental_param(self, key: str) -> bool:
+        """Check if an experimental parameter exists."""
+        return key in self.experimental_params
     
     def __post_init__(self):
         """Auto-configure and validate configuration"""
@@ -813,25 +832,59 @@ class SystemIntegrationCoordinator:
         
         self.components['memory_pressure_handler'] = memory_handler
     
-    def _initialize_compression_systems(self) -> None:
-        """Initialize p-adic compression systems"""
-        # Base p-adic configuration
-        padic_config = {
-            'prime': self.config.prime,
-            'precision': self.config.precision,
-            'chunk_size': self.config.chunk_size,
-            'gpu_memory_limit_mb': self.config.gpu_memory_limit_mb,
-            'enable_hybrid': self.config.enable_hybrid,
-            'gpu_optimizer': self.components.get('gpu_optimizer')
-        }
+    def _initialize_compression_systems(self):
+        """Initialize p-adic compression systems with proper config objects."""
         
-        # Initialize hybrid compressor
-        if self.config.enable_hybrid:
-            self.components['hybrid_compressor'] = HybridPadicCompressionSystem(padic_config)
+        # Import the correct config class
+        from .padic.padic_compressor import CompressionConfig, PadicCompressionSystem
         
-        # Initialize standard compressor as fallback
-        from .padic.padic_compressor import PadicCompressionSystem
-        self.components['padic_compressor'] = PadicCompressionSystem(padic_config)
+        # Create proper config object instead of dict
+        padic_config = CompressionConfig(
+            prime=self.config.prime,
+            base_precision=self.config.precision,
+            chunk_size=self.config.chunk_size,
+            gpu_memory_limit_mb=self.config.gpu_memory_limit_mb,
+            enable_gpu=torch.cuda.is_available() and self.config.enable_hybrid,
+            compression_device='cuda' if torch.cuda.is_available() else 'cpu',
+            decompression_device='cuda' if torch.cuda.is_available() else 'cpu',
+            enable_device_fallback=True,
+            target_error=1e-6,
+            importance_threshold=0.1,
+            compression_priority=0.5,
+            enable_parallel=self.config.enable_parallel,
+            enable_memory_tracking=True,
+            enable_dynamic_switching=True
+        )
+        
+        # Pass GPU optimizer if available
+        if 'gpu_optimizer' in self.components:
+            padic_config.gpu_optimizer = self.components['gpu_optimizer']
+        
+        # Initialize hybrid compressor if enabled and GPU available
+        if self.config.enable_hybrid and torch.cuda.is_available():
+            try:
+                from .hybrid.hybrid_padic_system import HybridPadicCompressionSystem
+                # Create config dict for hybrid system (it may expect dict)
+                hybrid_config = {
+                    'prime': padic_config.prime,
+                    'precision': padic_config.base_precision,
+                    'chunk_size': padic_config.chunk_size,
+                    'gpu_memory_limit_mb': padic_config.gpu_memory_limit_mb,
+                    'enable_hybrid': True,
+                    'gpu_optimizer': self.components.get('gpu_optimizer')
+                }
+                self.components['hybrid_compressor'] = HybridPadicCompressionSystem(hybrid_config)
+            except Exception as e:
+                print(f"Warning: Failed to initialize hybrid compressor: {e}")
+                # Fall back to standard compressor
+        
+        # Initialize standard compressor with config object
+        try:
+            self.components['padic_compressor'] = PadicCompressionSystem(padic_config)
+        except Exception as e:
+            # Try with dict fallback for compatibility
+            config_dict = padic_config.__dict__ if hasattr(padic_config, '__dict__') else {}
+            self.components['padic_compressor'] = PadicCompressionSystem(config_dict)
     
     
     def compress(self, tensor: torch.Tensor, priority: str = "normal", 

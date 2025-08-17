@@ -168,8 +168,22 @@ class EntropyPAdicBridge:
         self.total_compressions = 0
         self.method_usage = {"huffman": 0, "arithmetic": 0, "hybrid": 0}
         self.average_compression_ratio = 0.0
+        self.failure_count = 0  # Add missing failure count for error tracking
+        self.max_failures = 5  # Circuit breaker threshold
         
         logger.info(f"EntropyPAdicBridge initialized with prime={prime}")
+    
+    def _check_circuit_breaker(self):
+        """Circuit breaker pattern to prevent cascading failures"""
+        if self.failure_count >= self.max_failures:
+            logger.warning(f"Circuit breaker activated: {self.failure_count} consecutive failures")
+            # Reset counter to allow recovery
+            self.failure_count = 0
+    
+    def _record_failure(self, error):
+        """Record a failure for circuit breaker pattern"""
+        self.failure_count += 1
+        logger.debug(f"Failure recorded: {error}. Total failures: {self.failure_count}")
     
     def analyze_entropy(self, digits: Union[List[int], np.ndarray, torch.Tensor]) -> EntropyAnalysis:
         """Analyze Shannon entropy and distribution characteristics
@@ -409,11 +423,21 @@ class EntropyPAdicBridge:
             raise TypeError(f"Expected torch.Tensor, got {type(tensor)}")
         
         if tensor.numel() == 0:
-            raise ValueError("Cannot encode empty tensor")
+            # Handle empty tensor case gracefully
+            return b'', {
+                'empty': True,
+                'encoding_method': 'none',
+                'original_shape': list(tensor.shape),
+                'original_dtype': str(tensor.dtype)
+            }
         
         # Record original shape
         original_shape = list(tensor.shape)
         original_dtype = tensor.dtype
+        
+        # Move to device if configured
+        if hasattr(self, 'device'):
+            tensor = tensor.to(self.device)
         
         # Flatten tensor for encoding
         flat_tensor = tensor.flatten()
@@ -434,11 +458,22 @@ class EntropyPAdicBridge:
         analysis = self.analyze_entropy(digit_list)
         analysis_time = (time.perf_counter() - start_time) * 1000
         
-        # Select encoding method
+        # Select encoding method based on entropy thresholds
         if force_method and force_method in ["huffman", "arithmetic", "hybrid"]:
             method = force_method
         else:
-            method = analysis.recommended_method
+            # Entropy-based selection: H(X) < 2.0 → Huffman, H(X) > 6.0 → Arithmetic
+            entropy = analysis.shannon_entropy
+            if entropy < self.config.huffman_threshold:  # < 2.0
+                method = "huffman"
+            elif entropy > self.config.arithmetic_threshold:  # > 6.0
+                method = "arithmetic"
+            else:
+                # Medium entropy: use hybrid if conditions met
+                if analysis.unique_symbols >= self.config.min_symbols_for_hybrid:
+                    method = "hybrid"
+                else:
+                    method = "huffman"  # Default to huffman for reliability
         
         # Update usage statistics
         self.method_usage[method] += 1
@@ -456,12 +491,16 @@ class EntropyPAdicBridge:
         
         encoding_time = (time.perf_counter() - start_time) * 1000
         
-        # Build complete metadata
+        # Build complete metadata with encoding_method properly included
+        # CRITICAL: Add method to encode_metadata for backwards compatibility
+        encode_metadata["method"] = method  # Ensure method is in encode_metadata
+        
         metadata = {
             "original_shape": original_shape,
             "original_dtype": str(original_dtype),
             "prime": self.prime,
-            "encoding_method": method,
+            "encoding_method": method,  # Keep for backwards compatibility
+            "method": method,  # Additional fallback
             "entropy_analysis": {
                 "shannon_entropy": analysis.shannon_entropy,
                 "normalized_entropy": analysis.normalized_entropy,
@@ -476,7 +515,7 @@ class EntropyPAdicBridge:
             "compression_metrics": {
                 "original_bytes": tensor.numel() * tensor.element_size(),
                 "compressed_bytes": len(compressed),
-                "compression_ratio": (tensor.numel() * tensor.element_size()) / len(compressed),
+                "compression_ratio": (tensor.numel() * tensor.element_size()) / len(compressed) if len(compressed) > 0 else 1.0,
                 "analysis_time_ms": analysis_time,
                 "encoding_time_ms": encoding_time
             }
@@ -493,6 +532,10 @@ class EntropyPAdicBridge:
             f"Encoded tensor: shape={original_shape}, method={method}, "
             f"ratio={metadata['compression_metrics']['compression_ratio']:.2f}x"
         )
+        
+        # Reset failure count on success
+        if self.failure_count > 0:
+            self.failure_count = max(0, self.failure_count - 1)
         
         return compressed, metadata
     
@@ -726,70 +769,130 @@ class EntropyPAdicBridge:
         Returns:
             Reconstructed p-adic tensor
         """
-        if not compressed:
-            raise ValueError("Cannot decode empty compressed data")
+        # Check circuit breaker
+        self._check_circuit_breaker()
         
-        if not metadata:
-            raise ValueError("Cannot decode without metadata")
-        
-        # Check if chunked
-        if metadata.get("chunked", False):
-            return self._decode_chunked_tensor(compressed, metadata)
-        
-        # Extract method
-        encode_metadata = metadata.get("encoding_metadata", {})
-        method = encode_metadata.get("method", metadata.get("encoding_method"))
-        
-        if not method:
-            raise ValueError("No encoding method specified in metadata")
-        
-        # Decode based on method
-        start_time = time.perf_counter()
-        
-        if method == "huffman":
-            digit_list = self._decode_huffman(compressed, encode_metadata)
-        elif method == "arithmetic":
-            digit_list = self._decode_arithmetic(compressed, encode_metadata)
-        elif method == "hybrid":
-            digit_list = self._decode_hybrid(compressed, encode_metadata, metadata)
-        else:
-            raise ValueError(f"Unknown encoding method: {method}")
-        
-        decoding_time = (time.perf_counter() - start_time) * 1000
-        
-        # Reconstruct tensor
-        original_shape = metadata.get("original_shape")
-        if not original_shape:
-            raise ValueError("Original shape not found in metadata")
-        
-        # Create tensor
-        tensor = torch.tensor(digit_list, dtype=torch.long)
-        
-        # Reshape to original dimensions
         try:
-            tensor = tensor.reshape(original_shape)
-        except RuntimeError as e:
-            raise ValueError(
-                f"Cannot reshape {len(digit_list)} elements to shape {original_shape}: {e}"
+            # Handle empty tensor case gracefully
+            if metadata.get("empty", False):
+                # Return empty tensor with correct shape - MUST have original_shape
+                original_shape = metadata.get("original_shape")
+                if not original_shape:
+                    raise ValueError(
+                        f"Empty tensor missing required original_shape in metadata. "
+                        f"Available keys: {list(metadata.keys())}"
+                    )
+                return torch.zeros(original_shape, dtype=torch.long)
+            
+            if not compressed and not metadata.get("empty", False):
+                raise ValueError("Cannot decode empty compressed data without empty flag")
+            
+            if not metadata:
+                raise ValueError("Cannot decode without metadata")
+            
+            # Check if chunked
+            if metadata.get("chunked", False):
+                return self._decode_chunked_tensor(compressed, metadata)
+            
+            # Extract method - handle both old and new metadata formats for backwards compatibility
+            encode_metadata = metadata.get("encoding_metadata", {})
+            
+            # Priority order for method extraction:
+            # 1. encode_metadata["method"] (preferred)
+            # 2. metadata["encoding_method"] (current)
+            # 3. metadata["method"] (fallback)
+            # 4. "none" for empty tensors
+            method = (
+                encode_metadata.get("method") or 
+                metadata.get("encoding_method") or 
+                metadata.get("method") or
+                ("none" if metadata.get("empty", False) else None)
             )
-        
-        # Convert to original dtype if specified
-        original_dtype_str = metadata.get("original_dtype")
-        if original_dtype_str:
-            try:
-                if "float32" in original_dtype_str:
-                    tensor = tensor.float()
-                elif "float64" in original_dtype_str:
-                    tensor = tensor.double()
-                elif "float16" in original_dtype_str:
-                    tensor = tensor.half()
-                # Keep as long for integer types
-            except Exception as e:
-                logger.warning(f"Could not convert to original dtype {original_dtype_str}: {e}")
-        
-        logger.debug(f"Decoded tensor: shape={tensor.shape}, time={decoding_time:.2f}ms")
-        
-        return tensor
+            
+            if not method:
+                # Provide detailed error for debugging
+                available_keys = list(metadata.keys())
+                encode_keys = list(encode_metadata.keys()) if encode_metadata else []
+                raise ValueError(
+                    f"No encoding method found in metadata. "
+                    f"Checked: encode_metadata['method'], metadata['encoding_method'], metadata['method']. "
+                    f"Available metadata keys: {available_keys}, "
+                    f"encode_metadata keys: {encode_keys}"
+                )
+            
+            # Decode based on method
+            start_time = time.perf_counter()
+            
+            if method == "none":
+                # Handle empty tensor case
+                if metadata.get('empty', False):
+                    digit_list = []
+                else:
+                    raise ValueError("Method 'none' but tensor not marked as empty")
+            elif method == "huffman":
+                digit_list = self._decode_huffman(compressed, encode_metadata)
+            elif method == "arithmetic":
+                digit_list = self._decode_arithmetic(compressed, encode_metadata)
+            elif method == "hybrid":
+                digit_list = self._decode_hybrid(compressed, encode_metadata, metadata)
+            else:
+                raise ValueError(f"Unknown encoding method: {method}")
+            
+            decoding_time = (time.perf_counter() - start_time) * 1000
+            
+            # Reconstruct tensor - check multiple possible locations for original_shape
+            original_shape = (
+                metadata.get("original_shape") or
+                metadata.get("entropy_analysis", {}).get("original_shape") or
+                metadata.get("encoding_metadata", {}).get("original_shape") or
+                [len(digit_list)]  # Fallback to 1D tensor with the data length
+            )
+            
+            if not original_shape:
+                raise ValueError("Original shape not found in metadata")
+            
+            # Create tensor
+            if len(digit_list) == 0 and metadata.get('empty', False):
+                # Handle empty tensor case - create zeros with correct shape
+                tensor = torch.zeros(original_shape, dtype=torch.long)
+            else:
+                tensor = torch.tensor(digit_list, dtype=torch.long)
+                
+                # Reshape to original dimensions
+                try:
+                    tensor = tensor.reshape(original_shape)
+                except RuntimeError as e:
+                    raise ValueError(
+                        f"Cannot reshape {len(digit_list)} elements to shape {original_shape}: {e}"
+                    )
+            
+            # Convert to original dtype if specified
+            original_dtype_str = metadata.get("original_dtype")
+            if original_dtype_str:
+                try:
+                    if "float32" in original_dtype_str:
+                        tensor = tensor.float()
+                    elif "float64" in original_dtype_str:
+                        tensor = tensor.double()
+                    elif "float16" in original_dtype_str:
+                        tensor = tensor.half()
+                    # Keep as long for integer types
+                except Exception as e:
+                    logger.warning(f"Could not convert to original dtype {original_dtype_str}: {e}")
+            
+            logger.debug(f"Decoded tensor: shape={tensor.shape}, time={decoding_time:.2f}ms")
+            
+            # Reset failure count on success
+            if self.failure_count > 0:
+                self.failure_count = max(0, self.failure_count - 1)
+            
+            return tensor
+            
+        except Exception as e:
+            self._record_failure(e)
+            logger.error(f"Entropy decoding failed: {e}")
+            # NO FALLBACKS - always raise
+            raise RuntimeError(f"Critical entropy decoding failure: {e}") from e
     
     def _decode_chunked_tensor(self,
                               compressed: bytes,
@@ -873,8 +976,8 @@ class EntropyPAdicBridge:
         Returns:
             List of p-adic digits
         """
-        # Arithmetic decoder handles metadata extraction
-        return self.arithmetic_encoder.arithmetic_decode(compressed)
+        # Use arithmetic_decode_simple for data encoded with arithmetic_encode_simple
+        return self.arithmetic_encoder.arithmetic_decode_simple(compressed)
     
     def _decode_hybrid(self,
                       compressed: bytes,

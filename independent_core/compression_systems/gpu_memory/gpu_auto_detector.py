@@ -401,7 +401,10 @@ class GPUAutoDetector:
                 # Estimate additional specs
                 pcie_gen = self._estimate_pcie_generation(props.name)
                 memory_clock = self._estimate_memory_clock(props.name)
-                gpu_clock = props.clock_rate / 1000.0  # Convert kHz to MHz
+                try:
+                    gpu_clock = props.clock_rate / 1000.0  # Convert kHz to MHz
+                except AttributeError:
+                    gpu_clock = self._estimate_gpu_clock(props.name)
                 l2_cache_mb = self._estimate_l2_cache(props.name)
                 tensor_cores = self._estimate_tensor_cores(props.name, props.multi_processor_count)
                 rt_cores = self._estimate_rt_cores(props.name, props.multi_processor_count)
@@ -413,10 +416,10 @@ class GPUAutoDetector:
                     total_memory_gb=props.total_memory / (1024**3),
                     total_memory_mb=props.total_memory / (1024**2),
                     compute_capability=compute_capability,
-                    multi_processor_count=props.multi_processor_count,
-                    max_threads_per_block=props.max_threads_per_block,
-                    max_shared_memory_per_block=props.max_shared_memory_per_block,
-                    warp_size=props.warp_size,
+                    multi_processor_count=getattr(props, 'multi_processor_count', 1),
+                    max_threads_per_block=getattr(props, 'max_threads_per_block', 1024),
+                    max_shared_memory_per_block=getattr(props, 'max_shared_memory_per_block', 49152),
+                    warp_size=getattr(props, 'warp_size', 32),
                     is_integrated=props.is_integrated,
                     is_multi_gpu_board=props.is_multi_gpu_board,
                     cuda_cores=cuda_cores,
@@ -679,6 +682,36 @@ class GPUAutoDetector:
             return 3200.0   # HBM2e/HBM3 typical
         else:
             return 10000.0  # Conservative default
+    
+    def _estimate_gpu_clock(self, gpu_name: str) -> float:
+        """Estimate GPU clock speed when clock_rate is not available"""
+        gpu_name_lower = gpu_name.lower()
+        
+        # Known base clock speeds (MHz)
+        clock_map = {
+            'h100': 1410.0,
+            'a100': 1095.0,
+            '4090': 1695.0,
+            '4080': 1710.0,
+            '4070': 1920.0,
+            '4060': 1830.0,
+            '3090': 1395.0,
+            '3080': 1440.0,
+            '3070': 1500.0,
+            '3060': 1320.0,
+            '2080': 1515.0,
+            '2070': 1410.0,
+            'v100': 1245.0,
+            'titan': 1350.0,
+        }
+        
+        # Check for matches
+        for key, clock in clock_map.items():
+            if key in gpu_name_lower:
+                return clock
+        
+        # Conservative default
+        return 1000.0
     
     def _estimate_l2_cache(self, gpu_name: str) -> float:
         """Estimate L2 cache size in MB"""

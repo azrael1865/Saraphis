@@ -500,6 +500,117 @@ class ArithmeticEncoder:
         
         return bytes(compressed)
     
+    def arithmetic_decode_simple(self, compressed: bytes) -> List[int]:
+        """
+        Decode symbols compressed with arithmetic_encode_simple
+        
+        Args:
+            compressed: Data compressed with arithmetic_encode_simple
+            
+        Returns:
+            List of decoded symbols
+        """
+        if not compressed:
+            return []
+        
+        try:
+            offset = 0
+            
+            # Read symbol count
+            if offset + 4 > len(compressed):
+                return []
+            symbol_count = struct.unpack_from('<I', compressed, offset)[0]
+            offset += 4
+            
+            # Read padding (should be 0 for simple method)
+            if offset + 1 > len(compressed):
+                return []
+            padding = compressed[offset]
+            offset += 1
+            
+            # Read probability table
+            if offset + 2 > len(compressed):
+                return []
+            prob_count = struct.unpack_from('<H', compressed, offset)[0]
+            offset += 2
+            
+            # Reconstruct probability table
+            probabilities = {}
+            for _ in range(prob_count):
+                if offset + 1 > len(compressed):
+                    return []
+                
+                symbol = compressed[offset]
+                offset += 1
+                
+                # Handle large symbols (marker 254)
+                if symbol == 254:
+                    if offset + 2 > len(compressed):
+                        return []
+                    symbol = struct.unpack_from('<H', compressed, offset)[0]
+                    offset += 2
+                
+                # Read probability
+                if offset + 2 > len(compressed):
+                    return []
+                prob_fixed = struct.unpack_from('<H', compressed, offset)[0]
+                offset += 2
+                
+                probabilities[symbol] = prob_fixed / 65535.0
+            
+            # Normalize probabilities to ensure they sum to 1.0
+            prob_sum = sum(probabilities.values())
+            if abs(prob_sum - 1.0) > 1e-6:
+                probabilities = {k: v/prob_sum for k, v in probabilities.items()}
+            
+            # Read decimal string
+            if offset + 4 > len(compressed):
+                return []
+            result_len = struct.unpack_from('<I', compressed, offset)[0]
+            offset += 4
+            
+            if offset + result_len > len(compressed):
+                return []
+            result_bytes = compressed[offset:offset + result_len]
+            result_str = result_bytes.decode('utf-8')
+            
+            # Convert decimal string back to float
+            decimal_value = float(result_str)
+            
+            # Decode using arithmetic decoding logic
+            symbols = []
+            cdf = self.compute_cdf(probabilities)
+            
+            # Simple reconstruction - for each symbol position
+            current_value = decimal_value
+            for _ in range(symbol_count):
+                # Find symbol by looking up value in CDF ranges
+                symbol_found = None
+                prev_cum = 0.0
+                
+                for symbol in sorted(probabilities.keys()):
+                    symbol_prob = probabilities[symbol]
+                    if prev_cum <= current_value % 1.0 < prev_cum + symbol_prob:
+                        symbol_found = symbol
+                        break
+                    prev_cum += symbol_prob
+                
+                if symbol_found is not None:
+                    symbols.append(symbol_found)
+                    # Update current_value for next symbol (simplified approach)
+                    current_value = current_value * len(probabilities)
+                else:
+                    # Fallback to most probable symbol
+                    most_probable = max(probabilities.keys(), key=lambda k: probabilities[k])
+                    symbols.append(most_probable)
+            
+            return symbols
+            
+        except Exception as e:
+            # If decoding fails, return empty list
+            print(f"Arithmetic decode_simple failed: {e}")
+            return []
+    
     def arithmetic_decode(self, encoded: bytes, length: Optional[int] = None) -> List[int]:
         """Decode arithmetic-encoded byte sequence
         

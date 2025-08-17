@@ -6,7 +6,8 @@ Shows how to use tropical mathematics for neural network compression.
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Tuple
-from tropical_core import (
+import time
+from .tropical_core import (
     TROPICAL_ZERO,
     TropicalNumber,
     TropicalMathematicalOperations,
@@ -16,6 +17,7 @@ from tropical_core import (
     from_tropical_safe,
     tropical_distance
 )
+from ..base.compression_base import CompressionBase
 
 
 class TropicalLinearLayer(nn.Module):
@@ -336,6 +338,96 @@ def example_tropical_polynomial_approximation():
     print(f"   Number of distinct active regions: {len(set(active_terms))}")
     
     print("\nTropical polynomial approximation completed!")
+
+
+class TropicalCompressionSystem(CompressionBase):
+    """
+    High-level Tropical compression system that integrates with existing components.
+    Uses the TropicalCompressionExample for actual compression work.
+    """
+    
+    def __init__(self, config: Dict[str, Any] = None):
+        default_config = {
+            'compression_pieces': 4,
+            'device': 'cpu',
+            'enable_validation': True
+        }
+        
+        if config:
+            default_config.update(config)
+        
+        super().__init__(default_config)
+        
+        # Initialize device
+        if isinstance(self.config['device'], str):
+            self.device = torch.device(self.config['device'])
+        else:
+            self.device = self.config['device']
+        
+        # Use existing tropical compression example
+        self.compressor = TropicalCompressionExample(device=self.device)
+        
+    def _validate_config(self) -> None:
+        """Validate tropical-specific configuration."""
+        if 'compression_pieces' in self.config and self.config['compression_pieces'] <= 0:
+            raise ValueError("compression_pieces must be positive")
+    
+    def encode(self, data: torch.Tensor) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Encode tensor using tropical compression."""
+        if not isinstance(data, torch.Tensor):
+            raise TypeError(f"Expected torch.Tensor, got {type(data)}")
+        
+        start_time = time.time()
+        
+        # Move data to correct device
+        if data.device != self.device:
+            data = data.to(self.device)
+        
+        # Use existing tropical compression
+        compressed_data = self.compressor.compress_weights_tropical(
+            data, 
+            num_pieces=self.config.get('compression_pieces', 4)
+        )
+        
+        encoding_time = time.time() - start_time
+        
+        # Extract encoded data and metadata
+        encoded_data = {
+            'breakpoints': compressed_data['breakpoints'],
+            'indices': compressed_data.get('indices', compressed_data.get('permutation', []))
+        }
+        
+        metadata = {
+            'original_shape': data.shape,
+            'original_dtype': str(data.dtype),
+            'device': str(self.device),
+            'compression_pieces': self.config.get('compression_pieces', 4),
+            'encoding_time': encoding_time,
+            'compression_algorithm': 'tropical_piecewise_linear'
+        }
+        
+        return encoded_data, metadata
+    
+    def decode(self, encoded_data: Dict[str, Any], metadata: Dict[str, Any]) -> torch.Tensor:
+        """Decode tropical compressed data back to tensor."""
+        if not isinstance(encoded_data, dict):
+            raise TypeError(f"Expected dict for encoded_data, got {type(encoded_data)}")
+        
+        if not isinstance(metadata, dict):
+            raise TypeError(f"Expected dict for metadata, got {type(metadata)}")
+        
+        # Reconstruct using the existing decompression method
+        reconstructed_data = self.compressor.decompress_weights_tropical({
+            'breakpoints': encoded_data['breakpoints'],
+            'permutation': encoded_data['indices'],  # Map indices back to permutation
+            'original_shape': metadata['original_shape']
+        })
+        
+        # Ensure correct device
+        if reconstructed_data.device != self.device:
+            reconstructed_data = reconstructed_data.to(self.device)
+        
+        return reconstructed_data
 
 
 if __name__ == "__main__":

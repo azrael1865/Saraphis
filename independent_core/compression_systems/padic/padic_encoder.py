@@ -10,6 +10,87 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 import math
 
+# Known safe precision limits for common primes (based on IEEE 754 float64 limits)
+SAFE_PRECISION_LIMITS = {
+    2: 53, 3: 33, 5: 22, 7: 19, 11: 15, 13: 14, 17: 13, 19: 12, 23: 11, 29: 10,
+    31: 10, 37: 9, 41: 9, 43: 9, 47: 9, 53: 8, 59: 8, 61: 8, 67: 8, 71: 8,
+    73: 8, 79: 8, 83: 8, 89: 8, 97: 8, 101: 7, 103: 7, 107: 7, 109: 7, 113: 7,
+    127: 7, 131: 7, 137: 7, 139: 7, 149: 7, 151: 7, 157: 7, 163: 7, 167: 7,
+    173: 7, 179: 7, 181: 7, 191: 7, 193: 7, 197: 7, 199: 7, 211: 6, 223: 6,
+    227: 6, 229: 6, 233: 6, 239: 6, 241: 6, 251: 6, 257: 6
+}
+
+def get_safe_precision(prime: int) -> int:
+    """
+    Get maximum safe precision for a prime to avoid IEEE 754 overflow.
+    
+    Args:
+        prime: Prime number
+        
+    Returns:
+        Maximum safe precision
+    """
+    if prime in SAFE_PRECISION_LIMITS:
+        return SAFE_PRECISION_LIMITS[prime]
+    
+    # Calculate dynamically for unknown primes
+    # IEEE 754 double precision can exactly represent integers up to 2^53
+    max_safe_value = 2**53
+    
+    # Find largest k such that prime^k <= max_safe_value
+    precision = 0
+    power = 1
+    
+    while True:
+        next_power = power * prime
+        if next_power > max_safe_value:
+            break
+        power = next_power
+        precision += 1
+    
+    # Conservative buffer (subtract 2 for safety)
+    return max(1, precision - 2)
+
+
+def validate_precision(precision, prime: Optional[int] = None) -> int:
+    """
+    Validate precision parameter with safe limit checking.
+    
+    Args:
+        precision: Precision value (accepts Python int, numpy integers)
+        prime: Optional prime for safe limit checking
+        
+    Returns:
+        Validated precision as Python int
+    """
+    # Accept both Python int and numpy integer types
+    if hasattr(precision, 'item'):  # numpy scalar
+        precision_value = int(precision.item())
+    elif isinstance(precision, (int, np.integer)):
+        precision_value = int(precision)
+    else:
+        raise TypeError(f"Precision must be an integer type, got {type(precision).__name__}")
+    
+    if precision_value < 1:
+        raise ValueError(f"Precision must be >= 1, got {precision_value}")
+    
+    if precision_value > 1000:
+        raise ValueError(f"Precision {precision_value} exceeds maximum 1000")
+    
+    # Check against safe limits if prime is provided
+    if prime is not None:
+        safe_limit = get_safe_precision(prime)
+        if precision_value > safe_limit:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Requested precision {precision_value} exceeds safe limit {safe_limit} "
+                f"for prime {prime}. Clamping to safe value."
+            )
+            precision_value = safe_limit
+    
+    return precision_value
+
 
 @dataclass
 class PadicWeight:
@@ -67,14 +148,23 @@ class PadicValidation:
                 raise ValueError(f"{prime} is not a prime number (divisible by {i})")
     
     @staticmethod
-    def validate_precision(precision: int) -> None:
-        """Validate precision parameter - throws on any issue"""
-        if not isinstance(precision, int):
-            raise TypeError(f"Precision must be int, got {type(precision)}")
-        if precision < 1:
-            raise ValueError(f"Precision must be >= 1, got {precision}")
-        if precision > 1000:
-            raise ValueError(f"Precision {precision} exceeds maximum 1000")
+    def validate_precision(precision) -> None:
+        """Validate precision parameter - throws on any issue
+        FIXED: Accepts both Python int and numpy integer types
+        """
+        import numpy as np
+        
+        # Accept both Python int and numpy integer types
+        if not isinstance(precision, (int, np.integer)):
+            raise TypeError(f"Precision must be an integer type, got {type(precision).__name__}")
+        
+        # Convert to Python int for comparisons (handles numpy.int64, etc.)
+        precision_value = int(precision)
+        
+        if precision_value < 1:
+            raise ValueError(f"Precision must be >= 1, got {precision_value}")
+        if precision_value > 1000:
+            raise ValueError(f"Precision {precision_value} exceeds maximum 1000")
     
     @staticmethod
     def validate_tensor(tensor: torch.Tensor) -> None:
@@ -107,9 +197,19 @@ class PadicMathematicalOperations:
     """P-adic arithmetic operations - fail loud on all errors"""
     
     def __init__(self, prime: int, precision: int):
-        """Initialize p-adic operations"""
+        """Initialize p-adic operations with safe precision limits"""
         PadicValidation.validate_prime(prime)
         PadicValidation.validate_precision(precision)
+        
+        # Check against safe precision limits
+        safe_max_precision = get_safe_precision(prime)
+        if precision > safe_max_precision:
+            raise OverflowError(
+                f"Requested precision {precision} exceeds maximum safe precision {safe_max_precision} for prime {prime}. "
+                f"Prime power {prime}^{precision} would exceed IEEE 754 safe limits. "
+                f"Consider using a smaller precision or different prime."
+            )
+        
         self.prime = prime
         self.precision = precision
         
@@ -120,20 +220,10 @@ class PadicMathematicalOperations:
         # Compute only safe powers (don't use arbitrary precision + 20)
         current_power = 1
         i = 1
-        while True:
-            next_power = current_power * prime
-            if next_power > max_safe_value:
-                break
-            self.prime_powers.append(next_power)
-            current_power = next_power
+        while i <= precision and current_power <= max_safe_value // prime:
+            current_power *= prime
+            self.prime_powers.append(current_power)
             i += 1
-        
-        # Verify we have enough powers for the requested precision
-        if len(self.prime_powers) - 1 < precision:
-            raise OverflowError(
-                f"Requested precision {precision} exceeds maximum safe precision {len(self.prime_powers) - 1} for prime {prime}. "
-                f"Prime power {prime}^{precision} would exceed safe threshold {max_safe_value:.2e}."
-            )
         
         # Cache for modular inverses
         self._inverse_cache = {}
@@ -211,21 +301,37 @@ class PadicMathematicalOperations:
     
     
     def to_padic(self, value: float) -> PadicWeight:
-        """Convert float to p-adic representation using proper arithmetic"""
-        if not isinstance(value, (float, int)):
-            raise TypeError(f"Value must be float or int, got {type(value)}")
-        if math.isnan(value):
+        """Convert float to p-adic representation using proper arithmetic
+        FIXED: Accepts both Python and numpy numeric types
+        """
+        # Enhanced type validation - accept both Python and numpy numeric types
+        if hasattr(value, 'ndim') and value.ndim == 0:
+            # numpy scalar array
+            numeric_value = float(value.item())
+        elif isinstance(value, (int, float)):
+            # Python int or float
+            numeric_value = float(value)
+        elif isinstance(value, np.number):
+            # numpy.float32, numpy.float64, numpy.int32, numpy.int64, etc.
+            numeric_value = float(value)
+        elif hasattr(value, 'item'):
+            # numpy scalar with .item() method
+            numeric_value = float(value.item())
+        else:
+            raise TypeError(f"Value must be numeric type (Python or numpy), got {type(value).__name__}")
+        
+        if math.isnan(numeric_value):
             raise ValueError("Cannot convert NaN to p-adic")
-        if math.isinf(value):
+        if math.isinf(numeric_value):
             raise ValueError("Cannot convert infinity to p-adic")
-        if abs(value) > 1e10:
-            raise ValueError(f"Value {value} too large for conversion")
+        if abs(numeric_value) > 1e10:
+            raise ValueError(f"Value {numeric_value} too large for conversion")
         
         # Convert to Fraction for exact arithmetic
         try:
-            frac = Fraction(value).limit_denominator(10**15)
+            frac = Fraction(numeric_value).limit_denominator(10**15)
         except (ValueError, OverflowError) as e:
-            raise ValueError(f"Cannot convert {value} to fraction: {e}")
+            raise ValueError(f"Cannot convert {numeric_value} to fraction: {e}")
         
         # Handle zero separately
         if frac == 0:
@@ -285,6 +391,61 @@ class PadicMathematicalOperations:
             return original
         
         return result
+    
+    def batch_to_padic(self, values) -> List[PadicWeight]:
+        """
+        Batch conversion to p-adic with automatic type handling.
+        
+        Args:
+            values: Array or list of numeric values
+            
+        Returns:
+            List of p-adic weights
+        """
+        import numpy as np
+        
+        if hasattr(values, 'detach'):  # torch tensor
+            values = values.detach().cpu().numpy()
+        elif isinstance(values, list):
+            values = np.array(values)
+        
+        results = []
+        for i, value in enumerate(values.flat):
+            try:
+                weight = self.to_padic(value)
+                results.append(weight)
+            except Exception as e:
+                raise ValueError(f"Failed to convert element {i} (value={value}): {e}")
+        
+        return results
+    
+    def create_with_precision(self, precision) -> 'PadicMathematicalOperations':
+        """
+        INTEGRATION FIX: Factory method to create a new instance with different precision
+        This is the correct way to get operations with different precision
+        FIXED: Accepts both Python int and numpy integer types
+        """
+        # Enhanced precision validation - accept both Python int and numpy integer types
+        if hasattr(precision, 'item'):  # numpy scalar
+            precision_value = int(precision.item())
+        elif isinstance(precision, (int, np.integer)):
+            precision_value = int(precision)
+        else:
+            raise TypeError(f"Precision must be an integer type, got {type(precision).__name__}")
+        
+        if precision_value < 1:
+            raise ValueError(f"Precision must be >= 1, got {precision_value}")
+        
+        # Check safe limits before creating
+        safe_max_precision = get_safe_precision(self.prime)
+        if precision_value > safe_max_precision:
+            logger.warning(
+                f"Requested precision {precision_value} exceeds safe limit {safe_max_precision} "
+                f"for prime {self.prime}. Using safe limit instead."
+            )
+            precision_value = safe_max_precision
+        
+        return PadicMathematicalOperations(self.prime, precision_value)
     
     def _fraction_to_padic(self, frac: Fraction) -> Tuple[List[int], int]:
         """Convert Fraction to p-adic digits using Hensel lifting"""

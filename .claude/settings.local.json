@@ -2,17 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)",
-      "Bash(find:*)",
-      "Bash(python test:*)",
-      "Bash(python:*)",
-      "Bash(PYTHONPATH=/Users/will/Desktop/trueSaraphis python -c \"from independent_core.compression_systems.tropical.tropical_polynomial import TropicalPolynomial, TropicalMonomial, TropicalPolynomialOperations; print(''✅ Module imports successfully''); print(f''Classes available: TropicalMonomial, TropicalPolynomial, TropicalPolynomialOperations'')\")",
-      "Bash(ls:*)",
-      "Bash(grep:*)",
-      "Bash(timeout:*)",
-      "Bash(tree:*)",
-      "Bash(rm:*)",
-      "Bash(touch:*)"
+      "Bash(find:*)"
     ],
     "deny": []
   }

@@ -267,7 +267,7 @@ class TropicalMathematicalOperations:
             either_zero = a_is_zero | b_is_zero
             
             # Compute sum with overflow protection
-            result = torch.where(either_zero, torch.tensor(TROPICAL_ZERO, device=self.device), a + b)
+            result = torch.where(either_zero, torch.tensor(TROPICAL_ZERO, device=a.device, dtype=a.dtype), a + b)
             
             # Check for overflow
             if (result > 1e38).any():
@@ -315,7 +315,7 @@ class TropicalMathematicalOperations:
             # Compute power
             result = torch.where(
                 base_is_zero,
-                torch.tensor(TROPICAL_ZERO, device=self.device),
+                torch.tensor(TROPICAL_ZERO, device=base.device, dtype=base.dtype),
                 exponent * base
             )
             
@@ -379,7 +379,7 @@ class TropicalMathematicalOperations:
             non_zero_mask = values > TROPICAL_ZERO
             
             if not non_zero_mask.any():
-                return torch.tensor(TROPICAL_ZERO, device=self.device)
+                return torch.tensor(TROPICAL_ZERO, device=values.device, dtype=values.dtype)
             
             # Compute max only over non-zero values
             return values[non_zero_mask].max()
