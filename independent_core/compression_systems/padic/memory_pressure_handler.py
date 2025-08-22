@@ -1,13 +1,6 @@
 """
 MemoryPressureHandler - Intelligent GPU/CPU Coordination System
-Monitors GPU memory pressure and makes real-time decisions for optimal processing
 NO FALLBACKS - HARD FAILURES ONLY
-
-Coordinates between:
-- GPU decompression (fast but memory-limited)
-- CPU decompression (slower but memory-flexible)
-- SmartPool memory management
-- AutoSwap priority swapping
 """
 
 import torch
@@ -22,17 +15,12 @@ from enum import Enum
 from collections import deque
 import warnings
 
-# Import GPU memory components
-try:
-    from ..gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
-    from ..gpu_memory.auto_swap_manager import MemoryPressureLevel
-    from ..gpu_memory.gpu_auto_detector import get_config_updater
-except ImportError:
-    # Direct imports for testing
-    from compression_systems.gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
-    from compression_systems.gpu_memory.auto_swap_manager import MemoryPressureLevel
-    from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater
+# FIXED: Direct imports with NO FALLBACKS - will fail immediately if missing
+from compression_systems.gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
+from compression_systems.gpu_memory.auto_swap_manager import MemoryPressureLevel  
+from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater
 
+# Rest of the file remains the same...
 
 class ProcessingMode(Enum):
     """Processing mode decisions"""

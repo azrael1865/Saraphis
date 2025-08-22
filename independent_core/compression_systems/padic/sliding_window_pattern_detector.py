@@ -440,7 +440,7 @@ class SlidingWindowPatternDetector(nn.Module):
         
         interval_tree = OptimizedIntervalTree()
         
-        pattern_queue = []
+        pattern_candidates = []
         
         i = 0
         while i < n - 1:
@@ -465,15 +465,24 @@ class SlidingWindowPatternDetector(nn.Module):
                     value = pattern_length * len(positions)
                     
                     # Store pattern with element information
-                    heapq.heappush(pattern_queue, 
-                                   (-value, pattern_length, pattern_data, positions))
+                    pattern_candidates.append((
+                        value,  # Positive value now
+                        pattern_length,
+                        pattern_data.tobytes(),  # Convert to bytes immediately
+                        positions
+                    ))
                 
                 i = j
             else:
                 i += 1
-        
-        while pattern_queue and len(patterns_found) < self.max_patterns:
-            _, pattern_element_count, pattern_data, positions = heapq.heappop(pattern_queue)
+
+        # Sort by value (descending)
+        pattern_candidates.sort(key=lambda x: -x[0])
+
+        # Process candidates in sorted order
+        for value, pattern_element_count, pattern_bytes, positions in pattern_candidates:
+            if len(patterns_found) >= self.max_patterns:
+                break
             
             valid_positions = []
             
@@ -482,17 +491,15 @@ class SlidingWindowPatternDetector(nn.Module):
                     valid_positions.append(pos)
             
             if len(valid_positions) >= self.min_frequency:
-                # FIXED: Convert to bytes and track both byte length and element count
-                pattern_bytes = pattern_data.tobytes()
-                pattern_byte_length = len(pattern_bytes)
+                # pattern_bytes is already converted to bytes
                 
                 # Create pattern match with proper length tracking
                 pattern_match = PatternMatch(
-                    pattern=pattern_bytes,
+                    pattern=pattern_bytes,  # Already in bytes format
                     positions=sorted(valid_positions),
                     frequency=len(valid_positions),
                     hash_value=hash(pattern_bytes),
-                    length=pattern_byte_length,  # Length in BYTES
+                    length=len(pattern_bytes),  # Length in BYTES
                     element_count=pattern_element_count,  # Number of elements
                     element_dtype=element_dtype  # Data type for reconstruction
                 )

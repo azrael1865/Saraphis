@@ -11,19 +11,25 @@ import numpy as np
 from typing import Dict, Any, Optional, Tuple, List, Union
 from dataclasses import dataclass, field
 import math
+import logging
 import threading
 from fractions import Fraction
 
-# Try to import Triton for GPU kernels
-try:
-    import triton
-    import triton.language as tl
-    TRITON_AVAILABLE = True
-except ImportError:
-    TRITON_AVAILABLE = False
+# Try to import Triton for GPU kernels (REMOVED - NO LONGER USING TRITON)
+# try:
+#     import triton
+#     import triton.language as tl
+#     TRITON_AVAILABLE = True
+# except ImportError:
+#     TRITON_AVAILABLE = False
+
+TRITON_AVAILABLE = False  # We removed Triton support
 
 # Import existing p-adic structures for compatibility
-from .padic_encoder import PadicWeight, PadicValidation
+from padic_encoder import PadicWeight, PadicValidation
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -156,34 +162,59 @@ class PyTorchPAdicEngine:
                 )
     
     def _setup_compiled_functions(self):
-        """Setup torch.compile decorated functions"""
-        # Disable torch.compile for MPS due to compatibility issues
-        if hasattr(torch, 'compile') and self.device.type != "mps":
-            compile_kwargs = {"mode": self.config.compile_mode}
+        """Setup torch.compile decorated functions with safe fallback"""
+        # Default to uncompiled
+        self._to_padic_compiled = self._to_padic_tensor
+        self._from_padic_compiled = self._from_padic_tensor
+        self._padic_add_compiled = self._padic_add_tensor
+        self._padic_multiply_compiled = self._padic_multiply_tensor
+        
+        # Check if we should try compilation
+        if self.device.type == "mps":
+            # MPS doesn't support torch.compile well
+            return
+        
+        if not hasattr(torch, 'compile'):
+            # torch.compile not available
+            return
+        
+        try:
+            # Test if torch.compile actually works
+            test_func = torch.compile(lambda x: x + 1, mode="reduce-overhead", fullgraph=False)
+            test_tensor = torch.tensor([1.0], device=self.device)
+            _ = test_func(test_tensor)
             
-            # Compile hot path functions
-            self._to_padic_compiled = torch.compile(
-                self._to_padic_tensor,
-                **compile_kwargs
-            )
-            self._from_padic_compiled = torch.compile(
-                self._from_padic_tensor,
-                **compile_kwargs
-            )
-            self._padic_add_compiled = torch.compile(
-                self._padic_add_tensor,
-                **compile_kwargs
-            )
-            self._padic_multiply_compiled = torch.compile(
-                self._padic_multiply_tensor,
-                **compile_kwargs
-            )
-        else:
-            # Fallback to uncompiled versions (also for MPS)
-            self._to_padic_compiled = self._to_padic_tensor
-            self._from_padic_compiled = self._from_padic_tensor
-            self._padic_add_compiled = self._padic_add_tensor
-            self._padic_multiply_compiled = self._padic_multiply_tensor
+            # If we get here, compilation works
+            compile_kwargs = {
+                "mode": self.config.compile_mode,
+                "fullgraph": False,
+                "dynamic": True
+            }
+            
+            # Try to compile each function
+            try:
+                self._to_padic_compiled = torch.compile(self._to_padic_tensor, **compile_kwargs)
+            except Exception as e:
+                logger.debug(f"Could not compile _to_padic_tensor: {e}")
+            
+            try:
+                self._from_padic_compiled = torch.compile(self._from_padic_tensor, **compile_kwargs)
+            except Exception as e:
+                logger.debug(f"Could not compile _from_padic_tensor: {e}")
+            
+            try:
+                self._padic_add_compiled = torch.compile(self._padic_add_tensor, **compile_kwargs)
+            except Exception as e:
+                logger.debug(f"Could not compile _padic_add_tensor: {e}")
+            
+            try:
+                self._padic_multiply_compiled = torch.compile(self._padic_multiply_tensor, **compile_kwargs)
+            except Exception as e:
+                logger.debug(f"Could not compile _padic_multiply_tensor: {e}")
+                
+        except Exception as e:
+            # Compilation test failed, stick with uncompiled
+            logger.debug(f"torch.compile not available or not working: {e}")
     
     def _setup_triton_kernels(self):
         """Setup Triton kernels for GPU acceleration"""
