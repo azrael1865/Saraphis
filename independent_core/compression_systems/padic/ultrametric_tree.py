@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from collections import deque
 
 # Import existing p-adic structures
-from .padic_encoder import PadicWeight, PadicMathematicalOperations
+from padic_encoder import PadicWeight, PadicMathematicalOperations
 # Forward declaration to avoid circular import
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:

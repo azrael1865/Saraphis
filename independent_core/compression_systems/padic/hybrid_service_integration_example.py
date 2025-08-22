@@ -10,18 +10,18 @@ import torch
 from typing import Dict, Any, Optional
 
 # Import service interfaces
-from ..service_interfaces.service_interfaces_core import (
+from service_interfaces.service_interfaces_core import (
     CompressionServiceInterface, ServiceRequest, ServiceResponse,
     ServiceStatus, ServiceHealth
 )
 
 # Import hybrid service components
-from .hybrid_padic_service_layer import HybridPadicServiceLayer, HybridServiceConfig
-from .hybrid_service_integration import HybridServiceIntegration, IntegrationConfig, ServiceEndpoint
-from .hybrid_service_middleware import HybridServiceMiddleware, MiddlewareConfig
+from hybrid_padic_service_layer import HybridPadicServiceLayer, HybridServiceConfig
+from hybrid_service_integration import HybridServiceIntegration, IntegrationConfig, ServiceEndpoint
+from hybrid_service_middleware import HybridServiceMiddleware, MiddlewareConfig
 
 # Import existing service components
-from .padic_service_layer import PadicServiceInterface, PadicServiceConfig
+from padic_service_layer import PadicServiceInterface, PadicServiceConfig
 
 
 class HybridServiceIntegrationPattern:

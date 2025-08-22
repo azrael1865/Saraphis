@@ -14,7 +14,7 @@ import time
 import gc
 
 # Import PyTorch P-adic components
-from .pytorch_padic_engine import PyTorchPAdicEngine, PyTorchPAdicConfig
+from pytorch_padic_engine import PyTorchPAdicEngine, PyTorchPAdicConfig
 
 # Try to import Triton operations (optional)
 try:
@@ -24,8 +24,8 @@ except ImportError:
     TritonPAdicOps = None
     TRITON_AVAILABLE = False
 
-from .sliding_window_pattern_detector import SlidingWindowPatternDetector, PatternDetectionResult
-from .metadata_compressor import MetadataCompressor
+from sliding_window_pattern_detector import SlidingWindowPatternDetector, PatternDetectionResult
+from metadata_compressor import MetadataCompressor
 
 
 @dataclass

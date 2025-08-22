@@ -26,25 +26,25 @@ import traceback
 from enum import Enum
 
 # Import P-Adic compression system
-from .padic_compressor import PadicCompressionSystem
-from .padic_encoder import PadicWeight, PadicMathematicalOperations
-from .padic_advanced import (
+from padic_compressor import PadicCompressionSystem
+from padic_encoder import PadicWeight, PadicMathematicalOperations
+from padic_advanced import (
     HenselLiftingProcessor, HierarchicalClusteringManager,
     PadicDecompressionEngine, PadicOptimizationManager
 )
-from .padic_integration import (
+from padic_integration import (
     PadicGACIntegration, PadicBrainIntegration,
     PadicTrainingIntegration, PadicSystemOrchestrator
 )
 
 # Import service interfaces
-from ..service_interfaces.service_interfaces_core import (
+from service_interfaces.service_interfaces_core import (
     CompressionServiceInterface, ServiceRequest, ServiceResponse,
     ServiceValidation, ServiceMetrics, ServiceRegistry, ServiceStatus
 )
 
 # Import GPU memory management
-from ..gpu_memory.gpu_memory_core import GPUMemoryManager, StreamManager, MemoryOptimizer
+from gpu_memory.gpu_memory_core import GPUMemoryManager, StreamManager, MemoryOptimizer
 
 # Configure logging
 logger = logging.getLogger(__name__)

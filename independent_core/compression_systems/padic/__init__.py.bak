@@ -1,0 +1,235 @@
+"""
+P-adic compression system for neural network weights.
+Hard failure mode - no fallbacks, all errors throw immediately.
+"""
+
+from padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
+from padic_compressor import PadicCompressionSystem, CompressionConfig
+
+# Create compression_config_compat module alias with compatibility layer
+import sys
+from types import ModuleType
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass 
+class CompressionConfigCompat:
+    """Compatibility CompressionConfig for integration tests - COMPLETE version with all attributes"""
+    # Core compression parameters
+    prime: int = 257
+    base_precision: int = 4
+    compression_device: str = "cpu"
+    decompression_device: str = "cpu"
+    enable_device_fallback: bool = True
+    target_error: float = 1e-6
+    importance_threshold: float = 0.1
+    chunk_size: int = 10000
+    enable_parallel: bool = False
+    
+    # GPU configuration - CRITICAL FOR TESTS
+    enable_gpu: bool = True
+    max_memory_gb: float = 8.0
+    
+    # Adaptive precision settings
+    enable_adaptive_precision: bool = True
+    adaptive_min_precision: int = 2
+    adaptive_max_precision: int = 8
+    
+    # Pattern detection settings
+    enable_pattern_detection: bool = True
+    pattern_window_size: int = 1024
+    
+    # Sparse encoding settings
+    enable_sparse_encoding: bool = True
+    sparse_threshold: float = 0.01
+    
+    # Entropy coding settings
+    enable_entropy_coding: bool = True
+    entropy_method: str = "huffman"
+    
+    # Metadata compression settings
+    enable_metadata_compression: bool = True
+    metadata_method: str = "lz4"
+    
+    # Validation settings
+    validation_enabled: bool = True
+    
+    # Advanced optimization settings
+    enable_quantization_aware: bool = False
+    quantization_bits: int = 8
+    enable_pruning_aware: bool = False
+    pruning_threshold: float = 0.1
+    
+    # Memory management
+    enable_memory_pooling: bool = True
+    memory_pool_size_mb: int = 512
+    
+    # Performance tuning
+    batch_processing_size: int = 1000
+    enable_async_processing: bool = False
+    num_worker_threads: int = 4
+    
+    # Debug and monitoring
+    enable_profiling: bool = False
+    log_level: str = "INFO"
+    enable_metrics_collection: bool = True
+    
+    # CRITICAL MISSING ATTRIBUTES - Required by padic_compressor.py
+    min_precision: int = 2
+    max_precision: int = 8
+    raise_on_error: bool = True
+
+    def __post_init__(self):
+        """Validate configuration parameters"""
+        if self.prime <= 1:
+            raise ValueError(f"Prime must be > 1, got {self.prime}")
+        if self.base_precision <= 0:
+            raise ValueError(f"Base precision must be > 0, got {self.base_precision}")
+        if not (0 < self.target_error < 1):
+            raise ValueError(f"Target error must be in (0, 1), got {self.target_error}")
+        if self.chunk_size <= 0:
+            raise ValueError(f"Chunk size must be > 0, got {self.chunk_size}")
+        if self.max_memory_gb <= 0:
+            raise ValueError(f"Max memory must be > 0, got {self.max_memory_gb}")
+        if self.adaptive_min_precision > self.adaptive_max_precision:
+            raise ValueError(f"Min precision ({self.adaptive_min_precision}) cannot be > max precision ({self.adaptive_max_precision})")
+        if self.pattern_window_size <= 0:
+            raise ValueError(f"Pattern window size must be > 0, got {self.pattern_window_size}")
+        if not (0 <= self.sparse_threshold <= 1):
+            raise ValueError(f"Sparse threshold must be in [0, 1], got {self.sparse_threshold}")
+        if self.entropy_method not in ["huffman", "arithmetic", "lz4", "lzma"]:
+            raise ValueError(f"Invalid entropy method: {self.entropy_method}")
+        if self.metadata_method not in ["lz4", "gzip", "bzip2", "none"]:
+            raise ValueError(f"Invalid metadata method: {self.metadata_method}")
+        if self.quantization_bits not in [4, 8, 16, 32]:
+            raise ValueError(f"Quantization bits must be 4, 8, 16, or 32, got {self.quantization_bits}")
+        if not (0 <= self.pruning_threshold <= 1):
+            raise ValueError(f"Pruning threshold must be in [0, 1], got {self.pruning_threshold}")
+        if self.memory_pool_size_mb <= 0:
+            raise ValueError(f"Memory pool size must be > 0, got {self.memory_pool_size_mb}")
+        if self.batch_processing_size <= 0:
+            raise ValueError(f"Batch processing size must be > 0, got {self.batch_processing_size}")
+        if self.num_worker_threads <= 0:
+            raise ValueError(f"Number of worker threads must be > 0, got {self.num_worker_threads}")
+        if self.log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            raise ValueError(f"Invalid log level: {self.log_level}")
+        if not (1 <= self.min_precision <= self.base_precision <= self.max_precision):
+            raise ValueError(f"Invalid precision bounds: min={self.min_precision}, base={self.base_precision}, max={self.max_precision}")
+
+compression_config_compat = ModuleType('compression_config_compat')
+compression_config_compat.CompressionConfig = CompressionConfigCompat
+sys.modules[f'{__name__}.compression_config_compat'] = compression_config_compat
+from padic_gradient import PadicGradientCompressor
+from padic_advanced import (
+    HenselLiftingConfig,
+    HenselLiftingProcessor,
+    ClusteringConfig,
+    ClusterNode,
+    HierarchicalClusteringManager,
+    GPUDecompressionConfig,
+    PadicDecompressionEngine,
+    PadicOptimizer,
+    PadicSGD,
+    PadicAdam,
+    PadicRMSprop,
+    PadicOptimizationManager,
+    PadicAdvancedIntegration
+)
+from padic_integration import (
+    PadicIntegrationConfig,
+    PadicGACIntegration,
+    PadicBrainIntegration,
+    PadicTrainingIntegration,
+    PadicSystemOrchestrator,
+    initialize_padic_integration,
+    get_orchestrator,
+    shutdown_padic_integration
+)
+from padic_service_layer import (
+    PadicServiceInterface,
+    PadicServiceManager,
+    PadicServiceValidation,
+    PadicServiceMetrics,
+    PadicServiceConfig,
+    PadicServiceMethod
+)
+from padic_service_config import PadicServiceConfiguration
+from hybrid_padic_structures import (
+    HybridPadicWeight,
+    HybridPadicValidator,
+    HybridPadicConverter,
+    HybridPadicManager
+)
+from hybrid_padic_compressor import (
+    HybridPadicCompressionSystem,
+    HybridPadicIntegrationManager
+)
+from hybrid_padic_gpu_ops import (
+    GPUOperationConfig,
+    HybridPadicGPUOps,
+    HybridPadicGPUOptimizer,
+    HybridPadicGPUManager
+)
+from memory_pressure_handler import (
+    MemoryPressureHandler,
+    PressureHandlerConfig,
+    ProcessingMode,
+    MemoryState,
+    MemoryMetrics,
+    PerformanceMetrics,
+    integrate_memory_pressure_handler
+)
+
+__all__ = [
+    'PadicWeight',
+    'PadicValidation', 
+    'PadicMathematicalOperations',
+    'PadicCompressionSystem',
+    'CompressionConfig',
+    'PadicGradientCompressor',
+    'HenselLiftingConfig',
+    'HenselLiftingProcessor',
+    'ClusteringConfig',
+    'ClusterNode',
+    'HierarchicalClusteringManager',
+    'GPUDecompressionConfig',
+    'PadicDecompressionEngine',
+    'PadicOptimizer',
+    'PadicSGD',
+    'PadicAdam',
+    'PadicRMSprop',
+    'PadicOptimizationManager',
+    'PadicAdvancedIntegration',
+    'PadicIntegrationConfig',
+    'PadicGACIntegration',
+    'PadicBrainIntegration',
+    'PadicTrainingIntegration',
+    'PadicSystemOrchestrator',
+    'initialize_padic_integration',
+    'get_orchestrator',
+    'shutdown_padic_integration',
+    'PadicServiceInterface',
+    'PadicServiceManager',
+    'PadicServiceValidation',
+    'PadicServiceMetrics',
+    'PadicServiceConfig',
+    'PadicServiceMethod',
+    'PadicServiceConfiguration',
+    'HybridPadicWeight',
+    'HybridPadicValidator',
+    'HybridPadicConverter',
+    'HybridPadicManager',
+    'HybridPadicCompressionSystem',
+    'HybridPadicIntegrationManager',
+    'GPUOperationConfig',
+    'HybridPadicGPUOps',
+    'HybridPadicGPUOptimizer',
+    'HybridPadicGPUManager',
+    'MemoryPressureHandler',
+    'PressureHandlerConfig',
+    'ProcessingMode',
+    'MemoryState',
+    'MemoryMetrics',
+    'PerformanceMetrics',
+    'integrate_memory_pressure_handler'
+]

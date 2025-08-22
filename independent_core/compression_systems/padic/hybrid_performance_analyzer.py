@@ -16,10 +16,10 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable, Set
 
 # Import hybrid system components
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
-from .dynamic_switching_manager import DynamicSwitchingManager
-from .hybrid_padic_compressor import HybridPadicCompressionSystem
-from .hybrid_performance_monitor import HybridPerformanceMonitor, HybridOperationMonitorData
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
+from dynamic_switching_manager import DynamicSwitchingManager
+from hybrid_padic_compressor import HybridPadicCompressionSystem
+from hybrid_performance_monitor import HybridPerformanceMonitor, HybridOperationMonitorData
 
 
 class AnalysisType(Enum):

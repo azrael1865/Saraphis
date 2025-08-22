@@ -14,15 +14,15 @@ from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import existing clustering
-from .padic_advanced import HierarchicalClusteringManager, ClusteringConfig, ClusterNode
+from padic_advanced import HierarchicalClusteringManager, ClusteringConfig, ClusterNode
 
 # Import hybrid structures
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
-from .padic_encoder import PadicWeight
-from ..metadata.tree_encoder import TreeEncoder, BitVector
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
+from padic_encoder import PadicWeight
+from metadata.tree_encoder import TreeEncoder, BitVector
 
 # Import ultrametric tree for O(log n) operations
-from .ultrametric_tree import UltrametricTree, UltrametricTreeNode
+from ultrametric_tree import UltrametricTree, UltrametricTreeNode
 
 
 @dataclass

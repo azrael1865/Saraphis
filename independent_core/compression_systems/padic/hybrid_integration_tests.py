@@ -17,19 +17,19 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 from enum import Enum
 
 # Import hybrid system components
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
-from .hybrid_padic_compressor import HybridPadicCompressionSystem
-from .dynamic_switching_manager import DynamicSwitchingManager
-from .hybrid_performance_optimizer import HybridPerformanceOptimizer
-from .hybrid_performance_monitor import HybridPerformanceMonitor
-from .hybrid_performance_analyzer import HybridPerformanceAnalyzer
-from .hybrid_performance_tuner import HybridPerformanceTuner
-from .hybrid_test_suite import HybridTestSuite
-from .hybrid_validation_framework import HybridValidationFramework
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
+from hybrid_padic_compressor import HybridPadicCompressionSystem
+from dynamic_switching_manager import DynamicSwitchingManager
+from hybrid_performance_optimizer import HybridPerformanceOptimizer
+from hybrid_performance_monitor import HybridPerformanceMonitor
+from hybrid_performance_analyzer import HybridPerformanceAnalyzer
+from hybrid_performance_tuner import HybridPerformanceTuner
+from hybrid_test_suite import HybridTestSuite
+from hybrid_validation_framework import HybridValidationFramework
 
 # Import existing components for integration
-from .padic_encoder import PadicWeight, PadicCompressionSystem, PadicMathematicalOperations
-from ...performance_optimizer import PerformanceOptimizer
+from padic_encoder import PadicWeight, PadicCompressionSystem, PadicMathematicalOperations
+from performance_optimizer import PerformanceOptimizer
 
 
 class IntegrationTestType(Enum):

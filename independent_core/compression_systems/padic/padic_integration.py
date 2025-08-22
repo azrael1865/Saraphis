@@ -18,16 +18,16 @@ import weakref
 from contextlib import contextmanager
 import gc
 
-from ...gac_system.gac_components import GradientCompressionComponent, GACComponent
-from ...brain import Brain as BrainCore, BrainSystemConfig as BrainConfig
-from ..gpu_memory import GPUMemoryOptimizer
-from .padic_compressor import PadicCompressionSystem
-from .padic_advanced import (
+from gac_system.gac_components import GradientCompressionComponent, GACComponent
+from brain import Brain as BrainCore, BrainSystemConfig as BrainConfig
+from gpu_memory import GPUMemoryOptimizer
+from padic_compressor import PadicCompressionSystem
+from padic_advanced import (
     HenselLiftingProcessor, HierarchicalClusteringManager,
     PadicDecompressionEngine, PadicOptimizationManager,
     HenselLiftingConfig, ClusteringConfig, GPUDecompressionConfig
 )
-from .padic_service_config import PadicServiceConfiguration, PadicIntegrationConfig
+from padic_service_config import PadicServiceConfiguration, PadicIntegrationConfig
 
 
 

@@ -1,81 +1,33 @@
 """
-Saraphis Analytical Compression Systems Framework
-
-Defines interfaces and structure for compression algorithms.
-Fail-loud architecture - no fallbacks.
+Compression Systems Module - Fixed to avoid circular imports
 """
 
-# Import tensor decomposition components
-# Temporarily disabled due to missing gpytorch dependency
-# from .tensor_decomposition import (
-#     HOSVDDecomposer,
-#     TensorRingDecomposer,
-#     AdvancedTensorRankOptimizer,
-#     TensorGPUAccelerator
-# )
+__version__ = '1.0.0'
 
-# Import P-adic compression components
-from .padic import (
-    PadicCompressionSystem,
-    PadicGradientCompressor,
-    PadicAdvancedIntegration
-)
-
-# Import sheaf compression components
-from .sheaf import (
-    SheafCompressionSystem,
-    SheafAdvancedIntegration,
-    SheafSystemOrchestrator
-)
-
-# Import system integration coordinator
-from .system_integration_coordinator import (
-    SystemIntegrationCoordinator,
-    SystemConfiguration,
-    OptimizationStrategy,
-    CompressionRequest,
-    CompressionResult,
-    create_compression_system,
-    load_compression_system
-)
-
-# Create alias for integration test compatibility
-MasterSystemCoordinator = SystemIntegrationCoordinator
-
-# Import GPU memory management components
-from .gpu_memory.smart_pool import SmartPool
-from .gpu_memory.auto_swap_manager import AutoSwapManager as AutoSwap
-
-__all__ = [
-    # Tensor decomposition - temporarily disabled
-    # 'HOSVDDecomposer',
-    # 'TensorRingDecomposer',
-    # 'AdvancedTensorRankOptimizer',
-    # 'TensorGPUAccelerator',
+# Delay padic import to avoid circular dependency
+def __getattr__(name):
+    """Lazy import attributes on demand"""
     
-    # P-adic compression
-    'PadicCompressionSystem',
-    'PadicGradientCompressor',
-    'PadicAdvancedIntegration',
+    # Map of attributes to their source modules
+    attr_to_module = {
+        'PadicCompressionSystem': 'padic',
+        'CompressionConfig': 'padic',
+        'PadicWeight': 'padic',
+    }
     
-    # Sheaf compression
-    'SheafCompressionSystem',
-    'SheafAdvancedIntegration',
-    'SheafSystemOrchestrator',
+    if name in attr_to_module:
+        # Import the submodule only when needed
+        submodule_name = attr_to_module[name]
+        import importlib
+        try:
+            submodule = importlib.import_module(f'.{submodule_name}', package=__package__)
+            attr = getattr(submodule, name)
+            # Cache it for future use
+            globals()[name] = attr
+            return attr
+        except (ImportError, AttributeError) as e:
+            raise AttributeError(f"Cannot import {name} from {submodule_name}: {e}")
     
-    # System integration
-    'SystemIntegrationCoordinator',
-    'MasterSystemCoordinator',
-    'SystemConfiguration',
-    'OptimizationStrategy',
-    'CompressionRequest',
-    'CompressionResult',
-    'create_compression_system',
-    'load_compression_system',
-    
-    # GPU memory management
-    'SmartPool',
-    'AutoSwap'
-]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-__version__ = '2.0.0'  # Updated for complete system integration
+__all__ = ['PadicCompressionSystem', 'CompressionConfig', 'PadicWeight']

@@ -15,9 +15,9 @@ from collections import defaultdict
 import weakref
 from contextlib import contextmanager
 
-from .padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
-from .padic_compressor import PadicCompressionSystem
-from .memory_pressure_handler import (
+from padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
+from padic_compressor import PadicCompressionSystem
+from memory_pressure_handler import (
     MemoryPressureHandler,
     PressureHandlerConfig,
     ProcessingMode,

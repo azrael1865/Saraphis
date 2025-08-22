@@ -17,12 +17,12 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 from enum import Enum
 
 # Import existing performance optimizer
-from ...performance_optimizer import PerformanceOptimizer, OperationProfile
+from performance_optimizer import PerformanceOptimizer, OperationProfile
 
 # Import hybrid system components
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
-from .dynamic_switching_manager import DynamicSwitchingManager
-from .hybrid_padic_compressor import HybridPadicCompressionSystem
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
+from dynamic_switching_manager import DynamicSwitchingManager
+from hybrid_padic_compressor import HybridPadicCompressionSystem
 
 
 class HybridOptimizationPhase(Enum):

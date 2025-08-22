@@ -1,5 +1,5 @@
 """
-Fixed metadata_compressor.py - Preserves complete entropy metadata including frequency_table
+Fixed metadata_compressor.py - Properly handles full metadata structure
 """
 
 import struct
@@ -36,29 +36,198 @@ class MetadataCompressor:
     
     def compress_metadata(self, metadata: Dict[str, Any]) -> bytes:
         """
-        Public API for compressing metadata dictionary
+        Compress the full metadata dictionary, preserving structure
         """
-        if 'entropy_metadata' in metadata:
-            return self._compress_entropy_metadata(metadata['entropy_metadata'])
-        else:
-            # Compress the whole metadata dict as entropy metadata
-            return self._compress_entropy_metadata(metadata)
+        self.compression_stats['compression_attempts'] += 1
+        
+        try:
+            # Prepare the entire metadata for JSON serialization
+            serializable_meta = self._prepare_for_serialization(metadata)
+            
+            # Serialize to JSON
+            json_str = json.dumps(serializable_meta, separators=(',', ':'))
+            json_bytes = json_str.encode('utf-8')
+            
+            # Build compressed format with proper header
+            result = bytearray()
+            
+            # Format flag (0x03 for full metadata format)
+            result.append(0x03)
+            
+            # Apply compression if beneficial
+            if len(json_bytes) > 100:
+                compressed = zlib.compress(json_bytes, level=6)
+                
+                # Flag for compressed data
+                result.append(0x01)
+                
+                # Original length (4 bytes)
+                result.extend(struct.pack('>I', len(json_bytes)))
+                
+                # Compressed data length (4 bytes)
+                result.extend(struct.pack('>I', len(compressed)))
+                
+                # Compressed data
+                result.extend(compressed)
+            else:
+                # Flag for uncompressed data
+                result.append(0x00)
+                
+                # Data length (4 bytes)
+                result.extend(struct.pack('>I', len(json_bytes)))
+                
+                # Uncompressed JSON data
+                result.extend(json_bytes)
+            
+            return bytes(result)
+            
+        except Exception as e:
+            logger.error(f"Error compressing metadata: {e}")
+            # Fallback to legacy format for just entropy_metadata
+            if 'entropy_metadata' in metadata:
+                return self._compress_entropy_metadata(metadata['entropy_metadata'])
+            else:
+                return self._compress_entropy_metadata(metadata)
     
     def decompress_metadata(self, compressed: bytes) -> Dict[str, Any]:
         """
-        Public API for decompressing metadata from bytes
+        Decompress metadata, returning the full structure
         """
-        result, _ = self._decompress_entropy_metadata(compressed, 0)
-        return result
+        if not compressed:
+            return {}
         
+        try:
+            # Check format flag
+            format_flag = compressed[0]
+            offset = 1
+            
+            # Full metadata format (new)
+            if format_flag == 0x03:
+                return self._decompress_full_metadata(compressed, offset)
+            
+            # Legacy entropy metadata format (0x02)
+            elif format_flag == 0x02:
+                # Old format - wrap result in expected structure
+                entropy_meta, _ = self._decompress_enhanced_format(compressed, offset)
+                # Reconstruct expected full metadata structure from entropy_metadata
+                return self._reconstruct_from_entropy_metadata(entropy_meta)
+            
+            # Other legacy formats
+            else:
+                # Try to decompress as entropy metadata and reconstruct
+                offset = 0  # Reset offset as this might not have a format flag
+                entropy_meta, _ = self._decompress_entropy_metadata(compressed, offset)
+                return self._reconstruct_from_entropy_metadata(entropy_meta)
+                
+        except Exception as e:
+            logger.warning(f"Error in metadata decompression: {e}, using fallback")
+            # Last resort: try to interpret as entropy_metadata
+            try:
+                entropy_meta, _ = self._decompress_entropy_metadata(compressed, 0)
+                return self._reconstruct_from_entropy_metadata(entropy_meta)
+            except:
+                # Return minimal metadata
+                return {'entropy_metadata': {'encoding_method': 'huffman', 'method': 'huffman'}}
+    
+    def _decompress_full_metadata(self, data: bytes, offset: int) -> Dict[str, Any]:
+        """Decompress full metadata format"""
+        try:
+            # Check compression flag
+            compression_flag = data[offset]
+            offset += 1
+            
+            if compression_flag == 0x01:
+                # Compressed data
+                if offset + 8 > len(data):
+                    raise ValueError("Insufficient data for compressed header")
+                
+                original_length = struct.unpack_from('>I', data, offset)[0]
+                offset += 4
+                compressed_length = struct.unpack_from('>I', data, offset)[0]
+                offset += 4
+                
+                if offset + compressed_length > len(data):
+                    raise ValueError("Insufficient data for compressed content")
+                
+                compressed_data = data[offset:offset + compressed_length]
+                json_bytes = zlib.decompress(compressed_data)
+                
+                if len(json_bytes) != original_length:
+                    raise ValueError(f"Decompression size mismatch: expected {original_length}, got {len(json_bytes)}")
+                
+            else:
+                # Uncompressed data
+                if offset + 4 > len(data):
+                    raise ValueError("Insufficient data for uncompressed header")
+                
+                data_length = struct.unpack_from('>I', data, offset)[0]
+                offset += 4
+                
+                if offset + data_length > len(data):
+                    raise ValueError("Insufficient data for uncompressed content")
+                
+                json_bytes = data[offset:offset + data_length]
+            
+            # Parse JSON
+            json_str = json_bytes.decode('utf-8')
+            metadata = json.loads(json_str)
+            
+            # Fix pattern_dict keys - convert string keys back to integers
+            if 'pattern_dict' in metadata and isinstance(metadata['pattern_dict'], dict):
+                metadata['pattern_dict'] = self._fix_pattern_dict_keys(metadata['pattern_dict'])
+            
+            # Ensure compatibility fields
+            if 'entropy_metadata' in metadata:
+                self._ensure_compatibility_fields(metadata['entropy_metadata'])
+            
+            self.compression_stats['successful_decompressions'] += 1
+            return metadata
+            
+        except Exception as e:
+            logger.error(f"Failed to decompress full metadata format: {e}")
+            raise
+    
+    def _reconstruct_from_entropy_metadata(self, entropy_meta: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Reconstruct full metadata structure from entropy_metadata alone.
+        This handles backward compatibility when only entropy_metadata was compressed.
+        """
+        # Check if this already looks like full metadata
+        if 'entropy_metadata' in entropy_meta:
+            # Already has the structure we want
+            # Fix pattern_dict keys if present
+            if 'pattern_dict' in entropy_meta and isinstance(entropy_meta['pattern_dict'], dict):
+                entropy_meta['pattern_dict'] = self._fix_pattern_dict_keys(entropy_meta['pattern_dict'])
+            return entropy_meta
+        
+        # Check if this looks like it contains full metadata fields
+        # (e.g., has 'version', 'prime', 'original_shape', etc.)
+        full_metadata_keys = {'version', 'prime', 'precision', 'original_shape', 
+                              'precision_map', 'pattern_dict', 'sparse_indices', 
+                              'sparse_shape', 'valuations'}
+        
+        if any(key in entropy_meta for key in full_metadata_keys):
+            # This is actually full metadata that was stored as entropy_metadata
+            # Fix pattern_dict keys if present
+            if 'pattern_dict' in entropy_meta and isinstance(entropy_meta['pattern_dict'], dict):
+                entropy_meta['pattern_dict'] = self._fix_pattern_dict_keys(entropy_meta['pattern_dict'])
+            
+            # Extract the actual entropy_metadata if it exists as a nested field
+            actual_entropy_meta = entropy_meta.pop('entropy_metadata', entropy_meta.copy())
+            entropy_meta['entropy_metadata'] = actual_entropy_meta
+            return entropy_meta
+        
+        # This is pure entropy metadata - wrap it properly
+        return {
+            'entropy_metadata': entropy_meta
+        }
+    
     def _compress_entropy_metadata(self, entropy_meta: Dict[str, Any]) -> bytes:
         """
         Compress entropy metadata preserving ALL fields with enhanced functionality
         """
         if not entropy_meta:
             return b''
-        
-        self.compression_stats['compression_attempts'] += 1
         
         try:
             # Prepare metadata for JSON serialization
@@ -112,8 +281,15 @@ class MetadataCompressor:
             return None
         elif isinstance(data, (str, int, float, bool)):
             return data
+        elif isinstance(data, bytes):
+            # Convert bytes to base64 string for JSON serialization
+            import base64
+            return base64.b64encode(data).decode('ascii')
         elif isinstance(data, dict):
-            return {k: self._prepare_for_serialization(v) for k, v in data.items()}
+            # Special handling for pattern_dict to preserve integer keys as strings
+            # (they'll be converted back during deserialization)
+            return {str(k) if isinstance(k, int) else k: self._prepare_for_serialization(v) 
+                    for k, v in data.items()}
         elif isinstance(data, (list, tuple)):
             return [self._prepare_for_serialization(item) for item in data]
         elif hasattr(data, 'tolist'):  # numpy arrays/tensors
@@ -199,6 +375,10 @@ class MetadataCompressor:
             # Parse JSON
             json_str = json_bytes.decode('utf-8')
             entropy_meta = json.loads(json_str)
+            
+            # Fix pattern_dict keys if this is actually full metadata
+            if 'pattern_dict' in entropy_meta and isinstance(entropy_meta['pattern_dict'], dict):
+                entropy_meta['pattern_dict'] = self._fix_pattern_dict_keys(entropy_meta['pattern_dict'])
             
             # Ensure backward compatibility fields
             self._ensure_compatibility_fields(entropy_meta)
@@ -331,6 +511,43 @@ class MetadataCompressor:
         
         return entropy_meta, offset
     
+    def _fix_pattern_dict_keys(self, pattern_dict: Dict) -> Dict[int, bytes]:
+        """
+        Fix pattern dictionary keys after JSON deserialization.
+        JSON converts integer keys to strings, so we need to convert them back.
+        Also handles base64 decoding of byte values.
+        """
+        if not pattern_dict:
+            return pattern_dict
+        
+        import base64
+        
+        fixed_dict = {}
+        for key, value in pattern_dict.items():
+            # Convert string keys to integers
+            if isinstance(key, str) and key.isdigit():
+                int_key = int(key)
+            else:
+                # Keep non-numeric keys as-is (shouldn't happen for pattern_dict)
+                int_key = key
+            
+            # Convert base64 string values back to bytes
+            if isinstance(value, str):
+                try:
+                    # Try to decode as base64
+                    fixed_dict[int_key] = base64.b64decode(value)
+                except Exception:
+                    # If it fails, encode the string as bytes
+                    fixed_dict[int_key] = value.encode('utf-8')
+            elif isinstance(value, bytes):
+                # Already bytes
+                fixed_dict[int_key] = value
+            else:
+                # Convert to bytes if needed
+                fixed_dict[int_key] = str(value).encode('utf-8')
+        
+        return fixed_dict
+    
     def _ensure_compatibility_fields(self, entropy_meta: Dict[str, Any]) -> None:
         """Ensure all required fields are present for compatibility"""
         # Ensure encoding_method is present
@@ -378,3 +595,15 @@ class MetadataCompressor:
         result.extend(method_bytes)
         
         return bytes(result)
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get compression statistics"""
+        return dict(self.compression_stats)
+    
+    def reset_statistics(self):
+        """Reset compression statistics"""
+        self.compression_stats = {
+            'fallback_decompressions': 0,
+            'successful_decompressions': 0,
+            'compression_attempts': 0
+        }

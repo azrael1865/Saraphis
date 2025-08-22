@@ -3,6 +3,11 @@ P-adic number encoding and mathematical operations.
 NO FALLBACKS - HARD FAILURES ONLY
 """
 
+# Import overflow protection first
+import sys
+import os
+sys.path.append('/home/will-casterlin/Desktop/Saraphis')
+
 import torch
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
@@ -518,9 +523,12 @@ class PadicMathematicalOperations:
             elif i == first_nonzero:
                 result.append(self.prime - digits[i])
             else:
-                result.append(self.prime - 1 - digits[i])
+                # FIXED: Ensure result is always < prime
+                complement = (self.prime - 1 - digits[i]) % self.prime
+                result.append(complement)
         
         return result
+
     
     def _padic_to_rational_exact(self, digits: List[int], valuation: int) -> Fraction:
         """Exact rational reconstruction from p-adic digits"""

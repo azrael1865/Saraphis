@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import performance optimizer
-from ...performance_optimizer import PerformanceOptimizer
+from performance_optimizer import PerformanceOptimizer
 
 
 class PerformanceRegression(Enum):

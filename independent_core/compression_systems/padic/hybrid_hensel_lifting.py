@@ -14,11 +14,11 @@ from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import existing Hensel lifting
-from .padic_advanced import HenselLiftingProcessor, HenselLiftingConfig
+from padic_advanced import HenselLiftingProcessor, HenselLiftingConfig
 
 # Import hybrid structures
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
-from .padic_encoder import PadicWeight, PadicMathematicalOperations
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
+from padic_encoder import PadicWeight, PadicMathematicalOperations
 
 
 @dataclass

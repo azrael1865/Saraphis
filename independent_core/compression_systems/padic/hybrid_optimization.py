@@ -15,11 +15,11 @@ from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import existing optimization
-from .padic_advanced import PadicOptimizationManager
+from padic_advanced import PadicOptimizationManager
 
 # Import hybrid structures
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
-from .padic_encoder import PadicWeight
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicValidator
+from padic_encoder import PadicWeight
 
 
 @dataclass

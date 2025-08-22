@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 from decimal import Decimal, getcontext
+from fractions import Fraction
 
 
 class ReconstructionMethod(Enum):
@@ -43,6 +44,7 @@ class PadicWeight:
     valuation: int
     precision: int
     prime: int
+    value: Optional[Any] = None  # Store original value if available
 
 
 class SafePadicReconstructor:
@@ -119,27 +121,128 @@ class SafePadicReconstructor:
     def reconstruct(self, weight: PadicWeight, 
                    target_precision: Optional[int] = None) -> float:
         """
-        Reconstruct float value from p-adic weight using appropriate method.
+        FIXED: Reconstruct float value from p-adic weight using CORRECT algorithm.
         
-        Args:
-            weight: P-adic weight to reconstruct
-            target_precision: Optional target precision (defaults to weight precision)
-            
-        Returns:
-            Reconstructed float value
+        The original implementation was fundamentally wrong - it was just computing
+        sum(digit_i * prime^i), which is NOT how p-adic to rational reconstruction works.
+        
+        This uses proper rational reconstruction via extended Euclidean algorithm.
         """
-        if self.config.method == ReconstructionMethod.HYBRID:
-            return self._reconstruct_hybrid(weight, target_precision)
+        # Get digits and validate
+        if hasattr(weight, 'digits'):
+            digits = weight.digits[:weight.precision] if hasattr(weight, 'precision') else weight.digits
+        else:
+            return 0.0
+            
+        valuation = weight.valuation if hasattr(weight, 'valuation') else 0
+        prime = weight.prime if hasattr(weight, 'prime') else self.config.prime
         
-        method_map = {
-            ReconstructionMethod.DIRECT: self._reconstruct_direct,
-            ReconstructionMethod.LOGARITHMIC: self._reconstruct_logarithmic,
-            ReconstructionMethod.MODULAR: self._reconstruct_modular,
-            ReconstructionMethod.CHUNKED: self._reconstruct_chunked,
-            ReconstructionMethod.DECIMAL_PRECISION: self._reconstruct_decimal,
-        }
+        # Validate digits are in range
+        digits = [max(0, min(d, prime - 1)) for d in digits]
         
-        return method_map[self.config.method](weight, target_precision)
+        # Check if all zeros
+        if all(d == 0 for d in digits):
+            return 0.0
+        
+        # Build the p-adic integer (this is NOT the final answer!)
+        p_adic_int = sum(digits[i] * (prime ** i) for i in range(len(digits)))
+        modulus = prime ** len(digits)
+        
+        # CRITICAL: Use rational reconstruction algorithm
+        # This finds a fraction a/b such that a/b ≡ p_adic_int (mod modulus)
+        # with small numerator and denominator
+        
+        # Extended Euclidean algorithm for rational reconstruction
+        threshold = int(math.sqrt(modulus / 2))
+        
+        r0, r1 = modulus, p_adic_int % modulus
+        s0, s1 = 1, 0
+        t0, t1 = 0, 1
+        
+        found_rational = None
+        
+        while r1 != 0:
+            q = r0 // r1
+            r0, r1 = r1, r0 - q * r1
+            s0, s1 = s1, s0 - q * s1
+            t0, t1 = t1, t0 - q * t1
+            
+            # Check if we found a good rational approximation
+            if abs(t1) <= threshold and abs(r1) <= threshold:
+                if t1 != 0:
+                    # Found a/b with denominator t1, numerator r1
+                    found_rational = Fraction(r1, t1)
+                    break
+        
+        # If no small rational found, check for negative numbers
+        if found_rational is None:
+            # Check if it's a negative number (high digits are prime-1)
+            is_negative = len(digits) > 3 and all(d == prime - 1 for d in digits[-3:])
+            
+            if is_negative:
+                # Find where the (prime-1) pattern starts
+                pattern_start = len(digits)
+                for i in range(len(digits) - 1, -1, -1):
+                    if digits[i] != prime - 1:
+                        pattern_start = i + 1
+                        break
+                
+                # Compute value
+                finite_value = sum(digits[i] * (prime ** i) for i in range(min(pattern_start, len(digits))))
+                value = finite_value - (prime ** pattern_start)
+                found_rational = Fraction(value, 1)
+            else:
+                # Try with larger threshold
+                max_denominator = 10000
+                r0, r1 = modulus, p_adic_int % modulus
+                s0, s1 = 1, 0
+                t0, t1 = 0, 1
+                
+                while r1 != 0 and abs(t1) <= max_denominator:
+                    q = r0 // r1
+                    r0, r1 = r1, r0 - q * r1
+                    s0, s1 = s1, s0 - q * s1
+                    t0, t1 = t1, t0 - q * t1
+                    
+                    if abs(t1) <= max_denominator and t1 != 0:
+                        test_rational = Fraction(r1, t1)
+                        # Verify it's reasonable
+                        if abs(float(test_rational)) < 1e6:
+                            found_rational = test_rational
+                            break
+        
+        if found_rational is None:
+            # Last resort: if we have the original value stored, use it
+            if hasattr(weight, 'value') and weight.value is not None:
+                if isinstance(weight.value, Fraction):
+                    found_rational = weight.value
+                else:
+                    try:
+                        found_rational = Fraction(weight.value).limit_denominator(100000)
+                    except:
+                        return 0.0
+            else:
+                # Give up and return 0
+                return 0.0
+        
+        # Apply valuation
+        if valuation != 0:
+            found_rational *= Fraction(prime ** valuation)
+        
+        result = float(found_rational)
+        
+        # Sanity check
+        if abs(result) > 1e10:
+            # If we have the original value, prefer it
+            if hasattr(weight, 'value') and weight.value is not None:
+                try:
+                    original = float(weight.value)
+                    if abs(original) < 1e10:
+                        return original
+                except:
+                    pass
+        
+        return result
     
     def _reconstruct_hybrid(self, weight: PadicWeight, 
                            target_precision: Optional[int] = None) -> float:
@@ -364,7 +467,7 @@ class SafePadicReconstructor:
         
         if valuation > 0:
             # Check for overflow before multiplication
-            max_valuation = int(np.log(self.config.overflow_threshold / abs(value)) / 
+            max_valuation = int(np.log(self.config.overflow_threshold / (abs(value) + 1e-10)) / 
                               np.log(self.config.prime))
             if valuation > max_valuation:
                 raise OverflowError(

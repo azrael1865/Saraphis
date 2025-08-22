@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 try:
     from .padic_encoder import PadicWeight, PadicMathematicalOperations, AdaptiveHenselLifting
     from .safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
-    from ..categorical.ieee754_channel_extractor import IEEE754Channels
+    from categorical.ieee754_channel_extractor import IEEE754Channels
 except ImportError:
-    from compression_systems.padic.padic_encoder import PadicWeight, PadicMathematicalOperations, AdaptiveHenselLifting
+    from ..categorical.ieee754_channel_extractor import IEEE754Channels
     from compression_systems.padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
     from compression_systems.categorical.ieee754_channel_extractor import IEEE754Channels
 

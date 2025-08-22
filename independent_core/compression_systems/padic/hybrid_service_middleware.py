@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import service interfaces
-from ..service_interfaces.service_interfaces_core import (
+from service_interfaces.service_interfaces_core import (
     CompressionServiceInterface, ServiceRequest, ServiceResponse,
     ServiceStatus, ServiceHealth
 )

@@ -8,8 +8,8 @@ import numpy as np
 from typing import Dict, Any, Optional, List
 import time
 
-from .padic_compressor import PadicCompressionSystem
-from .padic_encoder import PadicValidation
+from padic_compressor import PadicCompressionSystem
+from padic_encoder import PadicValidation
 
 
 class PadicGradientCompressor:

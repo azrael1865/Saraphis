@@ -15,11 +15,11 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import GAC system components
-from ...gac_system.direction_state import DirectionStateManager, DirectionState
-from ...gac_system.enhanced_bounder import EnhancedGradientBounder
+from gac_system.direction_state import DirectionStateManager, DirectionState
+from gac_system.enhanced_bounder import EnhancedGradientBounder
 
 # Import performance optimizer
-from ...performance_optimizer import PerformanceOptimizer
+from performance_optimizer import PerformanceOptimizer
 
 
 class DecisionCriterion(Enum):

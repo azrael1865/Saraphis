@@ -18,14 +18,14 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 from enum import Enum
 
 # Import hybrid system components
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
-from .hybrid_padic_compressor import HybridPadicCompressionSystem
-from .dynamic_switching_manager import DynamicSwitchingManager
-from .hybrid_performance_optimizer import HybridPerformanceOptimizer
-from .hybrid_performance_monitor import HybridPerformanceMonitor
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
+from hybrid_padic_compressor import HybridPadicCompressionSystem
+from dynamic_switching_manager import DynamicSwitchingManager
+from hybrid_performance_optimizer import HybridPerformanceOptimizer
+from hybrid_performance_monitor import HybridPerformanceMonitor
 
 # Import existing components for comparison
-from .padic_encoder import PadicWeight, PadicCompressionSystem
+from padic_encoder import PadicWeight, PadicCompressionSystem
 
 
 class PerformanceTestType(Enum):

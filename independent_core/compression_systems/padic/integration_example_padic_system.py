@@ -11,14 +11,14 @@ import asyncio
 from typing import Dict, Any, List
 
 # Import P-Adic integration components
-from .padic_integration import (
+from padic_integration import (
     PadicIntegrationConfig, PadicSystemOrchestrator,
     initialize_padic_integration, get_orchestrator, shutdown_padic_integration
 )
 
 # Import core components for integration testing
-from ...gac_system.gac_components import GradientCompressionComponent
-from ...brain_core import BrainCore, BrainConfig
+from gac_system.gac_components import GradientCompressionComponent
+from brain_core import BrainCore, BrainConfig
 
 
 class MockGradientCompressionComponent(GradientCompressionComponent):

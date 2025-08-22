@@ -9,9 +9,9 @@ import numpy as np
 from typing import Dict, Any, Optional, Tuple, List, Union
 import gc
 
-from ..base.compression_base import CompressionAlgorithm, CompressionValidator, CompressionMetrics
-from .padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
-from .hybrid_padic_structures import (
+from base.compression_base import CompressionAlgorithm, CompressionValidator, CompressionMetrics
+from padic_encoder import PadicWeight, PadicValidation, PadicMathematicalOperations
+from hybrid_padic_structures import (
     HybridPadicWeight,
     HybridPadicValidator,
     HybridPadicConverter,

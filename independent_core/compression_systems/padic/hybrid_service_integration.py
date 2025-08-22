@@ -17,18 +17,18 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import service interfaces
-from ..service_interfaces.service_interfaces_core import (
+from service_interfaces.service_interfaces_core import (
     CompressionServiceInterface, ServiceRequest, ServiceResponse,
     ServiceStatus, ServiceHealth
 )
 
 # Import hybrid p-adic components
-from .hybrid_padic_service_layer import (
+from hybrid_padic_service_layer import (
     HybridPadicServiceLayer, HybridServiceConfig, HybridServiceMethod
 )
 
 # Import existing p-adic service layer
-from .padic_service_layer import PadicServiceInterface, PadicServiceConfig, PadicServiceMethod
+from padic_service_layer import PadicServiceInterface, PadicServiceConfig, PadicServiceMethod
 
 
 class ServiceRoutingMethod(Enum):

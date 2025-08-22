@@ -16,19 +16,19 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import existing advanced features
-from .padic_advanced import (
+from padic_advanced import (
     HenselLiftingProcessor, HenselLiftingConfig,
     HierarchicalClusteringManager, ClusteringConfig,
     PadicOptimizationManager
 )
 
 # Import hybrid system components
-from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
-from .dynamic_switching_manager import DynamicSwitchingManager, CompressionMode
-from .hybrid_padic_compressor import HybridPadicCompressionSystem
+from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
+from dynamic_switching_manager import DynamicSwitchingManager, CompressionMode
+from hybrid_padic_compressor import HybridPadicCompressionSystem
 
 # Import performance optimizer
-from ...performance_optimizer import PerformanceOptimizer
+from performance_optimizer import PerformanceOptimizer
 
 
 class AdvancedFeatureType(Enum):

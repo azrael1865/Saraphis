@@ -30,17 +30,17 @@ try:
     from ..encoding.huffman_arithmetic import (
         HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
         CompressionMetrics
-    )
+    )  
     from .padic_logarithmic_encoder import LogarithmicPadicWeight
     from .padic_encoder import PadicWeight
 except ImportError:
     # Alternative import path
-    from compression_systems.encoding.huffman_arithmetic import (
+    from ..encoding.huffman_arithmetic import (
         HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
         CompressionMetrics
     )
-    from compression_systems.padic.padic_logarithmic_encoder import LogarithmicPadicWeight
-    from compression_systems.padic.padic_encoder import PadicWeight
+    from .padic_logarithmic_encoder import LogarithmicPadicWeight
+    from .padic_encoder import PadicWeight
 
 
 @dataclass
@@ -452,6 +452,10 @@ class EntropyPAdicBridge:
         
         # Convert to list
         digit_list = flat_tensor.cpu().tolist()
+        if self.prime > 256:
+            digit_list = [min(d, 255) for d in digit_list]
+        if self.prime > 256:
+            digit_list = [min(d, 255) for d in digit_list]
         
         # Analyze entropy
         start_time = time.perf_counter()

@@ -16,13 +16,13 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 from enum import Enum
 
 # Import GAC system components
-from ...gac_system.gac_types import DirectionState, DirectionType
-from ...gac_system.direction_state import DirectionStateManager, DirectionHistory
-from ...gac_system.enhanced_bounder import EnhancedGradientBounder, EnhancedBoundingResult
+from gac_system.gac_types import DirectionState, DirectionType
+from gac_system.direction_state import DirectionStateManager, DirectionHistory
+from gac_system.enhanced_bounder import EnhancedGradientBounder, EnhancedBoundingResult
 
 # Import direction system components
-from .direction_manager import DirectionManager
-from .dynamic_switching_manager import DynamicSwitchingManager
+from direction_manager import DirectionManager
+from dynamic_switching_manager import DynamicSwitchingManager
 
 
 class HybridBoundingStrategy(Enum):

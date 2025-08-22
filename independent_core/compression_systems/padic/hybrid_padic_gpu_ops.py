@@ -13,13 +13,13 @@ from typing import Dict, Any, Optional, Tuple, List, Union
 from dataclasses import dataclass
 import math
 
-from .hybrid_padic_structures import (
+from hybrid_padic_structures import (
     HybridPadicWeight, 
     HybridPadicValidator, 
     HybridPadicConverter, 
     HybridPadicManager
 )
-from .padic_encoder import PadicWeight, PadicValidation
+from padic_encoder import PadicWeight, PadicValidation
 
 
 @dataclass

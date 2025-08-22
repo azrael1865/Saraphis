@@ -15,11 +15,11 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 from enum import Enum
 
 # Import GAC system components
-from ...gac_system.gac_types import DirectionState, DirectionType
-from ...gac_system.direction_state import DirectionHistory
+from gac_system.gac_types import DirectionState, DirectionType
+from gac_system.direction_state import DirectionHistory
 
 # Import direction analysis components
-from .direction_analyzer import DirectionAnalyzer, DirectionPatternAnalysis, DirectionTrendAnalysis
+from direction_analyzer import DirectionAnalyzer, DirectionPatternAnalysis, DirectionTrendAnalysis
 
 
 class CoordinationStrategy(Enum):

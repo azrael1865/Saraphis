@@ -18,21 +18,21 @@ from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
 # Import service interfaces
-from ..service_interfaces.service_interfaces_core import (
+from service_interfaces.service_interfaces_core import (
     CompressionServiceInterface, ServiceRequest, ServiceResponse,
     ServiceStatus, ServiceHealth
 )
 
 # Import hybrid p-adic components
-from .hybrid_padic_structures import (
+from hybrid_padic_structures import (
     HybridPadicWeight, HybridPadicValidator, HybridPadicManager
 )
-from .hybrid_padic_compressor import (
+from hybrid_padic_compressor import (
     HybridPadicCompressionSystem, HybridPadicIntegrationManager
 )
 
 # Import existing p-adic service layer
-from .padic_service_layer import PadicServiceInterface, PadicServiceConfig, PadicServiceMethod
+from padic_service_layer import PadicServiceInterface, PadicServiceConfig, PadicServiceMethod
 
 
 class HybridServiceMethod(Enum):
