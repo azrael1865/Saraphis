@@ -33,9 +33,9 @@ class ReplicationManager:
         self.rpo_target = config.get('disaster_recovery_rpo', 3600)  # 1 hour
         self.rto_target = config.get('disaster_recovery_rto', 7200)  # 2 hours
         
-        # Replication nodes
-        self.replication_nodes = self._initialize_replication_nodes()
+        # Replication nodes - initialize node_status first
         self.node_status = {}
+        self.replication_nodes = self._initialize_replication_nodes()
         self.replication_queues = defaultdict(deque)
         
         # Replication metrics

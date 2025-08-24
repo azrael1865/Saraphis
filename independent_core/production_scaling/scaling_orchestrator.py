@@ -12,6 +12,11 @@ from typing import Dict, List, Any, Optional
 from collections import defaultdict, deque
 import json
 
+from .auto_scaling_engine import AutoScalingEngine
+from .auto_recovery_engine import AutoRecoveryEngine
+from .load_balancer import IntelligentLoadBalancer
+from .predictive_analytics import PredictiveScalingAnalytics
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,11 +34,6 @@ class ScalingOrchestrator:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Initialize sub-components
-        from .auto_scaling_engine import AutoScalingEngine
-        from .auto_recovery_engine import AutoRecoveryEngine
-        from .load_balancer import IntelligentLoadBalancer
-        from .predictive_analytics import PredictiveScalingAnalytics
-        
         self.scaling_engine = AutoScalingEngine(monitor, brain_system, agent_system)
         self.recovery_engine = AutoRecoveryEngine(monitor, self.scaling_engine)
         self.load_balancer = IntelligentLoadBalancer(monitor, self.scaling_engine)
@@ -401,8 +401,11 @@ class ScalingOrchestrator:
     def _monitor_operations(self):
         """Monitor ongoing operations and system state"""
         try:
-            # Check scaling performance
-            scaling_performance = self.scaling_engine.monitor_scaling_performance()
+            # Only monitor scaling performance if operations exist
+            scaling_performance = None
+            if (self.scaling_engine.scaling_metrics['systems']['total_scaling_operations'] > 0 or 
+                self.scaling_engine.scaling_metrics['agents']['total_scaling_operations'] > 0):
+                scaling_performance = self.scaling_engine.monitor_scaling_performance()
             
             # Check recovery performance
             recovery_performance = self.recovery_engine.monitor_recovery_performance()
@@ -414,7 +417,7 @@ class ScalingOrchestrator:
             prediction_accuracy = self.predictive_analytics.validate_prediction_accuracy()
             
             # Log summary if any issues
-            if scaling_performance.get('overall_efficiency', 1.0) < 0.95:
+            if scaling_performance and scaling_performance.get('overall_efficiency', 1.0) < 0.95:
                 self.logger.warning(f"Scaling efficiency below target: {scaling_performance['overall_efficiency']:.2%}")
             
             if not recovery_performance['overall'].get('meets_sla', True):
@@ -553,6 +556,24 @@ class ScalingOrchestrator:
             
             # Update load balancing after manual scaling
             self.load_balancer.optimize_load_distribution()
+            
+            # Record manual scaling as an orchestration operation  
+            end_time = datetime.now()
+            operation = {
+                'type': 'manual_scaling',
+                'timestamp': end_time,
+                'success': results['success'],
+                'details': {
+                    'systems_scaled': len(scaling_request.get('systems', {})),
+                    'agents_scaled': len(scaling_request.get('agents', {})),
+                    'total_time': (end_time - results['timestamp']).total_seconds()
+                },
+                'results': [{
+                    'type': 'manual_scaling',
+                    'result': results
+                }]
+            }
+            self._record_operation(operation)
             
             return results
             

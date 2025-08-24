@@ -489,7 +489,7 @@ class GACSystem:
                     self.config.get('direction_components', {})
                 )
                 self.component_registry.register_component(enhanced_wrapper)
-                self.component_registry.set_component_priority("enhanced_direction_bounder", 10)
+                # Priority handling would need to be added to ComponentRegistry if needed
                 logger.info("Enhanced Direction Bounder registered as GAC component")
             
         except Exception as e:

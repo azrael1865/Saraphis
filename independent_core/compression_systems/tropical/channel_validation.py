@@ -15,37 +15,20 @@ import zlib
 import time
 
 # Import existing tropical components
-try:
-    from independent_core.compression_systems.tropical.tropical_channel_extractor import (
-        TropicalChannels,
-        ExponentChannelConfig,
-        MantissaChannelConfig
-    )
-    from independent_core.compression_systems.tropical.tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial
-    )
-    from independent_core.compression_systems.tropical.tropical_core import (
-        TropicalNumber,
-        TROPICAL_ZERO,
-        TROPICAL_EPSILON
-    )
-except ImportError:
-    # For direct execution
-    from tropical_channel_extractor import (
-        TropicalChannels,
-        ExponentChannelConfig,
-        MantissaChannelConfig
-    )
-    from tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial
-    )
-    from tropical_core import (
-        TropicalNumber,
-        TROPICAL_ZERO,
-        TROPICAL_EPSILON
-    )
+from .tropical_channel_extractor import (
+    TropicalChannels,
+    ExponentChannelConfig,
+    MantissaChannelConfig
+)
+from .tropical_polynomial import (
+    TropicalPolynomial,
+    TropicalMonomial
+)
+from .tropical_core import (
+    TropicalNumber,
+    TROPICAL_ZERO,
+    TROPICAL_EPSILON
+)
 
 
 class ECCLevel(IntEnum):

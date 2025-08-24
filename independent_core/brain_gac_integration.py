@@ -18,7 +18,7 @@ from enum import Enum
 # Import GAC system components
 from gac_system.gac_types import DirectionState, DirectionType
 from gac_system.direction_state import DirectionStateManager, DirectionHistory
-from gac_system.gac_components import GACSystem
+from gac_system.gradient_ascent_clipping import GACSystem
 
 # Import compression system components
 from compression_systems.padic.hybrid_padic_compressor import HybridPadicCompressionSystem

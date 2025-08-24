@@ -233,7 +233,8 @@ class AgentManager:
                     'gradient_ascent_clipping',
                     'domain_specific_training',
                     'training_optimization',
-                    'model_validation'
+                    'model_validation',
+                    'adaptive_learning_rate'
                 ],
                 'communication_protocols': ['training_network', 'gradient_chain'],
                 'monitoring_hooks': ['training_progress', 'gradient_health', 'model_performance'],
@@ -280,7 +281,8 @@ class AgentManager:
                     'domain_state_management',
                     'domain_routing',
                     'domain_specific_processing',
-                    'domain_health_monitoring'
+                    'domain_health_monitoring',
+                    'domain_expertise'
                 ],
                 'communication_protocols': ['domain_network', 'routing_chain'],
                 'monitoring_hooks': ['domain_health', 'routing_efficiency', 'processing_performance'],
@@ -326,7 +328,8 @@ class AgentManager:
                     'gpu_memory_optimization',
                     'cpu_bursting_decompression',
                     'tensor_decomposition',
-                    'compression_optimization'
+                    'compression_optimization',
+                    'padic_compression'
                 ],
                 'communication_protocols': ['compression_network', 'gpu_chain'],
                 'monitoring_hooks': ['compression_ratio', 'decompression_speed', 'memory_usage'],
@@ -373,7 +376,8 @@ class AgentManager:
                     'auto_scaling',
                     'auto_recovery',
                     'load_balancing',
-                    'security_management'
+                    'security_management',
+                    'production_optimization'
                 ],
                 'communication_protocols': ['production_network', 'monitoring_chain'],
                 'monitoring_hooks': ['system_health', 'performance_metrics', 'security_status'],
@@ -421,7 +425,8 @@ class AgentManager:
                     'real_time_communication',
                     'api_gateway_management',
                     'user_interface_management',
-                    'frontend_backend_integration'
+                    'frontend_backend_integration',
+                    'web_server_management'
                 ],
                 'communication_protocols': ['web_network', 'api_chain', 'websocket'],
                 'monitoring_hooks': ['interface_performance', 'user_experience', 'api_health'],
@@ -465,12 +470,12 @@ class AgentManager:
     def get_management_metrics(self) -> Dict[str, Any]:
         """Get agent management metrics"""
         with self._lock:
-            return {
-                'metrics': self.management_metrics.copy(),
-                'template_usage': dict(self.management_metrics['template_usage']),
-                'creation_history_count': len(self.agent_creation_history),
-                'timestamp': datetime.now().isoformat()
-            }
+            # Return metrics in the format expected by tests
+            metrics = self.management_metrics.copy()
+            metrics['template_usage'] = dict(self.management_metrics['template_usage'])
+            metrics['creation_history_count'] = len(self.agent_creation_history)
+            metrics['timestamp'] = datetime.now().isoformat()
+            return metrics
     
     def _initialize_agent_templates(self) -> None:
         """Initialize agent templates for different specializations"""
@@ -478,6 +483,12 @@ class AgentManager:
             # Define base templates for each agent type
             self.agent_templates = {
                 'brain_orchestration': {
+                    'agent_type': 'brain_orchestration',
+                    'capabilities': ['orchestration', 'coordination', 'integration'],
+                    'communication_protocols': ['internal', 'cross_domain'],
+                    'monitoring_hooks': ['performance', 'health'],
+                    'security_level': 'high',
+                    'resource_limits': {'max_memory_mb': 512, 'max_cpu_percent': 50},
                     'base_capabilities': ['orchestration', 'coordination', 'integration'],
                     'base_communication': ['internal', 'cross_domain'],
                     'base_monitoring': ['performance', 'health'],

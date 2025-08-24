@@ -103,6 +103,8 @@ class StorageManager:
             
             with self._lock:
                 self.file_metadata[backup_id] = file_info
+                # Initialize access tracking for new files
+                self.access_tracking[backup_id] = {'count': 0, 'last_access': time.time()}
                 self._update_storage_metrics()
             
             # Record storage operation
@@ -385,10 +387,38 @@ class StorageManager:
     def _calculate_storage_usage(self) -> Dict[str, Any]:
         """Calculate detailed storage usage"""
         try:
-            # Get actual disk usage
-            hot_usage = self._get_directory_size(self.hot_storage_path)
-            warm_usage = self._get_directory_size(self.warm_storage_path)
-            cold_usage = self._get_directory_size(self.cold_storage_path)
+            # Calculate from metadata (primary source) and verify with disk usage
+            hot_usage_meta = 0
+            warm_usage_meta = 0  
+            cold_usage_meta = 0
+            
+            for file_info in self.file_metadata.values():
+                size_bytes = file_info.get('size_bytes', 0)
+                tier = file_info.get('storage_tier')
+                if tier == 'hot':
+                    hot_usage_meta += size_bytes
+                elif tier == 'warm':
+                    warm_usage_meta += size_bytes
+                elif tier == 'cold':
+                    cold_usage_meta += size_bytes
+            
+            # Verify against actual disk usage
+            hot_usage_disk = self._get_directory_size(self.hot_storage_path)
+            warm_usage_disk = self._get_directory_size(self.warm_storage_path)
+            cold_usage_disk = self._get_directory_size(self.cold_storage_path)
+            
+            # Use metadata as primary, but warn if mismatch
+            if (hot_usage_meta != hot_usage_disk or 
+                warm_usage_meta != warm_usage_disk or 
+                cold_usage_meta != cold_usage_disk):
+                self.logger.warning(
+                    f"Storage metadata mismatch: Meta({hot_usage_meta}, {warm_usage_meta}, {cold_usage_meta}) "
+                    f"vs Disk({hot_usage_disk}, {warm_usage_disk}, {cold_usage_disk})"
+                )
+            
+            hot_usage = hot_usage_meta
+            warm_usage = warm_usage_meta
+            cold_usage = cold_usage_meta
             
             total_usage = hot_usage + warm_usage + cold_usage
             
@@ -404,7 +434,7 @@ class StorageManager:
             
         except Exception as e:
             self.logger.error(f"Storage usage calculation failed: {e}")
-            return {}
+            raise RuntimeError(f"Storage usage calculation failed: {e}")
     
     def _get_directory_size(self, path: Path) -> int:
         """Get total size of directory in bytes"""
@@ -449,7 +479,7 @@ class StorageManager:
             
         except Exception as e:
             self.logger.error(f"Capacity check failed: {e}")
-            return {}
+            raise RuntimeError(f"Capacity check failed: {e}")
     
     def _verify_storage_integrity(self) -> Dict[str, Any]:
         """Verify storage file integrity"""
@@ -469,12 +499,16 @@ class StorageManager:
                     # Verify file is readable
                     try:
                         with open(file_path, 'rb') as f:
-                            # Read first and last 1KB to verify
+                            # Read first 1KB to verify
                             f.read(1024)
-                            f.seek(-1024, 2)
-                            f.read(1024)
+                            # For files larger than 1KB, also read last 1KB
+                            file_size = file_path.stat().st_size
+                            if file_size > 1024:
+                                f.seek(-1024, 2)
+                                f.read(1024)
                         verified_files += 1
-                    except:
+                    except Exception as e:
+                        self.logger.warning(f"File verification failed for {file_id}: {e}")
                         corrupted_files.append(file_id)
                 else:
                     corrupted_files.append(file_id)
@@ -838,7 +872,7 @@ class StorageManager:
                 
         except Exception as e:
             self.logger.error(f"Storage statistics calculation failed: {e}")
-            return {}
+            raise RuntimeError(f"Storage statistics calculation failed: {e}")
     
     def _analyze_access_patterns(self) -> Dict[str, Any]:
         """Analyze file access patterns"""
@@ -847,7 +881,7 @@ class StorageManager:
                 access_data = list(self.access_tracking.items())
             
             if not access_data:
-                return {}
+                raise RuntimeError("No access data available for pattern analysis")
             
             # Calculate access statistics
             access_counts = [data['count'] for _, data in access_data]
@@ -869,7 +903,7 @@ class StorageManager:
             
         except Exception as e:
             self.logger.error(f"Access pattern analysis failed: {e}")
-            return {}
+            raise RuntimeError(f"Access pattern analysis failed: {e}")
     
     def _calculate_access_distribution(self, access_counts: List[int]) -> Dict[str, int]:
         """Calculate access frequency distribution"""
@@ -922,7 +956,7 @@ class StorageManager:
             
         except Exception as e:
             self.logger.error(f"Storage cost calculation failed: {e}")
-            return {}
+            raise RuntimeError(f"Storage cost calculation failed: {e}")
     
     def _get_tiering_summary(self) -> Dict[str, Any]:
         """Get storage tiering summary"""
@@ -941,7 +975,7 @@ class StorageManager:
             
         except Exception as e:
             self.logger.error(f"Tiering summary generation failed: {e}")
-            return {}
+            raise RuntimeError(f"Tiering summary generation failed: {e}")
     
     def _generate_storage_recommendations(self, health: Dict[str, Any],
                                         stats: Dict[str, Any],

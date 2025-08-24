@@ -138,8 +138,9 @@ class AutoScalingEngine:
                 time.sleep(self.scale_check_interval)
                 
             except Exception as e:
-                self.logger.error(f"Scaling loop error: {e}")
-                # NO FALLBACK - Continue loop
+                self.logger.error(f"Scaling loop HARD FAILURE: {e}")
+                # HARD FAILURE - NO FALLBACKS
+                raise
     
     def analyze_scaling_requirements(self) -> Dict[str, Any]:
         """Analyze current scaling requirements"""
@@ -326,10 +327,9 @@ class AutoScalingEngine:
             return results
             
         except Exception as e:
-            self.logger.error(f"Failed to execute scaling: {e}")
-            results['success'] = False
-            results['errors'].append(str(e))
-            return results
+            self.logger.error(f"HARD FAILURE in scaling execution: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def _scale_up_component(self, component_type: str, item: Dict[str, Any]) -> Dict[str, Any]:
         """Scale up a single component"""
@@ -370,14 +370,9 @@ class AutoScalingEngine:
             }
             
         except Exception as e:
-            self.logger.error(f"Failed to scale up {item['name']}: {e}")
-            return {
-                'success': False,
-                'component': item['name'],
-                'type': component_type,
-                'action': 'scale_up',
-                'error': str(e)
-            }
+            self.logger.error(f"HARD FAILURE scaling up {item['name']}: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def _scale_down_component(self, component_type: str, item: Dict[str, Any]) -> Dict[str, Any]:
         """Scale down a single component"""
@@ -418,14 +413,9 @@ class AutoScalingEngine:
             }
             
         except Exception as e:
-            self.logger.error(f"Failed to scale down {item['name']}: {e}")
-            return {
-                'success': False,
-                'component': item['name'],
-                'type': component_type,
-                'action': 'scale_down',
-                'error': str(e)
-            }
+            self.logger.error(f"HARD FAILURE scaling down {item['name']}: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def predict_scaling_needs(self, time_horizon_minutes: int = 30) -> Dict[str, Any]:
         """Predict future scaling requirements"""
@@ -440,7 +430,8 @@ class AutoScalingEngine:
             for component_type in ['systems', 'agents']:
                 for name, history in self.workload_history.items():
                     if len(history) < 60:  # Need at least 1 hour of data
-                        continue
+                        # HARD FAILURE - insufficient data for predictions
+                        raise ValueError(f"Insufficient workload history for {name}: {len(history)} < 60 required")
                     
                     # Extract workload pattern
                     recent_loads = [h['load'] for h in list(history)[-60:]]
@@ -539,20 +530,12 @@ class AutoScalingEngine:
                 system_name = system['name']
                 target_instances = system['target_instances']
                 
-                # Validate target instances
+                # Validate target instances - HARD FAILURE for invalid targets
                 if target_instances < self.min_instances['systems']:
-                    results['failed_systems'].append({
-                        'name': system_name,
-                        'error': f'Target instances below minimum: {self.min_instances["systems"]}'
-                    })
-                    continue
+                    raise ValueError(f'HARD FAILURE: {system_name} target instances {target_instances} below minimum {self.min_instances["systems"]} - NO FALLBACKS')
                     
                 if target_instances > self.max_instances['systems']:
-                    results['failed_systems'].append({
-                        'name': system_name,
-                        'error': f'Target instances above maximum: {self.max_instances["systems"]}'
-                    })
-                    continue
+                    raise ValueError(f'HARD FAILURE: {system_name} target instances {target_instances} above maximum {self.max_instances["systems"]} - NO FALLBACKS')
                 
                 # Execute scaling
                 current = self.current_instances['systems'][system_name]
@@ -599,10 +582,9 @@ class AutoScalingEngine:
             return results
             
         except Exception as e:
-            self.logger.error(f"Failed to execute system scaling: {e}")
-            results['success'] = False
-            results['error'] = str(e)
-            return results
+            self.logger.error(f"HARD FAILURE in system scaling: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def execute_agent_scaling(self, agents_to_scale: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Execute scaling for specified agents"""
@@ -619,20 +601,12 @@ class AutoScalingEngine:
                 agent_name = agent['name']
                 target_instances = agent['target_instances']
                 
-                # Validate target instances
+                # Validate target instances - HARD FAILURE for invalid targets
                 if target_instances < self.min_instances['agents']:
-                    results['failed_agents'].append({
-                        'name': agent_name,
-                        'error': f'Target instances below minimum: {self.min_instances["agents"]}'
-                    })
-                    continue
+                    raise ValueError(f'HARD FAILURE: {agent_name} target instances {target_instances} below minimum {self.min_instances["agents"]} - NO FALLBACKS')
                     
                 if target_instances > self.max_instances['agents']:
-                    results['failed_agents'].append({
-                        'name': agent_name,
-                        'error': f'Target instances above maximum: {self.max_instances["agents"]}'
-                    })
-                    continue
+                    raise ValueError(f'HARD FAILURE: {agent_name} target instances {target_instances} above maximum {self.max_instances["agents"]} - NO FALLBACKS')
                 
                 # Execute scaling
                 current = self.current_instances['agents'][agent_name]
@@ -679,10 +653,9 @@ class AutoScalingEngine:
             return results
             
         except Exception as e:
-            self.logger.error(f"Failed to execute agent scaling: {e}")
-            results['success'] = False
-            results['error'] = str(e)
-            return results
+            self.logger.error(f"HARD FAILURE in agent scaling: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def validate_scaling_impact(self, operations: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Validate impact of scaling decisions"""
@@ -699,16 +672,21 @@ class AutoScalingEngine:
             # Validate each operation
             for operation in operations:
                 if not operation.get('success'):
-                    continue
+                    # HARD FAILURE - failed operations should not be silently skipped
+                    raise RuntimeError(f"Cannot validate failed operation: {operation}")
                 
                 component_name = operation['component']
                 component_type = operation['type']
                 
-                # Get current metrics
+                # Get current metrics - HARD FAILURE if monitor doesn't support required methods
                 if component_type == 'systems':
+                    if not hasattr(self.monitor, 'get_system_status'):
+                        raise AttributeError(f"Monitor must implement get_system_status() method - NO FALLBACKS")
                     status = self.monitor.get_system_status(component_name)
                     metrics = self._extract_scaling_metrics(status)
                 else:
+                    if not hasattr(self.monitor, 'get_agent_status'):
+                        raise AttributeError(f"Monitor must implement get_agent_status() method - NO FALLBACKS")
                     status = self.monitor.get_agent_status(component_name)
                     metrics = self._extract_agent_metrics(status)
                 
@@ -827,11 +805,20 @@ class AutoScalingEngine:
                 'recommendations': []
             }
             
+            # Check if any operations exist at all
+            total_operations = (self.scaling_metrics['systems']['total_scaling_operations'] +
+                              self.scaling_metrics['agents']['total_scaling_operations'])
+            
+            if total_operations == 0:
+                # HARD FAILURE - no operations to monitor
+                raise ValueError("No scaling operations recorded for any component type")
+            
             # Calculate metrics for each component type
             for component_type in ['systems', 'agents']:
                 metrics = self.scaling_metrics[component_type]
                 
                 if metrics['total_scaling_operations'] == 0:
+                    # Skip component types with no operations
                     continue
                 
                 success_rate = metrics['successful_scaling'] / metrics['total_scaling_operations']
@@ -919,7 +906,9 @@ class AutoScalingEngine:
                 })
                 
         except Exception as e:
-            self.logger.error(f"Failed to update workload history: {e}")
+            self.logger.error(f"HARD FAILURE updating workload history: {e}")
+            # NO FALLBACKS - HARD FAILURES ONLY
+            raise
     
     def _record_scaling_operation(self, requirements: Dict[str, Any], 
                                  results: Dict[str, Any], scaling_time: float):
@@ -937,7 +926,8 @@ class AutoScalingEngine:
         # Update metrics
         for operation in results.get('operations', []):
             if not operation.get('success'):
-                continue
+                # HARD FAILURE - failed operations should not be silently ignored
+                raise RuntimeError(f"Cannot record metrics for failed operation: {operation}")
                 
             component_type = operation['type']
             metrics = self.scaling_metrics[component_type]
@@ -980,7 +970,12 @@ class AutoScalingEngine:
                     'system_instances': dict(self.current_instances['systems']),
                     'agent_instances': dict(self.current_instances['agents'])
                 },
-                'performance_metrics': self.monitor_scaling_performance(),
+                'performance_metrics': (
+                    self.monitor_scaling_performance() 
+                    if (self.scaling_metrics['systems']['total_scaling_operations'] > 0 or 
+                        self.scaling_metrics['agents']['total_scaling_operations'] > 0) 
+                    else None
+                ),
                 'recommendations': []
             }
             
@@ -1010,6 +1005,12 @@ class AutoScalingEngine:
     
     def get_scaling_status(self) -> Dict[str, Any]:
         """Get current scaling status"""
+        # Only include performance if operations exist
+        performance = None
+        if (self.scaling_metrics['systems']['total_scaling_operations'] > 0 or 
+            self.scaling_metrics['agents']['total_scaling_operations'] > 0):
+            performance = self.monitor_scaling_performance()
+        
         return {
             'is_running': self.is_running,
             'current_instances': {
@@ -1021,7 +1022,7 @@ class AutoScalingEngine:
                 'scale_down': self.scale_down_thresholds
             },
             'recent_operations': list(self.scaling_history)[-10:],
-            'performance': self.monitor_scaling_performance()
+            'performance': performance
         }
     
     def stop_auto_scaling(self) -> Dict[str, Any]:
@@ -1029,11 +1030,14 @@ class AutoScalingEngine:
         with self._lock:
             self.is_running = False
             
-            # Shutdown executor
-            self.executor.shutdown(wait=True, timeout=5.0)
+            # Shutdown executor (timeout parameter not supported in older Python versions)
+            self.executor.shutdown(wait=True)
             
-            # Generate final report
-            final_metrics = self.monitor_scaling_performance()
+            # Generate final report (only if operations exist)
+            final_metrics = None
+            if (self.scaling_metrics['systems']['total_scaling_operations'] > 0 or 
+                self.scaling_metrics['agents']['total_scaling_operations'] > 0):
+                final_metrics = self.monitor_scaling_performance()
             
             self.logger.info("Auto-Scaling Engine stopped")
             return {

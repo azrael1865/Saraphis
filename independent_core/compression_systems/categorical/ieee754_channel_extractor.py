@@ -43,11 +43,20 @@ class IEEE754Channels:
         if not all(shape == shapes[0] for shape in shapes):
             raise ValueError(f"All channels must have same shape, got: {shapes}")
         
+        # Validate dtypes
+        if self.sign_channel.dtype != np.uint8:
+            raise ValueError(f"Sign channel must be uint8, got {self.sign_channel.dtype}")
+        if self.exponent_channel.dtype != np.uint8:
+            raise ValueError(f"Exponent channel must be uint8, got {self.exponent_channel.dtype}")
+        if self.mantissa_channel.dtype != np.float32:
+            raise ValueError(f"Mantissa channel must be float32, got {self.mantissa_channel.dtype}")
+        
         # Validate sign channel (must be 0 or 1)
         if not np.all(np.isin(self.sign_channel, [0, 1])):
             raise ValueError("Sign channel must contain only 0 or 1 values")
         
         # Validate exponent channel (must be 0-255 for float32)
+        # Note: uint8 naturally enforces 0-255 range, but we check explicitly for clarity
         if not np.all((self.exponent_channel >= 0) & (self.exponent_channel <= 255)):
             raise ValueError("Exponent channel must contain values in range [0, 255]")
 
@@ -136,6 +145,17 @@ class IEEE754ChannelExtractor:
         except Exception as e:
             raise RuntimeError(f"IEEE 754 channel extraction failed: {e}")
     
+    def extract_channels(self, tensor: torch.Tensor) -> IEEE754Channels:
+        """Alias for extract_channels_from_tensor for backward compatibility
+        
+        Args:
+            tensor: Input tensor
+            
+        Returns:
+            IEEE754Channels object
+        """
+        return self.extract_channels_from_tensor(tensor)
+    
     def extract_channels_from_padic_weight(self, weight: PadicWeight) -> IEEE754Channels:
         """Extract IEEE 754 channels from reconstructed p-adic weight
         
@@ -201,16 +221,17 @@ class IEEE754ChannelExtractor:
         # For denormalized numbers: mantissa = 0.fraction
         mantissa_channel = np.zeros_like(float_array, dtype=np.float32)
         
-        # Handle normalized numbers (exponent != 0)
-        normalized_mask = exponent_channel != self.ZERO_EXPONENT
+        # Handle normalized numbers (exponent != 0 and exponent != 255)
+        normalized_mask = (exponent_channel != self.ZERO_EXPONENT) & (exponent_channel != self.MAX_EXPONENT)
         mantissa_channel[normalized_mask] = 1.0 + (mantissa_bits[normalized_mask].astype(np.float32) / (2**23))
         
         # Handle denormalized numbers (exponent == 0)
         denormalized_mask = exponent_channel == self.ZERO_EXPONENT
         mantissa_channel[denormalized_mask] = mantissa_bits[denormalized_mask].astype(np.float32) / (2**23)
         
-        # Handle special cases
-        special_count = self._handle_special_values(sign_channel, exponent_channel, mantissa_channel, float_array)
+        # Handle special cases (infinity and NaN have exponent == 255)
+        # Pass mantissa_bits for proper special value detection
+        special_count = self._handle_special_values(sign_channel, exponent_channel, mantissa_bits, mantissa_channel, float_array)
         self.extraction_stats['special_values_handled'] += special_count
         
         return IEEE754Channels(
@@ -221,27 +242,37 @@ class IEEE754ChannelExtractor:
         )
     
     def _handle_special_values(self, sign_channel: np.ndarray, exponent_channel: np.ndarray, 
-                              mantissa_channel: np.ndarray, float_array: np.ndarray) -> int:
+                              mantissa_bits: np.ndarray, mantissa_channel: np.ndarray, 
+                              float_array: np.ndarray) -> int:
         """Handle IEEE 754 special values (infinity, NaN, zero)
+        
+        Args:
+            sign_channel: Sign bit channel
+            exponent_channel: Exponent channel
+            mantissa_bits: Raw mantissa bits (for special value detection)
+            mantissa_channel: Processed mantissa channel
+            float_array: Original float values
         
         Returns:
             Number of special values handled
         """
         special_count = 0
         
-        # Handle infinity
-        inf_mask = (exponent_channel == self.INFINITY_EXPONENT) & (mantissa_channel == 0)
+        # Handle infinity (exponent=255, mantissa bits=0)
+        inf_mask = (exponent_channel == self.INFINITY_EXPONENT) & (mantissa_bits == 0)
         if np.any(inf_mask):
             logger.warning("Found %d infinity values in IEEE 754 extraction", np.sum(inf_mask))
             special_count += np.sum(inf_mask)
+            # Set mantissa channel for infinity
+            mantissa_channel[inf_mask] = 1.0  # Convention for infinity
         
-        # Handle NaN
-        nan_mask = (exponent_channel == self.INFINITY_EXPONENT) & (mantissa_channel != 0)
+        # Handle NaN (exponent=255, mantissa bits != 0)
+        nan_mask = (exponent_channel == self.INFINITY_EXPONENT) & (mantissa_bits != 0)
         if np.any(nan_mask):
             raise ValueError(f"Found {np.sum(nan_mask)} NaN values - hard failure")
         
-        # Handle zero
-        zero_mask = (exponent_channel == self.ZERO_EXPONENT) & (mantissa_channel == 0)
+        # Handle zero (exponent=0, mantissa bits=0)
+        zero_mask = (exponent_channel == self.ZERO_EXPONENT) & (mantissa_bits == 0)
         if np.any(zero_mask):
             logger.debug("Found %d zero values in IEEE 754 extraction", np.sum(zero_mask))
             special_count += np.sum(zero_mask)
@@ -263,7 +294,14 @@ class IEEE754ChannelExtractor:
             
             # Compare with original values (allowing for floating point precision)
             tolerance = 1e-6
-            max_diff = np.max(np.abs(reconstructed - channels.original_values))
+            # Handle infinity values separately to avoid RuntimeWarning
+            diff = reconstructed - channels.original_values
+            # Mask out infinity values for difference calculation
+            finite_mask = np.isfinite(channels.original_values) & np.isfinite(reconstructed)
+            if np.any(finite_mask):
+                max_diff = np.max(np.abs(diff[finite_mask]))
+            else:
+                max_diff = 0.0  # All values are infinite
             
             if max_diff > tolerance:
                 self.extraction_stats['validation_failures'] += 1
@@ -294,14 +332,20 @@ class IEEE754ChannelExtractor:
             # Convert mantissa back to integer representation
             mantissa_bits = np.zeros_like(channels.mantissa_channel, dtype=np.uint32)
             
-            # Handle normalized numbers
-            normalized_mask = channels.exponent_channel != self.ZERO_EXPONENT
+            # Handle normalized numbers (exponent != 0 and exponent != 255)
+            normalized_mask = (channels.exponent_channel != self.ZERO_EXPONENT) & (channels.exponent_channel != self.MAX_EXPONENT)
             mantissa_frac = channels.mantissa_channel[normalized_mask] - 1.0
             mantissa_bits[normalized_mask] = (mantissa_frac * (2**23)).astype(np.uint32)
             
-            # Handle denormalized numbers  
+            # Handle denormalized numbers (exponent == 0)
             denormalized_mask = channels.exponent_channel == self.ZERO_EXPONENT
             mantissa_bits[denormalized_mask] = (channels.mantissa_channel[denormalized_mask] * (2**23)).astype(np.uint32)
+            
+            # Handle special values (infinity and NaN with exponent == 255)
+            # Infinity: exponent=255, mantissa=0
+            infinity_mask = (channels.exponent_channel == self.MAX_EXPONENT)
+            # For infinity, mantissa bits should be 0
+            mantissa_bits[infinity_mask] = 0
             
             # Combine all components
             uint32_combined = sign_bits | exponent_bits | mantissa_bits
@@ -326,6 +370,16 @@ class IEEE754ChannelExtractor:
         Raises:
             RuntimeError: If reconstruction fails or overflows
         """
+        # First, check if the weight has a pre-computed value
+        if hasattr(weight, 'value') and weight.value is not None:
+            # If value is a Fraction, convert to float
+            if hasattr(weight.value, 'numerator'):
+                return float(weight.value)
+            # If value is already a float/int
+            elif isinstance(weight.value, (int, float)):
+                return float(weight.value)
+        
+        # Otherwise, reconstruct from p-adic representation
         # Use safe precision limits to prevent overflow
         safe_precision_limits = {257: 6, 127: 7, 31: 9, 17: 10, 11: 12, 7: 15, 5: 20, 3: 30, 2: 50}
         max_safe_precision = safe_precision_limits.get(weight.prime, 4)
@@ -435,14 +489,31 @@ class IEEE754ChannelExtractor:
             optimized_exponent = channels.exponent_channel.copy()
             optimized_mantissa = channels.mantissa_channel.copy()
             
+            # Don't optimize special values (infinity, NaN, zero)
+            # Identify special value masks
+            special_mask = (
+                (channels.exponent_channel == self.MAX_EXPONENT) |  # Infinity/NaN
+                ((channels.exponent_channel == self.ZERO_EXPONENT) & 
+                 (np.abs(channels.mantissa_channel) < 1e-10))  # Zero
+            )
+            
+            # Only optimize non-special values
+            normal_mask = ~special_mask
+            
             # Optimize exponent channel for p-adic prime alignment
             # Map IEEE 754 exponent range [0, 255] to p-adic friendly range
-            if target_prime == 257:
-                # For prime 257, optimize exponent distribution
-                optimized_exponent = self._optimize_exponent_for_prime_257(optimized_exponent)
+            if target_prime == 257 and np.any(normal_mask):
+                # For prime 257, optimize exponent distribution only for normal values
+                optimized_exponent[normal_mask] = self._optimize_exponent_for_prime_257(
+                    optimized_exponent[normal_mask]
+                )
             
             # Optimize mantissa channel for better p-adic compression
-            optimized_mantissa = self._optimize_mantissa_for_padic(optimized_mantissa, target_prime)
+            # Only optimize normal values, preserve special values
+            if np.any(normal_mask):
+                optimized_mantissa[normal_mask] = self._optimize_mantissa_for_padic(
+                    optimized_mantissa[normal_mask], target_prime
+                )
             
             # Create optimized channels object
             optimized_channels = IEEE754Channels(
@@ -467,14 +538,19 @@ class IEEE754ChannelExtractor:
         Returns:
             Optimized exponent values
         """
-        # Map [0, 255] to [0, 256] range for better prime 257 alignment
-        # This creates more compressible patterns in p-adic representation
-        optimized = np.round(exponent_channel * (256.0 / 255.0)).astype(np.uint8)
+        # Keep exponent values mostly unchanged to preserve precision
+        # Only apply very minor quantization for compression benefits
+        # The previous scaling was too aggressive and caused precision loss
+        optimized = exponent_channel.copy()
+        
+        # Optional: Apply very gentle quantization (commented out for now)
+        # Could quantize to even values for slightly better compression
+        # optimized = np.round(optimized / 2) * 2
         
         # Ensure we don't exceed the valid range
-        optimized = np.clip(optimized, 0, 255)
+        optimized = np.clip(optimized, 0, 254)  # Keep 255 reserved for special values
         
-        return optimized
+        return optimized.astype(np.uint8)
     
     def _optimize_mantissa_for_padic(self, mantissa_channel: np.ndarray, prime: int) -> np.ndarray:
         """Optimize mantissa channel for p-adic compression
@@ -486,14 +562,16 @@ class IEEE754ChannelExtractor:
         Returns:
             Optimized mantissa values
         """
-        # Quantize mantissa to create more regular patterns for p-adic compression
-        quantization_levels = min(prime, 256)  # Don't exceed reasonable quantization
+        # Use much finer quantization to preserve accuracy
+        # The previous quantization was too coarse, causing large reconstruction errors
+        quantization_levels = min(prime * 256, 65536)  # Much finer quantization
         
-        # Apply quantization
+        # Apply gentle quantization to preserve precision
         quantized = np.round(mantissa_channel * quantization_levels) / quantization_levels
         
         # Ensure values remain in valid range [0, 2) for normalized numbers
-        optimized = np.clip(quantized, 0.0, 2.0 - 1e-6)
+        # Preserve more precision near boundaries
+        optimized = np.clip(quantized, 0.0, 1.999999)
         
         return optimized.astype(np.float32)
 

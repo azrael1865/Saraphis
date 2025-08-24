@@ -237,6 +237,25 @@ class LoadBalancer:
     def distribute_request(self, request: Dict[str, Any], service: str) -> Dict[str, Any]:
         """Distribute request to appropriate endpoint using load balancing"""
         try:
+            # Validate input parameters
+            if request is None:
+                return {
+                    'success': False,
+                    'details': 'Request cannot be None'
+                }
+            
+            if not isinstance(request, dict):
+                return {
+                    'success': False,
+                    'details': f'Request must be a dictionary, got {type(request)}'
+                }
+            
+            if not isinstance(service, str) or not service:
+                return {
+                    'success': False,
+                    'details': 'Service must be a non-empty string'
+                }
+            
             # Get available endpoints for service
             available_endpoints = self._get_available_endpoints(service)
             if not available_endpoints:
@@ -378,7 +397,7 @@ class LoadBalancer:
                 
         except Exception as e:
             self.logger.error(f"Endpoint selection failed: {e}")
-            return endpoints[0] if endpoints else None
+            raise RuntimeError(f"Critical endpoint selection failure: {e}")
     
     def _round_robin_selection(self, endpoints: List[str], service: str) -> str:
         """Round-robin endpoint selection"""
@@ -390,7 +409,7 @@ class LoadBalancer:
             
         except Exception as e:
             self.logger.error(f"Round-robin selection failed: {e}")
-            return endpoints[0]
+            raise RuntimeError(f"Critical round-robin selection failure: {e}")
     
     def _weighted_round_robin_selection(self, endpoints: List[str], service: str) -> str:
         """Weighted round-robin endpoint selection"""
@@ -410,7 +429,7 @@ class LoadBalancer:
             
         except Exception as e:
             self.logger.error(f"Weighted round-robin selection failed: {e}")
-            return endpoints[0]
+            raise RuntimeError(f"Critical weighted round-robin selection failure: {e}")
     
     def _least_connections_selection(self, endpoints: List[str]) -> str:
         """Least connections endpoint selection"""
@@ -429,7 +448,7 @@ class LoadBalancer:
             
         except Exception as e:
             self.logger.error(f"Least connections selection failed: {e}")
-            return endpoints[0]
+            raise RuntimeError(f"Critical least connections selection failure: {e}")
     
     def _least_response_time_selection(self, endpoints: List[str]) -> str:
         """Least response time endpoint selection"""
@@ -446,11 +465,15 @@ class LoadBalancer:
             
         except Exception as e:
             self.logger.error(f"Least response time selection failed: {e}")
-            return endpoints[0]
+            raise RuntimeError(f"Critical least response time selection failure: {e}")
     
     def _ip_hash_selection(self, endpoints: List[str], request: Dict[str, Any]) -> str:
         """IP hash-based endpoint selection"""
         try:
+            # Validate request is a dict
+            if not isinstance(request, dict):
+                raise ValueError(f"IP hash requires dict request, got {type(request)}")
+                
             # Extract client IP
             client_ip = request.get('client_ip', request.get('headers', {}).get('X-Forwarded-For', '0.0.0.0'))
             
@@ -462,11 +485,15 @@ class LoadBalancer:
             
         except Exception as e:
             self.logger.error(f"IP hash selection failed: {e}")
-            return endpoints[0]
+            raise RuntimeError(f"Critical IP hash selection failure: {e}")
     
     def _get_session_endpoint(self, request: Dict[str, Any], service: str) -> Optional[str]:
         """Get endpoint for sticky session"""
         try:
+            # Validate request is a dict with get method
+            if not isinstance(request, dict):
+                return None
+                
             session_id = request.get('session_id')
             if not session_id:
                 return None
@@ -494,7 +521,8 @@ class LoadBalancer:
             self.connection_counts[endpoint] += 1
             
             # Update session mapping if sticky sessions enabled
-            if self.sticky_sessions and request.get('session_id'):
+            if (self.sticky_sessions and isinstance(request, dict) and 
+                request.get('session_id')):
                 self.session_mappings[request['session_id']] = {
                     'endpoint': endpoint,
                     'timestamp': time.time()

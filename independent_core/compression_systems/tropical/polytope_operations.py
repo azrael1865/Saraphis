@@ -14,25 +14,14 @@ from collections import defaultdict
 import itertools
 
 # Import existing tropical operations
-try:
-    from independent_core.compression_systems.tropical.tropical_core import (
-        TROPICAL_EPSILON,
-        TropicalValidation
-    )
-    from independent_core.compression_systems.tropical.tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial
-    )
-except ImportError:
-    # For direct execution
-    from tropical_core import (
-        TROPICAL_EPSILON,
-        TropicalValidation
-    )
-    from tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial
-    )
+from .tropical_core import (
+    TROPICAL_EPSILON,
+    TropicalValidation
+)
+from .tropical_polynomial import (
+    TropicalPolynomial,
+    TropicalMonomial
+)
 
 
 @dataclass
@@ -51,20 +40,25 @@ class Polytope:
     
     def __post_init__(self):
         """Validate polytope on creation"""
+        # Check types first before using values
+        if not isinstance(self.dimension, int):
+            raise TypeError(f"Dimension must be int, got {type(self.dimension)}")
+        if not isinstance(self.is_bounded, bool):
+            raise TypeError(f"is_bounded must be bool, got {type(self.is_bounded)}")
         if not isinstance(self.vertices, torch.Tensor):
             raise TypeError(f"Vertices must be torch.Tensor, got {type(self.vertices)}")
+        
+        # Check dimension value
+        if self.dimension <= 0:
+            raise ValueError(f"Dimension must be positive, got {self.dimension}")
+        
+        # Check vertices shape and content
         if self.vertices.dim() != 2:
             raise ValueError(f"Vertices must be 2D tensor, got shape {self.vertices.shape}")
         if self.vertices.shape[0] == 0:
             raise ValueError("Polytope must have at least one vertex")
         if self.vertices.shape[1] != self.dimension:
             raise ValueError(f"Vertex dimension {self.vertices.shape[1]} doesn't match polytope dimension {self.dimension}")
-        if not isinstance(self.dimension, int):
-            raise TypeError(f"Dimension must be int, got {type(self.dimension)}")
-        if self.dimension <= 0:
-            raise ValueError(f"Dimension must be positive, got {self.dimension}")
-        if not isinstance(self.is_bounded, bool):
-            raise TypeError(f"is_bounded must be bool, got {type(self.is_bounded)}")
         
         # Check for NaN or infinity
         if torch.isnan(self.vertices).any():
@@ -217,7 +211,17 @@ class Polytope:
         
         facets = []
         
-        if self.dimension == 2:
+        if self.dimension == 1:
+            # 1D case - facets are the endpoints
+            min_val = self.vertices.min().item()
+            max_val = self.vertices.max().item()
+            
+            # Left boundary: x >= min_val  => -x <= -min_val
+            facets.append((torch.tensor([-1.0], device=self.vertices.device), -min_val))
+            # Right boundary: x <= max_val
+            facets.append((torch.tensor([1.0], device=self.vertices.device), max_val))
+        
+        elif self.dimension == 2:
             # 2D case - compute edge normals pointing outward
             n_vertices = self.vertices.shape[0]
             
@@ -479,8 +483,20 @@ class Polytope:
     
     def pin_memory(self) -> 'Polytope':
         """Pin memory for faster GPU transfer"""
+        # pin_memory only works for CPU tensors going to CUDA
+        if self.vertices.device.type != 'cpu':
+            # Already on a device, return self
+            return self
+        
+        # Check if pin_memory is supported (not on MPS backend)
+        try:
+            pinned_vertices = self.vertices.pin_memory()
+        except (RuntimeError, NotImplementedError):
+            # pin_memory not supported on this platform, return self
+            return self
+        
         return Polytope(
-            vertices=self.vertices.pin_memory(),
+            vertices=pinned_vertices,
             dimension=self.dimension,
             is_bounded=self.is_bounded
         )
@@ -547,6 +563,17 @@ class PolytopeOperations:
     
     def _convex_hull_2d(self, points: torch.Tensor) -> Polytope:
         """Compute 2D convex hull using Graham scan"""
+        n_points = points.shape[0]
+        
+        # Remove duplicate points
+        unique_points, _ = torch.unique(points, dim=0, return_inverse=True)
+        
+        # Check if all points are the same (degenerate case)
+        if unique_points.shape[0] == 1:
+            return Polytope(unique_points, dimension=2, is_bounded=True)
+        
+        # Use unique points for hull computation
+        points = unique_points
         n_points = points.shape[0]
         
         # Find starting point (lowest y, then leftmost x)

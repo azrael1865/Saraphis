@@ -462,13 +462,76 @@ class TaskDistributor:
         
         return list(set(task_types))
     
+    def _update_agent_load_internal(self, agent_id: str, load_delta: int) -> bool:
+        """Update agent load without acquiring locks (caller must hold locks)"""
+        if agent_id not in self.agent_load:
+            return False
+        
+        # Update load
+        current_load = self.agent_load[agent_id]['current_load']
+        new_load = max(0, current_load + load_delta)
+        max_load = self.agent_load[agent_id]['max_load']
+        
+        self.agent_load[agent_id]['current_load'] = new_load
+        self.agent_load[agent_id]['load_percentage'] = (new_load / max_load) * 100
+        
+        # Update availability based on load
+        if agent_id in self.agent_capabilities:
+            self.agent_capabilities[agent_id]['availability'] = new_load < max_load
+        
+        return True
+
+    def complete_task(self, agent_id: str, task_id: str = None) -> Dict[str, Any]:
+        """Mark a task as completed and reduce agent load"""
+        try:
+            return self.update_agent_load(agent_id, -1)
+        except Exception as e:
+            self.logger.error(f"Task completion failed: {e}")
+            return {
+                'success': False,
+                'error': f'Task completion failed: {str(e)}'
+            }
+
+    def reset_agent_loads(self) -> Dict[str, Any]:
+        """Reset all agent loads to zero (for testing or recovery)"""
+        try:
+            with self._lock:
+                reset_count = 0
+                for agent_id in self.agent_load:
+                    self.agent_load[agent_id]['current_load'] = 0
+                    self.agent_load[agent_id]['load_percentage'] = 0.0
+                    
+                    # Update availability
+                    if agent_id in self.agent_capabilities:
+                        self.agent_capabilities[agent_id]['availability'] = True
+                    
+                    reset_count += 1
+            
+            self.logger.info(f"Reset loads for {reset_count} agents")
+            return {
+                'success': True,
+                'agents_reset': reset_count
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Agent load reset failed: {e}")
+            return {
+                'success': False,
+                'error': f'Load reset failed: {str(e)}'
+            }
+
     def _calculate_agent_max_load(self, agent: Any) -> int:
         """Calculate maximum load for agent based on resources"""
         try:
             # Get agent resource limits
             resource_limits = agent.config.get('resource_limits', {})
             
-            # Base load on CPU and memory limits
+            # If max_concurrent_tasks is explicitly configured, use it directly
+            configured_max = resource_limits.get('max_concurrent_tasks')
+            if configured_max is not None:
+                return max(1, configured_max)  # Ensure at least 1
+            
+            # Otherwise calculate based on CPU and memory limits
             max_cpu = resource_limits.get('max_cpu_percent', 50)
             max_memory = resource_limits.get('max_memory_mb', 512)
             
@@ -480,10 +543,7 @@ class TaskDistributor:
             # Take the minimum to be conservative
             max_load = max(1, min(cpu_based_limit, memory_based_limit))
             
-            # Apply configured maximum if available
-            configured_max = resource_limits.get('max_concurrent_tasks', max_load)
-            
-            return min(max_load, configured_max)
+            return max_load
             
         except Exception as e:
             self.logger.error(f"Failed to calculate agent max load: {e}")
@@ -493,7 +553,7 @@ class TaskDistributor:
     
     def _round_robin_distribution(self, task_type: str, task_data: Dict[str, Any]) -> Optional[Any]:
         """Round-robin task distribution"""
-        with self._agent_lock:
+        with self._lock:
             available_agents = [
                 (agent_id, agent) for agent_id, agent in self.registered_agents.items()
                 if self.agent_capabilities.get(agent_id, {}).get('availability', False)
@@ -508,14 +568,14 @@ class TaskDistributor:
             
             agent_id, agent = available_agents[selected_index]
             
-            # Update load
-            self.update_agent_load(agent_id, 1)
+            # Update load internally
+            self._update_agent_load_internal(agent_id, 1)
             
             return agent
     
     def _load_balanced_distribution(self, task_type: str, task_data: Dict[str, Any]) -> Optional[Any]:
         """Load-balanced task distribution"""
-        with self._agent_lock:
+        with self._lock:
             # Get agents that can handle this task type
             capable_agents = []
             
@@ -538,16 +598,17 @@ class TaskDistributor:
             # Select least loaded agent
             selected = capable_agents[0]
             
-            # Update load
-            self.update_agent_load(selected['agent_id'], 1)
+            # Update load internally
+            self._update_agent_load_internal(selected['agent_id'], 1)
             
             return selected['agent']
     
     def _capability_based_distribution(self, task_type: str, task_data: Dict[str, Any]) -> Optional[Any]:
         """Capability-based task distribution"""
-        with self._agent_lock:
+        with self._lock:
             # Find agents with required capabilities
             best_agent = None
+            best_agent_id = None
             best_score = 0
             
             for agent_id, capabilities in self.agent_capabilities.items():
@@ -568,10 +629,11 @@ class TaskDistributor:
                     if score > best_score:
                         best_score = score
                         best_agent = self.registered_agents[agent_id]
+                        best_agent_id = agent_id
             
             if best_agent:
-                # Update load
-                self.update_agent_load(best_agent.agent_id, 1)
+                # Update load internally
+                self._update_agent_load_internal(best_agent_id, 1)
             
             return best_agent
     
@@ -579,7 +641,7 @@ class TaskDistributor:
         """Priority-based task distribution"""
         priority = task_data.get('priority', 'normal')
         
-        with self._agent_lock:
+        with self._lock:
             # Get agents sorted by priority handling capability
             priority_agents = []
             
@@ -602,6 +664,7 @@ class TaskDistributor:
                     
                     priority_agents.append({
                         'agent': agent,
+                        'agent_id': agent_id,
                         'score': priority_score
                     })
             
@@ -612,15 +675,16 @@ class TaskDistributor:
             priority_agents.sort(key=lambda x: x['score'], reverse=True)
             
             selected_agent = priority_agents[0]['agent']
+            selected_agent_id = priority_agents[0]['agent_id']
             
-            # Update load
-            self.update_agent_load(selected_agent.agent_id, 1)
+            # Update load internally
+            self._update_agent_load_internal(selected_agent_id, 1)
             
             return selected_agent
     
     def _affinity_based_distribution(self, task_type: str, task_data: Dict[str, Any]) -> Optional[Any]:
         """Affinity-based task distribution"""
-        with self._agent_lock:
+        with self._lock:
             # Check task affinity history
             preferred_agents = self.task_affinity.get(task_type, [])
             
@@ -635,13 +699,13 @@ class TaskDistributor:
                         # Update affinity score
                         agent_entry['score'] = min(1.0, agent_entry['score'] * 1.1)
                         
-                        # Update load
-                        self.update_agent_load(agent_id, 1)
+                        # Update load internally
+                        self._update_agent_load_internal(agent_id, 1)
                         
                         return agent
-            
-            # Fall back to capability-based distribution
-            return self._capability_based_distribution(task_type, task_data)
+        
+        # Fall back to capability-based distribution (outside lock)
+        return self._capability_based_distribution(task_type, task_data)
     
     def _update_distribution_metrics(self, strategy: str, distribution_time: float, 
                                    success: bool) -> None:

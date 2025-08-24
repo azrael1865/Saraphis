@@ -164,7 +164,7 @@ class SequentialPatternMiner:
         # Add 1-patterns
         for item in frequent_items:
             support = item_counts[item]
-            confidence = support / len(sequences)
+            confidence = min(1.0, support / len(sequences))  # Ensure confidence doesn't exceed 1.0
             if confidence >= self.min_confidence:
                 patterns.append(SequentialPattern([item], support, confidence, 1))
         
@@ -183,7 +183,7 @@ class SequentialPatternMiner:
             for candidate in candidates:
                 support = self._count_subsequence_support(candidate, sequences)
                 if support >= self.min_support:
-                    confidence = support / len(sequences)
+                    confidence = min(1.0, support / len(sequences))  # Ensure confidence doesn't exceed 1.0
                     if confidence >= self.min_confidence:
                         patterns.append(SequentialPattern(candidate, support, confidence, length))
                         next_patterns.append(candidate)
@@ -277,7 +277,7 @@ class AssociationRuleMiner:
             for r in range(1, len(itemset)):
                 for antecedent in combinations(itemset, r):
                     antecedent_set = set(antecedent)
-                    consequent_set = itemset - antecedent_set
+                    consequent_set = set(itemset - antecedent_set)
                     
                     # Calculate metrics
                     rule_support = support
@@ -399,7 +399,8 @@ class ClusteringPatternMiner:
         # Extract features
         features = self._extract_features(execution_data)
         if not features:
-            raise ValueError("No features could be extracted from execution data")
+            # No features could be extracted, return empty patterns
+            return []
         
         # Perform k-means clustering
         clusters = self._kmeans_clustering(features)
@@ -880,10 +881,11 @@ class PatternMiningEngine:
         context_groups = defaultdict(list)
         
         for item in execution_data:
-            # Create context signature
+            # Create context signature based on key-value pairs
             context = item.get('context', {})
-            context_keys = tuple(sorted(context.keys()))
-            context_groups[context_keys].append(item)
+            # Create a hashable signature from context
+            context_signature = tuple(sorted((k, v) for k, v in context.items() if isinstance(v, (str, int, float, bool))))
+            context_groups[context_signature].append(item)
         
         # Create transactions from each context group
         for group in context_groups.values():

@@ -56,6 +56,10 @@ class AutoRecoveryEngine:
             'by_strategy': defaultdict(lambda: {'attempts': 0, 'successes': 0})
         })
         
+        # Initialize component type metrics
+        for component_type in ['system', 'agent']:
+            _ = self.recovery_metrics[component_type]  # Trigger defaultdict creation
+        
         # Dependency map for cross-system recovery
         self.system_dependencies = {
             'brain_orchestration': ['uncertainty_system', 'proof_system'],
@@ -923,7 +927,7 @@ class AutoRecoveryEngine:
             
             # Performance by component type
             for component_type in ['system', 'agent']:
-                type_metrics = self.recovery_metrics.get(component_type, {})
+                type_metrics = self.recovery_metrics[component_type]
                 if type_metrics['total_recoveries'] > 0:
                     performance['by_component_type'][component_type] = {
                         'total_recoveries': type_metrics['total_recoveries'],
@@ -1082,7 +1086,7 @@ class AutoRecoveryEngine:
                 time.sleep(0.5)
             
             # Shutdown executor
-            self.executor.shutdown(wait=True, timeout=timeout)
+            self.executor.shutdown(wait=True)
             
             # Get final metrics
             final_performance = self._calculate_recovery_performance()

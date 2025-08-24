@@ -13,35 +13,38 @@ from pathlib import Path
 class CompressionConfig:
     """Central configuration for compression systems. All parameters required."""
     
+    # General compression settings
+    compression_level: int = 5  # 0-10, higher = more compression
+    
     # P-adic compression configuration
-    padic_base: int
-    padic_precision: int 
-    padic_adaptive: bool
+    padic_base: int = 5
+    padic_precision: int = 10
+    padic_adaptive: bool = True
     
     # Sheaf theory configuration
-    sheaf_locality_radius: int
-    sheaf_cohomology_dim: int
-    sheaf_validate_invariants: bool
+    sheaf_locality_radius: int = 2
+    sheaf_cohomology_dim: int = 3
+    sheaf_validate_invariants: bool = True
     
     # Tensor decomposition configuration
-    tensor_decomp_method: str  # 'tucker', 'cp', 'tensor_train'
-    tensor_rank_ratio: float
-    tensor_adaptive_rank: bool
+    tensor_decomp_method: str = 'tucker'  # 'tucker', 'cp', 'tensor_train'
+    tensor_rank_ratio: float = 0.5
+    tensor_adaptive_rank: bool = True
     
     # GPU memory configuration
-    gpu_memory_threshold: float
-    gpu_cache_size_mb: int
-    gpu_prefetch_enabled: bool
+    gpu_memory_threshold: float = 0.8
+    gpu_cache_size_mb: int = 512
+    gpu_prefetch_enabled: bool = True
     
     # Service configuration
-    max_concurrent_requests: int
-    request_timeout_seconds: int
-    max_requests_per_module: int
+    max_concurrent_requests: int = 10
+    request_timeout_seconds: int = 30
+    max_requests_per_module: int = 100
     
     # Performance requirements (fail if not met)
-    max_compression_time_ms: float
-    min_compression_ratio: float
-    max_reconstruction_error: float
+    max_compression_time_ms: float = 1000.0
+    min_compression_ratio: float = 2.0
+    max_reconstruction_error: float = 0.01
     
     def __post_init__(self):
         """Validate configuration after initialization."""

@@ -1,0 +1,12 @@
+{
+  "backup_id": "backup_incremental_1756054369",
+  "backup_type": "incremental",
+  "timestamp": 1756054369.2068899,
+  "size_bytes": 77,
+  "compression_ratio": 4.052631578947368,
+  "encryption_status": "encrypted",
+  "checksum": "bfb9dc6f1d5e1b37cf9bc49c8a6f319d3dc8efb0c7276de4930f2b448e2ccf48",
+  "version": "1.0.0",
+  "retention_days": 7,
+  "verification_required": true
+}

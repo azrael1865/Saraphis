@@ -14,7 +14,7 @@ import itertools
 
 # Import existing tropical operations
 try:
-    from independent_core.compression_systems.tropical.tropical_core import (
+    from .tropical_core import (
         TropicalNumber,
         TropicalMathematicalOperations,
         TropicalValidation,
@@ -59,6 +59,10 @@ class TropicalMonomial:
         if self.coefficient > 1e38:
             raise ValueError(f"Coefficient {self.coefficient} exceeds safe tropical range")
         
+        # Clamp very negative values to TROPICAL_ZERO
+        if self.coefficient <= TROPICAL_ZERO:
+            object.__setattr__(self, 'coefficient', TROPICAL_ZERO)
+        
         if not isinstance(self.exponents, dict):
             raise TypeError(f"Exponents must be dict, got {type(self.exponents)}")
         
@@ -80,7 +84,7 @@ class TropicalMonomial:
     
     def is_zero(self) -> bool:
         """Check if this is tropical zero monomial"""
-        return self.coefficient <= TROPICAL_ZERO
+        return self.coefficient == TROPICAL_ZERO
     
     def degree(self) -> int:
         """Total degree of the monomial"""
@@ -104,7 +108,11 @@ class TropicalMonomial:
         for var_idx, power in self.exponents.items():
             if var_idx >= len(point):
                 raise IndexError(f"Variable index {var_idx} out of range for point of dimension {len(point)}")
-            result += power * point[var_idx]
+            term = power * point[var_idx]
+            # Check if adding term would exceed safe range
+            if result >= 1e38 and term > 0:
+                raise OverflowError(f"Monomial evaluation overflow")
+            result += term
             if result > 1e38:
                 raise OverflowError(f"Monomial evaluation overflow")
         
@@ -310,7 +318,7 @@ class TropicalPolynomial:
                 # exponents = m1.exponents + m2.exponents (element-wise)
                 
                 new_coeff = m1.coefficient + m2.coefficient
-                if new_coeff > 1e38:
+                if new_coeff >= 1e38:
                     raise OverflowError(f"Polynomial multiplication coefficient overflow")
                 
                 # Combine exponents

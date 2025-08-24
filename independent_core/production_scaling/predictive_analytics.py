@@ -434,7 +434,7 @@ class PredictiveScalingAnalytics:
                 'components': {}
             }
             
-            time_points = range(0, time_range_hours * 60, 30)  # Every 30 minutes
+            time_points = range(0, int(time_range_hours * 60), 30)  # Every 30 minutes
             
             for component_name in self.monitor.get_all_system_status():
                 component_predictions = []

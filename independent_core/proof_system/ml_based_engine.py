@@ -117,7 +117,7 @@ class MLBasedProofEngine:
         }
         
     def _analyze_prediction_stability(self, current_prediction: float) -> Dict[str, Any]:
-        """Analyze prediction stability over time"""
+        """Analyze prediction stability over time using industry-standard metrics"""
         if len(self.prediction_history) < 2:
             return {
                 'stability_score': 0.5,
@@ -129,15 +129,28 @@ class MLBasedProofEngine:
         recent_predictions.append(current_prediction)
         
         variance = np.var(recent_predictions)
+        std_dev = np.std(recent_predictions)
         mean_prediction = np.mean(recent_predictions)
         
-        # Calculate stability score (higher is more stable)
-        stability_score = max(0.0, 1.0 - variance * 10)
+        # Industry-standard stability score using Coefficient of Variation (CV)
+        # CV = std_dev / mean, lower CV means more stable
+        # For predictions near 0, use absolute stability
+        if abs(mean_prediction) > 0.1:
+            cv = std_dev / abs(mean_prediction)
+            # Convert CV to stability score (0-1 scale, higher is more stable)
+            # CV < 0.1 is very stable, CV > 0.5 is very unstable
+            stability_score = max(0.0, min(1.0, 1.0 - cv * 2))
+        else:
+            # For values near zero, use absolute variance
+            stability_score = max(0.0, 1.0 - std_dev * 10)
         
-        # Determine trend
+        # Determine trend using linear regression
         if len(recent_predictions) >= 3:
             trend_slope = np.polyfit(range(len(recent_predictions)), recent_predictions, 1)[0]
-            if abs(trend_slope) < 0.01:
+            # Use statistical significance for trend detection
+            # Slope threshold based on standard error
+            slope_threshold = std_dev / np.sqrt(len(recent_predictions))
+            if abs(trend_slope) < slope_threshold:
                 trend = 'stable'
             elif trend_slope > 0:
                 trend = 'increasing'
@@ -170,6 +183,9 @@ class MLBasedProofEngine:
             max_feature = max(abs(f) for f in features) if features else 1.0
             if max_feature > 0:
                 feature_importance = feature_importance / max_feature
+            else:
+                # All features are zero, assign equal importance
+                feature_importance = 1.0 / len(features) if features else 0.0
                 
             importance[f'feature_{i}'] = feature_importance
             
@@ -193,12 +209,12 @@ class MLBasedProofEngine:
         combined_uncertainty = (boundary_uncertainty + confidence_uncertainty) / 2
         
         # Determine uncertainty reason
-        if boundary_distance < 0.1:
+        if combined_uncertainty > 0.7:
+            uncertainty_reason = 'high_overall_uncertainty'
+        elif boundary_distance < 0.1:
             uncertainty_reason = 'near_decision_boundary'
         elif confidence < 0.6:
             uncertainty_reason = 'low_model_confidence'
-        elif combined_uncertainty > 0.7:
-            uncertainty_reason = 'high_overall_uncertainty'
         else:
             uncertainty_reason = 'acceptable_uncertainty'
             
@@ -254,7 +270,7 @@ class MLBasedProofEngine:
         }
         
     def aggregate_ensemble_predictions(self, predictions: Dict[str, float]) -> Dict[str, Any]:
-        """Aggregate predictions from ensemble of models"""
+        """Aggregate predictions from ensemble using industry-standard methods"""
         if not predictions:
             return {'error': 'No predictions provided'}
             
@@ -264,15 +280,59 @@ class MLBasedProofEngine:
         ensemble_std = np.std(pred_values)
         ensemble_median = np.median(pred_values)
         
-        # Calculate agreement score (lower std indicates higher agreement)
-        agreement_score = max(0.0, 1.0 - ensemble_std * 2)
+        # Industry-standard agreement score using Inter-Rater Reliability
+        # For continuous values, use Intraclass Correlation Coefficient approximation
+        # Simplified: agreement based on coefficient of variation
+        if abs(ensemble_mean) > 0.01:
+            cv = ensemble_std / abs(ensemble_mean)
+            # Low CV = high agreement
+            agreement_score = max(0.0, min(1.0, 1.0 - cv))
+        else:
+            # For values near zero, use absolute standard deviation
+            agreement_score = max(0.0, 1.0 - ensemble_std * 10)
         
-        # Identify outliers
+        # Industry-standard outlier detection using Modified Z-Score (MAD method)
         outliers = []
-        threshold = 2 * ensemble_std
-        for model, pred in predictions.items():
-            if abs(pred - ensemble_mean) > threshold:
-                outliers.append(model)
+        
+        if len(pred_values) >= 3:
+            # Use Median Absolute Deviation (MAD) for robust outlier detection
+            median = np.median(pred_values)
+            mad = np.median(np.abs(pred_values - median))
+            
+            # Modified Z-score threshold (typically 3.5 for outliers)
+            # More sensitive threshold of 2.5 for ML predictions
+            threshold = 2.5
+            
+            if mad > 0:
+                for model, pred in predictions.items():
+                    modified_z_score = 0.6745 * (pred - median) / mad
+                    if abs(modified_z_score) > threshold:
+                        outliers.append(model)
+            else:
+                # If MAD is 0, use IQR method as fallback
+                q1 = np.percentile(pred_values, 25)
+                q3 = np.percentile(pred_values, 75)
+                iqr = q3 - q1
+                
+                if iqr > 0:
+                    lower_bound = q1 - 1.5 * iqr
+                    upper_bound = q3 + 1.5 * iqr
+                    for model, pred in predictions.items():
+                        if pred < lower_bound or pred > upper_bound:
+                            outliers.append(model)
+                else:
+                    # All values are identical, check for any different values
+                    for model, pred in predictions.items():
+                        if abs(pred - median) > 1e-10:
+                            outliers.append(model)
+        else:
+            # For very small ensembles, use simple threshold
+            # Any prediction more than 2 std away is an outlier
+            if ensemble_std > 0:
+                for model, pred in predictions.items():
+                    z_score = abs(pred - ensemble_mean) / ensemble_std
+                    if z_score > 2.0:
+                        outliers.append(model)
                 
         return {
             'ensemble_mean': float(ensemble_mean),
@@ -284,7 +344,7 @@ class MLBasedProofEngine:
         }
         
     def check_temporal_consistency(self, current: float, historical: List[float]) -> Dict[str, Any]:
-        """Check temporal consistency of predictions"""
+        """Check temporal consistency using Statistical Process Control (SPC) methods"""
         if not historical:
             return {
                 'consistency_score': 0.5,
@@ -295,16 +355,53 @@ class MLBasedProofEngine:
         hist_mean = np.mean(historical)
         hist_std = np.std(historical)
         
-        # Check if current prediction is within expected range
-        z_score = abs(current - hist_mean) / (hist_std + 1e-8)
+        # Industry-standard SPC approach using control limits
+        # Upper Control Limit (UCL) and Lower Control Limit (LCL)
+        # Using 3-sigma limits for anomaly detection (99.7% confidence)
         
-        anomaly_detected = z_score > 2.0  # 2 standard deviations
-        consistency_score = max(0.0, 1.0 - z_score / 3.0)  # Normalize z-score
+        if hist_std > 0:
+            # Calculate z-score
+            z_score = (current - hist_mean) / hist_std
+            
+            # Anomaly detection using 3-sigma rule
+            anomaly_detected = abs(z_score) > 3.0
+            
+            # Consistency score using exponential decay function
+            # Score decreases exponentially as z-score increases
+            # Score = exp(-|z|^2 / 2), similar to Gaussian distribution
+            consistency_score = np.exp(-z_score**2 / 2)
+            
+            # Alternative linear scoring for interpretability
+            # Within 1 sigma: high consistency (>0.68)
+            # Within 2 sigma: moderate consistency (>0.32)
+            # Within 3 sigma: low consistency (>0.05)
+            # Beyond 3 sigma: very low consistency
+            if abs(z_score) <= 1.0:
+                consistency_score = 0.9 - 0.2 * abs(z_score)
+            elif abs(z_score) <= 2.0:
+                consistency_score = 0.7 - 0.15 * (abs(z_score) - 1.0)
+            elif abs(z_score) <= 3.0:
+                consistency_score = 0.55 - 0.15 * (abs(z_score) - 2.0)
+            else:
+                consistency_score = max(0.0, 0.4 - 0.1 * (abs(z_score) - 3.0))
+                
+            z_score = float(abs(z_score))
+        else:
+            # No variation in historical data
+            if abs(current - hist_mean) < 1e-10:
+                consistency_score = 1.0
+                anomaly_detected = False
+                z_score = 0.0
+            else:
+                # Any deviation from constant historical value is anomalous
+                consistency_score = 0.0
+                anomaly_detected = True
+                z_score = float('inf')
         
         return {
             'consistency_score': float(consistency_score),
             'anomaly_detected': anomaly_detected,
-            'z_score': float(z_score),
+            'z_score': z_score,
             'historical_mean': float(hist_mean),
             'historical_std': float(hist_std)
         }

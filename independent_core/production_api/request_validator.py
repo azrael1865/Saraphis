@@ -36,7 +36,7 @@ class InputSanitizer:
                 r"(\b(union|select|insert|update|delete|drop|create)\b.*\b(from|where|table)\b)",
                 r"(\'|\")(\s*)(or|and)(\s*)(\'|\")?(\s*)=",
                 r"(\b(exec|execute|xp_)\b)",
-                r"(;|--|\*|\/\*)"
+                r"(--|\/\*.*?\*\/)"  # Removed ; and standalone * to avoid HTML entities
             ],
             'xss': [
                 r"<script[^>]*>.*?</script>",
@@ -47,15 +47,20 @@ class InputSanitizer:
                 r"<embed[^>]*>"
             ],
             'command_injection': [
-                r"(\||;|&|`|\$\(|\$\{)",
-                r"(>|<|>>|<<)",
+                r"(\||\$\(|\$\{|`)",  # Removed & and ; to avoid matching HTML entities
+                r"(>>|<<)",  # Removed single < > to avoid matching HTML entities  
                 r"(rm|dd|chmod|chown|kill|shutdown|reboot)"
             ],
             'path_traversal': [
                 r"\.\./",
-                r"\.\\/",
-                r"%2e%2e",
-                r"\.\.%2f"
+                r"\.\\/", 
+                r"\.\.\\",
+                r"%2e%2e%2f",
+                r"%2e%2e/",
+                r"\.\.%2f",
+                r"%2e%2e%5c",
+                r"\.\.",
+                r"%2e%2e"
             ]
         }
         
@@ -105,7 +110,7 @@ class InputSanitizer:
                 'errors': [f'Body sanitization error: {str(e)}']
             }
     
-    def _sanitize_value(self, value: Any, path: str) -> tuple[Any, List[str]]:
+    def _sanitize_value(self, value: Any, path: str, depth: int = 0) -> tuple[Any, List[str]]:
         """Sanitize any value type"""
         errors = []
         
@@ -113,9 +118,9 @@ class InputSanitizer:
             if isinstance(value, str):
                 return self._sanitize_string(value, path), errors
             elif isinstance(value, dict):
-                return self._sanitize_object(value, path, 0)
+                return self._sanitize_object(value, path, depth)
             elif isinstance(value, list):
-                return self._sanitize_array(value, path)
+                return self._sanitize_array(value, path, depth)
             elif isinstance(value, (int, float)):
                 return self._sanitize_number(value, path), errors
             elif isinstance(value, bool):
@@ -140,30 +145,50 @@ class InputSanitizer:
             # Remove null bytes
             value = value.replace('\x00', '')
             
-            # HTML escape if needed
-            if not self.allow_html:
-                value = html.escape(value)
+            # URL decode first to prevent encoded attacks
+            url_decoded = False
+            try:
+                decoded = urllib.parse.unquote(value)
+                if decoded != value:
+                    url_decoded = True
+                    value = decoded
+            except:
+                pass
             
-            # Check for dangerous patterns
+            # Handle HTML content first
+            if self.allow_html and not url_decoded:
+                # Remove dangerous HTML elements when HTML is allowed (but not from URL decoded content)
+                dangerous_html = [
+                    r'<script[^>]*>.*?</script>',
+                    r'<iframe[^>]*>.*?</iframe>',
+                    r'<object[^>]*>.*?</object>',
+                    r'<embed[^>]*>.*?</embed>',
+                    r'javascript:',
+                    r'on\w+\s*='
+                ]
+                for pattern in dangerous_html:
+                    value = re.sub(pattern, '', value, flags=re.IGNORECASE | re.DOTALL)
+            elif not self.allow_html and not url_decoded:
+                # HTML escape first when HTML is not allowed and not URL decoded
+                value = html.escape(value)
+            # If URL decoded, always treat as potentially dangerous and remove patterns
+            
+            # Then check for other dangerous patterns
             for pattern_type, patterns in self.dangerous_patterns.items():
                 if pattern_type == 'sql_injection' and self.allow_sql:
                     continue
+                # Always check XSS patterns regardless of HTML escaping for certain dangerous items
                     
                 for pattern in patterns:
                     if re.search(pattern, value, re.IGNORECASE):
                         # Log potential attack
                         self.logger.warning(f"Dangerous pattern detected ({pattern_type}) at {path}")
-                        # Remove or escape the pattern
+                        # Remove the pattern completely
                         value = re.sub(pattern, '', value, flags=re.IGNORECASE)
-            
-            # URL decode to prevent encoded attacks
-            try:
-                decoded = urllib.parse.unquote(value)
-                if decoded != value:
-                    # Re-sanitize decoded value
-                    return self._sanitize_string(decoded, path)
-            except:
-                pass
+                        
+            # Finally, if URL decoded and HTML not allowed, escape any remaining HTML
+            if url_decoded and not self.allow_html:
+                value = html.escape(value)
             
             return value
             
@@ -177,7 +202,7 @@ class InputSanitizer:
         
         try:
             # Check depth
-            if depth > self.max_object_depth:
+            if depth >= self.max_object_depth:
                 errors.append(f"Object depth exceeded at {path}")
                 return {}, errors
             
@@ -187,9 +212,9 @@ class InputSanitizer:
                 # Sanitize key
                 sanitized_key = self._sanitize_string(str(key), f"{path}.key")
                 
-                # Sanitize value
+                # Sanitize value with incremented depth
                 sanitized_value, value_errors = self._sanitize_value(
-                    value, f"{path}.{sanitized_key}"
+                    value, f"{path}.{sanitized_key}", depth + 1
                 )
                 
                 sanitized[sanitized_key] = sanitized_value
@@ -201,7 +226,7 @@ class InputSanitizer:
             errors.append(f"Object sanitization error at {path}: {str(e)}")
             return {}, errors
     
-    def _sanitize_array(self, arr: List[Any], path: str) -> tuple[List[Any], List[str]]:
+    def _sanitize_array(self, arr: List[Any], path: str, depth: int = 0) -> tuple[List[Any], List[str]]:
         """Sanitize array/list"""
         errors = []
         
@@ -214,7 +239,7 @@ class InputSanitizer:
             sanitized = []
             
             for i, item in enumerate(arr):
-                sanitized_item, item_errors = self._sanitize_value(item, f"{path}[{i}]")
+                sanitized_item, item_errors = self._sanitize_value(item, f"{path}[{i}]", depth)
                 sanitized.append(sanitized_item)
                 errors.extend(item_errors)
             
@@ -343,6 +368,17 @@ class RequestValidator:
         try:
             errors = []
             sanitized_request = request.copy()
+            
+            # Sanitize headers
+            if 'headers' in request:
+                sanitized_headers = {}
+                for key, value in request['headers'].items():
+                    # Sanitize header values
+                    sanitized_key = self.sanitizer._sanitize_string(str(key), f"header.{key}")
+                    sanitized_value = self.sanitizer._sanitize_string(str(value), f"header.{key}")
+                    sanitized_headers[sanitized_key] = sanitized_value
+                sanitized_request['headers'] = sanitized_headers
+                self.validation_metrics['sanitizations_performed'] += 1
             
             # Sanitize parameters
             if 'parameters' in request:

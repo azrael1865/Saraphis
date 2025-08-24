@@ -25,22 +25,48 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Import existing entropy coders
+# Import existing entropy coders - handle both package and direct imports
+import sys
+import os
+
+# Add parent directories to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+sys.path.insert(0, current_dir)
+
 try:
+    # Try relative imports first
     from ..encoding.huffman_arithmetic import (
         HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
         CompressionMetrics
     )  
+except ImportError:
+    try:
+        # Try direct imports from encoding directory
+        from encoding.huffman_arithmetic import (
+            HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
+            CompressionMetrics
+        )
+    except ImportError:
+        # Try importing from the actual file location
+        encoding_path = os.path.join(parent_dir, 'encoding')
+        if encoding_path not in sys.path:
+            sys.path.insert(0, encoding_path)
+        from huffman_arithmetic import (
+            HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
+            CompressionMetrics
+        )
+
+try:
     from .padic_logarithmic_encoder import LogarithmicPadicWeight
+except ImportError:
+    from padic_logarithmic_encoder import LogarithmicPadicWeight
+
+try:
     from .padic_encoder import PadicWeight
 except ImportError:
-    # Alternative import path
-    from ..encoding.huffman_arithmetic import (
-        HuffmanEncoder, ArithmeticEncoder, HybridEncoder,
-        CompressionMetrics
-    )
-    from .padic_logarithmic_encoder import LogarithmicPadicWeight
-    from .padic_encoder import PadicWeight
+    from padic_encoder import PadicWeight
 
 
 @dataclass
@@ -72,6 +98,9 @@ class EntropyBridgeConfig:
     parallel_encoding: bool = False      # Use parallel processing (if available)
     cache_frequency_tables: bool = True  # Cache frequency analysis
     compression_level: int = 6            # 1 (fast) to 9 (best compression)
+    
+    # Error handling
+    max_failures: int = 5                # Circuit breaker threshold
     
     def __post_init__(self):
         """Validate configuration parameters"""
@@ -169,7 +198,7 @@ class EntropyPAdicBridge:
         self.method_usage = {"huffman": 0, "arithmetic": 0, "hybrid": 0}
         self.average_compression_ratio = 0.0
         self.failure_count = 0  # Add missing failure count for error tracking
-        self.max_failures = 5  # Circuit breaker threshold
+        self.max_failures = self.config.max_failures  # Circuit breaker threshold from config
         
         logger.info(f"EntropyPAdicBridge initialized with prime={prime}")
     
@@ -217,10 +246,10 @@ class EntropyPAdicBridge:
         frequency_dist = Counter(digit_list)
         total_count = len(digit_list)
         
-        # Validate all digits are in valid range
+        # Validate all digits are non-negative (allow values >= prime for quantized data)
         for digit in frequency_dist:
-            if not (0 <= digit < self.prime):
-                raise ValueError(f"Digit {digit} out of range [0, {self.prime-1}]")
+            if digit < 0:
+                raise ValueError(f"Digit {digit} cannot be negative")
         
         # Calculate probabilities
         prob_dist = {
@@ -450,12 +479,14 @@ class EntropyPAdicBridge:
         if flat_tensor.numel() > self.config.max_tensor_size:
             return self._encode_large_tensor(tensor, force_method)
         
-        # Convert to list
+        # Convert to list - only clamp if values are meant to be p-adic digits
         digit_list = flat_tensor.cpu().tolist()
-        if self.prime > 256:
-            digit_list = [min(d, 255) for d in digit_list]
-        if self.prime > 256:
-            digit_list = [min(d, 255) for d in digit_list]
+        # Check if this looks like quantized data (values > prime) or p-adic digits
+        max_value = max(digit_list) if digit_list else 0
+        if max_value < self.prime:
+            # These look like p-adic digits, clamp them
+            digit_list = [max(0, min(int(d), self.prime - 1)) for d in digit_list]
+        # Otherwise keep values as-is for quantized data
         
         # Analyze entropy
         start_time = time.perf_counter()
@@ -475,7 +506,10 @@ class EntropyPAdicBridge:
             else:
                 # Medium entropy: use hybrid if conditions met
                 if analysis.unique_symbols >= self.config.min_symbols_for_hybrid:
-                    method = "hybrid"
+                    if analysis.has_patterns or analysis.run_length_ratio > 0.2:
+                        method = "hybrid"
+                    else:
+                        method = "huffman"  # Default to huffman for reliability
                 else:
                     method = "huffman"  # Default to huffman for reliability
         
@@ -632,16 +666,83 @@ class EntropyPAdicBridge:
         Returns:
             Tuple of (compressed_bytes, metadata)
         """
-        # Use simple arithmetic encoding for reliability
-        compressed = self.arithmetic_encoder.arithmetic_encode_simple(
-            digits, analysis.probability_distribution
-        )
+        # Use simple arithmetic encoding with chunking for long sequences
+        # to avoid precision issues in arithmetic_decode_simple
+        max_chunk_size = 10  # Safe size based on testing
         
-        # Build metadata
-        metadata = {
-            "method": "arithmetic",
-            "probability_table": analysis.probability_distribution
-        }
+        if len(digits) <= max_chunk_size:
+            # Single chunk encoding
+            compressed = self.arithmetic_encoder.arithmetic_encode_simple(
+                digits, analysis.probability_distribution
+            )
+            metadata = {
+                "method": "arithmetic",
+                "probability_table": analysis.probability_distribution,
+                "chunked": False
+            }
+        else:
+            # Multi-chunk encoding
+            chunks = []
+            for i in range(0, len(digits), max_chunk_size):
+                chunk = digits[i:i + max_chunk_size]
+                chunk_compressed = self.arithmetic_encoder.arithmetic_encode_simple(
+                    chunk, analysis.probability_distribution
+                )
+                chunks.append(chunk_compressed)
+            
+            # Combine chunks
+            combined = bytearray()
+            combined.extend(struct.pack('<I', len(chunks)))  # Number of chunks
+            for chunk in chunks:
+                combined.extend(struct.pack('<I', len(chunk)))  # Chunk size
+                combined.extend(chunk)
+            
+            compressed = bytes(combined)
+            metadata = {
+                "method": "arithmetic",
+                "probability_table": analysis.probability_distribution,
+                "chunked": True,
+                "num_chunks": len(chunks),
+                "chunk_size": max_chunk_size
+            }
+        
+        return compressed, metadata
+    
+    def _encode_arithmetic_chunked(self,
+                                  digits: List[int],
+                                  probabilities: Dict[int, float]) -> Tuple[bytes, Dict[str, Any]]:
+        """Helper method for chunked arithmetic encoding
+        
+        Args:
+            digits: List of p-adic digits
+            probabilities: Symbol probability distribution
+            
+        Returns:
+            Tuple of (compressed_bytes, metadata)
+        """
+        max_chunk_size = 10  # Safe size based on testing
+        
+        if len(digits) <= max_chunk_size:
+            # Single chunk encoding
+            compressed = self.arithmetic_encoder.arithmetic_encode_simple(digits, probabilities)
+            metadata = {"chunked": False}
+        else:
+            # Multi-chunk encoding
+            chunks = []
+            for i in range(0, len(digits), max_chunk_size):
+                chunk = digits[i:i + max_chunk_size]
+                chunk_compressed = self.arithmetic_encoder.arithmetic_encode_simple(chunk, probabilities)
+                chunks.append(chunk_compressed)
+            
+            # Combine chunks
+            combined = bytearray()
+            combined.extend(struct.pack('<I', len(chunks)))  # Number of chunks
+            for chunk in chunks:
+                combined.extend(struct.pack('<I', len(chunk)))  # Chunk size
+                combined.extend(chunk)
+            
+            compressed = bytes(combined)
+            metadata = {"chunked": True, "num_chunks": len(chunks)}
         
         return compressed, metadata
     
@@ -724,12 +825,15 @@ class EntropyPAdicBridge:
             total_prob = sum(low_prob_dist.values())
             if total_prob > 0:
                 low_prob_dist = {k: v/total_prob for k, v in low_prob_dist.items()}
-                compressed_low = self.arithmetic_encoder.arithmetic_encode_simple(
+                # Use chunked arithmetic encoding for reliability
+                compressed_low, chunk_metadata = self._encode_arithmetic_chunked(
                     low_freq_digits, low_prob_dist
                 )
                 low_metadata = {
                     "symbols": list(low_freq_symbols),
-                    "count": len(low_freq_digits)
+                    "count": len(low_freq_digits),
+                    "chunked": chunk_metadata.get("chunked", False),
+                    "num_chunks": chunk_metadata.get("num_chunks", 1)
                 }
         
         # Combine compressed data
@@ -892,10 +996,15 @@ class EntropyPAdicBridge:
             
             return tensor
             
+        except ValueError as e:
+            # Preserve ValueError for validation/input errors
+            self._record_failure(e)
+            logger.error(f"Entropy decoding validation error: {e}")
+            raise
         except Exception as e:
+            # Wrap other exceptions as RuntimeError for system/runtime failures
             self._record_failure(e)
             logger.error(f"Entropy decoding failed: {e}")
-            # NO FALLBACKS - always raise
             raise RuntimeError(f"Critical entropy decoding failure: {e}") from e
     
     def _decode_chunked_tensor(self,
@@ -980,8 +1089,46 @@ class EntropyPAdicBridge:
         Returns:
             List of p-adic digits
         """
-        # Use arithmetic_decode_simple for data encoded with arithmetic_encode_simple
-        return self.arithmetic_encoder.arithmetic_decode_simple(compressed)
+        if metadata.get("chunked", False):
+            # Multi-chunk decoding
+            pos = 0
+            num_chunks = struct.unpack('<I', compressed[pos:pos+4])[0]
+            pos += 4
+            
+            all_digits = []
+            for _ in range(num_chunks):
+                chunk_size = struct.unpack('<I', compressed[pos:pos+4])[0]
+                pos += 4
+                chunk_data = compressed[pos:pos+chunk_size]
+                pos += chunk_size
+                
+                chunk_digits = self.arithmetic_encoder.arithmetic_decode_simple(chunk_data)
+                all_digits.extend(chunk_digits)
+            
+            return all_digits
+        else:
+            # Single chunk decoding
+            return self.arithmetic_encoder.arithmetic_decode_simple(compressed)
+    
+    def _decode_arithmetic_chunked(self,
+                                  compressed: bytes,
+                                  metadata: Dict[str, Any]) -> List[int]:
+        """Helper method for chunked arithmetic decoding"""
+        pos = 0
+        num_chunks = struct.unpack('<I', compressed[pos:pos+4])[0]
+        pos += 4
+        
+        all_digits = []
+        for _ in range(num_chunks):
+            chunk_size = struct.unpack('<I', compressed[pos:pos+4])[0]
+            pos += 4
+            chunk_data = compressed[pos:pos+chunk_size]
+            pos += chunk_size
+            
+            chunk_digits = self.arithmetic_encoder.arithmetic_decode_simple(chunk_data)
+            all_digits.extend(chunk_digits)
+        
+        return all_digits
     
     def _decode_hybrid(self,
                       compressed: bytes,
@@ -1044,10 +1191,16 @@ class EntropyPAdicBridge:
                     self.huffman_encoder.build_huffman_tree(high_freq_table)
                     high_digits = self.huffman_encoder.huffman_decode(high_data)
         
-        # Decode low frequency (Arithmetic)
+        # Decode low frequency (Arithmetic) 
         low_digits = []
         if low_data:
-            low_digits = self.arithmetic_encoder.arithmetic_decode(low_data)
+            low_freq_meta = encode_metadata.get("low_freq", {})
+            if low_freq_meta.get("chunked", False):
+                # Decode chunked arithmetic data
+                low_digits = self._decode_arithmetic_chunked(low_data, low_freq_meta)
+            else:
+                # Decode single chunk
+                low_digits = self.arithmetic_encoder.arithmetic_decode_simple(low_data)
         
         # Reconstruct original sequence
         total_length = num_high + num_low

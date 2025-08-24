@@ -14,51 +14,27 @@ import itertools
 from concurrent.futures import Future
 
 # Import existing tropical components
-try:
-    from independent_core.compression_systems.tropical.tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial,
-        TropicalPolynomialOperations
-    )
-    from independent_core.compression_systems.tropical.tropical_core import (
-        TropicalNumber,
-        TROPICAL_ZERO,
-        TROPICAL_EPSILON
-    )
-    from independent_core.compression_systems.tropical.gpu_memory_optimizer import (
-        GPUMemoryLayoutConfig,
-        ChannelMemoryOptimizer,
-        GPUMemoryAllocator,
-        ChannelAccessPatternAnalyzer,
-        BatchedChannelProcessor,
-        MemoryLayout,
-        AccessPattern,
-        MemoryAccessMetrics,
-        create_optimized_gpu_config
-    )
-except ImportError:
-    # For direct execution
-    from tropical_polynomial import (
-        TropicalPolynomial,
-        TropicalMonomial,
-        TropicalPolynomialOperations
-    )
-    from tropical_core import (
-        TropicalNumber,
-        TROPICAL_ZERO,
-        TROPICAL_EPSILON
-    )
-    from gpu_memory_optimizer import (
-        GPUMemoryLayoutConfig,
-        ChannelMemoryOptimizer,
-        GPUMemoryAllocator,
-        ChannelAccessPatternAnalyzer,
-        BatchedChannelProcessor,
-        MemoryLayout,
-        AccessPattern,
-        MemoryAccessMetrics,
-        create_optimized_gpu_config
-    )
+from .tropical_polynomial import (
+    TropicalPolynomial,
+    TropicalMonomial,
+    TropicalPolynomialOperations
+)
+from .tropical_core import (
+    TropicalNumber,
+    TROPICAL_ZERO,
+    TROPICAL_EPSILON
+)
+from .gpu_memory_optimizer import (
+    GPUMemoryLayoutConfig,
+    ChannelMemoryOptimizer,
+    GPUMemoryAllocator,
+    ChannelAccessPatternAnalyzer,
+    BatchedChannelProcessor,
+    MemoryLayout,
+    AccessPattern,
+    MemoryAccessMetrics,
+    create_optimized_gpu_config
+)
 
 
 @dataclass

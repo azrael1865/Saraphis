@@ -1,4 +1,3 @@
-import sys; sys.path.append("..")
 #!/usr/bin/env python3
 """
 Production-Ready Training Execution Script with GAC Integration
@@ -415,8 +414,12 @@ class ProductionTrainingExecutor:
             # ROOT FIX: Convert TrainingConfig dataclass to dictionary for consistent interface
             if hasattr(training_config, '__dataclass_fields__'):
                 # Convert dataclass to dictionary
-                from dataclasses import asdict
-                training_config_dict = asdict(training_config)
+                try:
+                    from dataclasses import asdict
+                    training_config_dict = asdict(training_config)
+                except ImportError:
+                    # Fallback if dataclasses not available
+                    training_config_dict = {k: getattr(training_config, k) for k in dir(training_config) if not k.startswith('_')}
             else:
                 training_config_dict = training_config
             
@@ -495,6 +498,14 @@ class ProductionTrainingExecutor:
                     "epoch": epoch,
                     "timestamp": datetime.now().isoformat(),
                     "metrics": gac_metrics
+                })
+            # ROOT FIX: Store epoch info when we have meaningful data even without GAC
+            elif epoch > 0 or metrics:
+                self.training_metadata["gac_metrics"].append({
+                    "epoch": epoch,
+                    "timestamp": datetime.now().isoformat(),
+                    "metrics": {},
+                    "gac_enabled": False
                 })
             
             self.logger.info(f"{'='*80}\n")

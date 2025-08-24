@@ -361,11 +361,12 @@ class ProductionAlertSystem:
         try:
             # Create alert from monitor data
             alert_type = AlertType.PERFORMANCE  # Default
-            if 'security' in alert_data.get('type', ''):
+            alert_type_str = str(alert_data.get('type', ''))  # Convert to string to handle None
+            if 'security' in alert_type_str:
                 alert_type = AlertType.SECURITY
-            elif 'resource' in alert_data.get('type', ''):
+            elif 'resource' in alert_type_str:
                 alert_type = AlertType.RESOURCE
-            elif 'error' in alert_data.get('type', ''):
+            elif 'error' in alert_type_str:
                 alert_type = AlertType.ERROR_RATE
             
             severity = AlertSeverity.MEDIUM  # Default
@@ -392,6 +393,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Error handling monitor alert: {e}")
+            raise RuntimeError(f"HARD FAILURE: Monitor alert handling failed: {e}")
     
     def _check_alert_rules(self):
         """Check all alert rules against current metrics"""
@@ -418,6 +420,7 @@ class ProductionAlertSystem:
                     
         except Exception as e:
             self.logger.error(f"Error checking alert rules: {e}")
+            raise RuntimeError(f"HARD FAILURE: Alert rule checking failed: {e}")
     
     def _evaluate_rule_condition(self, rule: AlertRule, system_status: Dict[str, Any], 
                                 agent_status: Dict[str, Any]) -> bool:
@@ -439,8 +442,11 @@ class ProductionAlertSystem:
                 # Check error rates
                 for system_name, status in system_status.get('system_status', {}).items():
                     if metric == 'error_rate' and status.get('error_count', 0) > 0:
-                        # Calculate error rate
-                        error_rate = status['error_count'] / max(1, self.monitor.request_counts.get(system_name, 1))
+                        # Calculate error rate using request count from status if available
+                        request_count = status.get('request_count', 1)
+                        if hasattr(self.monitor, 'request_counts') and hasattr(self.monitor.request_counts, 'get'):
+                            request_count = self.monitor.request_counts.get(system_name, request_count)
+                        error_rate = status['error_count'] / max(1, request_count)
                         if self._compare_values(error_rate, operator, rule.threshold):
                             return True
                             
@@ -458,15 +464,16 @@ class ProductionAlertSystem:
                         return True
                         
             elif rule.alert_type == AlertType.SECURITY:
-                # Check security events
-                security_status = self.monitor.monitor_security_status()
-                if len(security_status.get('security_events', [])) > rule.threshold:
+                # Check security events from system_status data instead of calling monitor directly
+                security_events = system_status.get('security_events', [])
+                if len(security_events) > rule.threshold:
                     return True
                     
             return False
             
         except Exception as e:
             self.logger.error(f"Error evaluating rule condition: {e}")
+            raise RuntimeError(f"HARD FAILURE: Rule condition evaluation failed: {e}")
             return False
     
     def _compare_values(self, value: float, operator: str, threshold: float) -> bool:
@@ -515,6 +522,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Error triggering alert rule: {e}")
+            raise RuntimeError(f"HARD FAILURE: Alert rule triggering failed: {e}")
     
     def _create_alert(self, alert: Alert):
         """Create a new alert"""
@@ -554,6 +562,7 @@ class ProductionAlertSystem:
                     
         except Exception as e:
             self.logger.error(f"Error creating alert: {e}")
+            raise RuntimeError(f"HARD FAILURE: Alert creation failed: {e}")
     
     def _is_alert_suppressed(self, alert: Alert) -> bool:
         """Check if an alert should be suppressed"""
@@ -607,6 +616,7 @@ class ProductionAlertSystem:
                     
         except Exception as e:
             self.logger.error(f"Error sending notifications: {e}")
+            raise RuntimeError(f"HARD FAILURE: Notification sending failed: {e}")
     
     def _send_email_notification(self, alert: Alert):
         """Send email notification"""
@@ -655,6 +665,7 @@ class ProductionAlertSystem:
                 
         except Exception as e:
             self.logger.error(f"Error creating response action: {e}")
+            raise RuntimeError(f"HARD FAILURE: Response action creation failed: {e}")
     
     def _process_pending_responses(self):
         """Process pending alert responses"""
@@ -713,6 +724,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Error executing response action: {e}")
+            raise RuntimeError(f"HARD FAILURE: Response action execution failed: {e}")
     
     def _trigger_optimization(self, alert: Alert) -> Dict[str, Any]:
         """Trigger optimization in response to alert"""
@@ -836,11 +848,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to detect critical issues: {e}")
-            return {
-                'detection': 'critical_issues',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Critical issue detection failed: {e}")
     
     def generate_performance_alerts(self) -> Dict[str, Any]:
         """
@@ -851,10 +859,24 @@ class ProductionAlertSystem:
             # Get performance metrics
             perf_metrics = self.monitor.track_performance_metrics()
             
+            # Validate performance metrics structure
+            if not isinstance(perf_metrics, dict):
+                raise RuntimeError(f"Invalid performance metrics format: expected dict, got {type(perf_metrics)}")
+            
             if 'current_metrics' not in perf_metrics:
-                raise RuntimeError("Unable to get performance metrics")
+                raise RuntimeError("Performance metrics missing 'current_metrics' key")
             
             current = perf_metrics['current_metrics']
+            
+            # Validate current metrics structure
+            if not isinstance(current, dict):
+                raise RuntimeError(f"Invalid current metrics format: expected dict, got {type(current)}")
+            
+            # Check required fields exist
+            required_fields = ['system_performance', 'latency_p95']
+            missing_fields = [field for field in required_fields if field not in current]
+            if missing_fields:
+                raise RuntimeError(f"Current metrics missing required fields: {missing_fields}")
             performance_alerts = []
             
             # Check for performance degradation
@@ -898,11 +920,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to generate performance alerts: {e}")
-            return {
-                'generation': 'performance_alerts',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Performance alert generation failed: {e}")
     
     def detect_security_violations(self) -> Dict[str, Any]:
         """
@@ -944,11 +962,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to detect security violations: {e}")
-            return {
-                'detection': 'security_violations',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Security violation detection failed: {e}")
     
     def monitor_system_failures(self) -> Dict[str, Any]:
         """
@@ -991,11 +1005,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to monitor system failures: {e}")
-            return {
-                'monitoring': 'system_failures',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: System failure monitoring failed: {e}")
     
     def track_agent_communication_issues(self) -> Dict[str, Any]:
         """
@@ -1053,11 +1063,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to track agent communication issues: {e}")
-            return {
-                'tracking': 'agent_communication_issues',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Agent communication tracking failed: {e}")
     
     def generate_alert_notifications(self) -> Dict[str, Any]:
         """
@@ -1091,11 +1097,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to generate alert notifications: {e}")
-            return {
-                'generation': 'alert_notifications',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Alert notification generation failed: {e}")
     
     def prioritize_alerts(self) -> Dict[str, Any]:
         """
@@ -1142,11 +1144,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to prioritize alerts: {e}")
-            return {
-                'prioritization': 'alerts',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Alert prioritization failed: {e}")
     
     def coordinate_alert_responses(self) -> Dict[str, Any]:
         """
@@ -1196,11 +1194,7 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to coordinate alert responses: {e}")
-            return {
-                'coordination': 'alert_responses',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Alert response coordination failed: {e}")
     
     def generate_alert_report(self, alert_results: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1269,8 +1263,4 @@ class ProductionAlertSystem:
             
         except Exception as e:
             self.logger.error(f"Failed to generate alert report: {e}")
-            return {
-                'report_id': f"alert_report_error_{int(time.time())}",
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            raise RuntimeError(f"HARD FAILURE: Alert report generation failed: {e}")

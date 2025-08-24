@@ -31,13 +31,13 @@ import secrets
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 # Import existing JAX infrastructure
-from independent_core.compression_systems.tropical.jax_config import (
+from .jax_config import (
     JAXConfig, 
     JAXEnvironment,
     JAXPlatform
 )
-from independent_core.compression_systems.tropical.jax_tropical_engine import JAXTropicalConfig
-from independent_core.compression_systems.gpu_memory.gpu_auto_detector import (
+from .jax_tropical_engine import JAXTropicalConfig
+from ..gpu_memory.gpu_auto_detector import (
     GPUAutoDetector,
     GPUSpecs,
     AutoOptimizedConfig

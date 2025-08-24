@@ -396,7 +396,7 @@ class SlidingWindowPatternDetector(nn.Module):
             
             elif data_np.dtype in [np.float32, np.float64]:
                 rounded = np.round(data_np).astype(np.int32)
-                return self._convert_input_safe(torch.from_numpy(rounded))
+                return rounded, np.dtype('int32')
             
             else:
                 return data_np, data_np.dtype
@@ -417,7 +417,7 @@ class SlidingWindowPatternDetector(nn.Module):
             
             elif data.dtype in [np.float32, np.float64]:
                 rounded = np.round(data).astype(np.int32)
-                return self._convert_input_safe(rounded)
+                return rounded, np.dtype('int32')
             
             else:
                 return data, data.dtype
@@ -476,8 +476,8 @@ class SlidingWindowPatternDetector(nn.Module):
             else:
                 i += 1
 
-        # Sort by value (descending)
-        pattern_candidates.sort(key=lambda x: -x[0])
+        # Sort by value (descending), then by pattern length (descending) to prefer longer patterns
+        pattern_candidates.sort(key=lambda x: (-x[0], -x[1]))
 
         # Process candidates in sorted order
         for value, pattern_element_count, pattern_bytes, positions in pattern_candidates:
@@ -519,8 +519,8 @@ class SlidingWindowPatternDetector(nn.Module):
         pattern_id = 0
         covered_positions = set()
         
-        for window_size in range(self.min_pattern_length, 
-                                min(self.max_pattern_length + 1, n + 1)):
+        for window_size in range(min(self.max_pattern_length, n), 
+                                self.min_pattern_length - 1, -1):
             if window_size not in self.rolling_hashes:
                 continue
                 
@@ -546,12 +546,37 @@ class SlidingWindowPatternDetector(nn.Module):
                 
                 for pos in positions:
                     if np.array_equal(data[pos:pos + window_size], ref_pattern):
-                        if not any(pos >= cp and pos < cp + clen 
-                                  for cp, clen in covered_positions):
+                        # Check if this position overlaps with already covered positions
+                        overlaps = any(pos < cp + clen and pos + window_size > cp 
+                                     for cp, clen in covered_positions)
+                        if not overlaps:
                             valid_positions.append(pos)
                 
                 if len(valid_positions) >= self.min_frequency:
                     pattern_bytes = ref_pattern.tobytes()
+                    
+                    # Calculate compression benefit for this pattern
+                    element_byte_size = element_dtype.itemsize
+                    original_bytes = window_size * element_byte_size * len(valid_positions)
+                    
+                    # More realistic reference size calculation based on data size
+                    data_size = len(data)
+                    if data_size <= 255:
+                        reference_size = 1  # uint8 for small datasets
+                    elif data_size <= 65535:
+                        reference_size = 2  # uint16 for medium datasets  
+                    else:
+                        reference_size = 4  # uint32 for large datasets
+                    
+                    compressed_bytes = len(pattern_bytes) + len(valid_positions) * reference_size
+                    compression_benefit = original_bytes - compressed_bytes
+                    
+                    # Be more lenient for small datasets and short patterns
+                    # Accept patterns that save at least 1 byte per 2 occurrences
+                    min_benefit = -len(valid_positions) // 2  # Allow some overhead for small patterns
+                    
+                    if compression_benefit < min_benefit:
+                        continue  # Skip patterns that don't compress well enough
                     
                     # FIXED: Proper length tracking
                     pattern_match = PatternMatch(
@@ -739,7 +764,15 @@ class SlidingWindowPatternDetector(nn.Module):
                     break
             
             if not pattern_found:
-                encoded_data.append(data[i:i+1].to(torch.int32))
+                data_value = data[i:i+1].to(torch.int32)
+                # If data value conflicts with pattern markers (>= 256), handle specially
+                if data_value.item() >= 256:
+                    # Encode as special escape sequence: [255, actual_value]
+                    escape_marker = torch.tensor([255], dtype=torch.int32, device=self.device)
+                    encoded_data.append(escape_marker)
+                    encoded_data.append(data_value)
+                else:
+                    encoded_data.append(data_value)
         
         if encoded_data:
             encoded_tensor = torch.cat(encoded_data)
@@ -778,10 +811,19 @@ class SlidingWindowPatternDetector(nn.Module):
         
         decoded_parts = []
         
-        for i in range(encoded_data.size(0)):
+        i = 0
+        while i < encoded_data.size(0):
             value = encoded_data[i].item()
             
-            if value >= 256:
+            if value == 255:
+                # Escape sequence: next value is the actual data value
+                if i + 1 < encoded_data.size(0):
+                    actual_value = encoded_data[i + 1].item()
+                    decoded_parts.append(torch.tensor([actual_value], dtype=torch_dtype, device=self.device))
+                    i += 2  # Skip both escape marker and value
+                else:
+                    raise ValueError("Incomplete escape sequence at end of data")
+            elif value >= 256:
                 pattern_id = value - 256
                 if pattern_id in pattern_dictionary:
                     pattern_bytes = pattern_dictionary[pattern_id]
@@ -789,15 +831,55 @@ class SlidingWindowPatternDetector(nn.Module):
                     pattern_array = np.frombuffer(pattern_bytes, dtype=target_dtype).copy()
                     pattern_tensor = torch.from_numpy(pattern_array).to(dtype=torch_dtype, device=self.device)
                     decoded_parts.append(pattern_tensor)
+                    i += 1
                 else:
                     raise ValueError(f"Invalid pattern ID: {pattern_id}")
             else:
                 decoded_parts.append(torch.tensor([value], dtype=torch_dtype, device=self.device))
+                i += 1
         
         if decoded_parts:
             return torch.cat(decoded_parts)
         else:
             return torch.tensor([], dtype=torch_dtype, device=self.device)
+    
+    def forward(
+        self, 
+        data: Union[torch.Tensor, np.ndarray, bytes]
+    ) -> Tuple[torch.Tensor, Dict[int, bytes], Dict[str, Any]]:
+        """
+        Forward pass for nn.Module compatibility.
+        Returns encoded data, pattern dictionary, and metadata.
+        """
+        # Find patterns
+        pattern_result = self.find_patterns(data)
+        
+        # Encode with patterns
+        encoded_data, pattern_dict, pattern_lengths = self.encode_with_patterns(
+            data, 
+            pattern_result
+        )
+        
+        # Create metadata dictionary
+        metadata = {
+            'pattern_lengths': pattern_lengths,
+            'element_dtype': pattern_result.element_dtype,
+            'compression_potential': pattern_result.compression_potential,
+            'total_patterns_found': pattern_result.total_patterns_found,
+            'bytes_replaced': pattern_result.bytes_replaced,
+            'original_size': pattern_result.original_size
+        }
+        
+        return encoded_data, pattern_dict, metadata
+    
+    def __call__(
+        self, 
+        data: Union[torch.Tensor, np.ndarray, bytes]
+    ) -> Tuple[torch.Tensor, Dict[int, bytes], Dict[str, Any]]:
+        """
+        Make the module callable. Delegates to forward method.
+        """
+        return self.forward(data)
     
     def analyze_compression_efficiency(
         self,

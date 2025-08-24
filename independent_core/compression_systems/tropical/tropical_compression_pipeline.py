@@ -16,17 +16,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import tropical components
-from independent_core.compression_systems.tropical.jax_tropical_engine import (
+from .jax_tropical_engine import (
     TropicalJAXEngine,
     JAXTropicalConfig,
     JAXChannelProcessor
 )
-from independent_core.compression_systems.tropical.tropical_channel_extractor import (
+from .tropical_channel_extractor import (
     TropicalChannelExtractor,
     TropicalChannels,
     ChannelExtractionConfig
 )
-from independent_core.compression_systems.tropical.tropical_core import (
+from .tropical_core import (
     TropicalNumber,
     TropicalMathematicalOperations,
     TROPICAL_ZERO,
@@ -34,12 +34,12 @@ from independent_core.compression_systems.tropical.tropical_core import (
 )
 
 # Import integration components
-from independent_core.compression_systems.integration.padic_tropical_bridge import (
+from ..integration.padic_tropical_bridge import (
     PadicTropicalConverter,
     ConversionConfig
 )
-from independent_core.compression_systems.padic.padic_encoder import PadicWeight
-from independent_core.compression_systems.padic.padic_logarithmic_encoder import LogarithmicPadicWeight
+from ..padic.padic_encoder import PadicWeight
+from ..padic.padic_logarithmic_encoder import LogarithmicPadicWeight
 
 
 @dataclass

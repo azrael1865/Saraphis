@@ -98,18 +98,28 @@ class ConfidenceGenerator:
                 'rule_based': available_components.get('rule_based'),
                 'ml_based': available_components.get('ml_based'),
                 'cryptographic': available_components.get('cryptographic'),
-                'crypto_penalty': crypto_penalty if crypto_penalty > 0 else None
             },
+            'crypto_penalty': crypto_penalty if crypto_penalty > 0 else None,
             'weights_used': weights,
+            'used_weights': weights,  # Include both for compatibility
             'missing_components': missing_components,
+            'generation_time': generation_time,
             'generation_time_ms': generation_time * 1000,
             'timestamp': datetime.now().isoformat()
         }
         
+        # Log about missing components
+        if missing_components:
+            self.logger.debug(f"Missing components in confidence generation: {missing_components}")
+        
+        # Log about crypto penalty
+        if crypto_penalty > 0:
+            self.logger.warning(f"Cryptographic validation failed, applying penalty of {crypto_penalty}")
+        
         return result
         
     def _calculate_confidence_interval(self, score: float, available: Dict[str, float], 
-                                     missing: List[str]) -> Tuple[float, float]:
+                                     missing: List[str]) -> Dict[str, float]:
         """Calculate confidence interval for the score"""
         # Base interval width depends on number of available components
         base_width = 0.1  # 10% base uncertainty
@@ -127,7 +137,7 @@ class ConfidenceGenerator:
         lower_bound = max(0.0, score - total_uncertainty)
         upper_bound = min(1.0, score + total_uncertainty)
         
-        return (lower_bound, upper_bound)
+        return {'lower': lower_bound, 'upper': upper_bound}
         
     def generate_temporal_confidence(self, current_scores: Dict[str, float],
                                    historical_scores: List[Dict[str, float]]) -> Dict[str, Any]:
@@ -198,7 +208,8 @@ class ConfidenceGenerator:
         if not individual_confidences:
             return {
                 'error': 'No confidence scores provided',
-                'score': 0.0
+                'score': 0.0,
+                'aggregate_score': 0.0
             }
             
         # Extract scores
@@ -207,7 +218,8 @@ class ConfidenceGenerator:
         if not scores:
             return {
                 'error': 'No valid confidence scores found',
-                'score': 0.0
+                'score': 0.0,
+                'aggregate_score': 0.0
             }
             
         # Calculate ensemble statistics
@@ -236,6 +248,8 @@ class ConfidenceGenerator:
             
         return {
             'score': float(final_score),
+            'aggregate_score': float(final_score),  # Include both for compatibility
+            'individual_scores': scores,
             'ensemble_statistics': {
                 'mean': float(mean_score),
                 'median': float(median_score),
@@ -259,6 +273,7 @@ class ConfidenceGenerator:
         
         if len(calibration_data) < 10:
             return {
+                'calibrated_score': predicted_confidence,
                 'calibrated_confidence': predicted_confidence,
                 'calibration_quality': 'insufficient_data',
                 'reliability_score': 0.5
@@ -307,6 +322,7 @@ class ConfidenceGenerator:
         overall_reliability = np.mean(reliability_scores) if reliability_scores else 0.5
         
         return {
+            'calibrated_score': float(calibrated_confidence),
             'calibrated_confidence': float(calibrated_confidence),
             'original_confidence': float(predicted_confidence),
             'calibration_quality': calibration_quality,

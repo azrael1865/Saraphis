@@ -9,13 +9,20 @@ import logging
 import threading
 import json
 import asyncio
-import websockets
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set, Callable
 from collections import defaultdict, deque
 import hashlib
 import secrets
 from concurrent.futures import ThreadPoolExecutor
+
+# Handle optional websockets dependency
+try:
+    import websockets
+    WEBSOCKETS_AVAILABLE = True
+except ImportError:
+    websockets = None
+    WEBSOCKETS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +62,9 @@ class WebSocketManager:
     """Production-ready WebSocket manager for real-time communication"""
     
     def __init__(self, config: Dict[str, Any]):
+        if not WEBSOCKETS_AVAILABLE:
+            raise RuntimeError("WebSocket functionality requires 'websockets' package. Install with: pip install websockets")
+        
         self.config = config
         self.logger = logging.getLogger(self.__class__.__name__)
         

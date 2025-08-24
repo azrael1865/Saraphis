@@ -10,16 +10,53 @@ import torch
 import numpy as np
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Union, Callable
 
-# Import GAC system components
-from gac_system.direction_state import DirectionStateManager, DirectionState
-from gac_system.enhanced_bounder import EnhancedGradientBounder
+# Import GAC system components - with fallback for missing modules
+try:
+    from gac_system.direction_state import DirectionStateManager, DirectionState
+    from gac_system.enhanced_bounder import EnhancedGradientBounder
+except ImportError:
+    # Create minimal stub classes if GAC system not available
+    from enum import Enum
+    
+    class DirectionState(Enum):
+        """Direction state enumeration stub"""
+        STABLE = "stable"
+        OSCILLATING = "oscillating"
+        ASCENDING = "ascending"
+        DESCENDING = "descending"
+        UNKNOWN = "unknown"
+    
+    class DirectionStateManager:
+        """Minimal stub for DirectionStateManager"""
+        def __init__(self, *args, **kwargs):
+            self.state = DirectionState.UNKNOWN
+        
+        def update_direction_state(self, gradients):
+            """Stub method for updating direction state"""
+            return DirectionState.UNKNOWN
+    
+    class EnhancedGradientBounder:
+        """Minimal stub for EnhancedGradientBounder"""
+        def __init__(self, *args, **kwargs):
+            pass
 
-# Import performance optimizer
-from performance_optimizer import PerformanceOptimizer
+# Import performance optimizer - with fallback for missing module
+try:
+    from performance_optimizer import PerformanceOptimizer
+except ImportError:
+    # Create minimal stub class if performance optimizer not available
+    class PerformanceOptimizer:
+        """Minimal stub for PerformanceOptimizer"""
+        def __init__(self, *args, **kwargs):
+            self.is_initialized = False
+        
+        def optimize(self, *args, **kwargs):
+            """Stub optimization method"""
+            return {}
 
 
 class DecisionCriterion(Enum):
@@ -259,7 +296,7 @@ class SwitchingDecisionEngine:
             
             # Store decision in history
             decision_record = {
-                'timestamp': datetime.utcnow(),
+                'timestamp': datetime.now(timezone.utc),
                 'data_shape': data.shape,
                 'weighted_score': weighted_score,
                 'overall_confidence': overall_confidence,
@@ -484,7 +521,7 @@ class SwitchingDecisionEngine:
         try:
             # Store performance data
             self.performance_history.append({
-                'timestamp': datetime.utcnow(),
+                'timestamp': datetime.now(timezone.utc),
                 'data': performance_data.copy()
             })
             

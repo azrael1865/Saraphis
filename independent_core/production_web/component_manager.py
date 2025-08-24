@@ -127,10 +127,7 @@ class ComponentManager:
         try:
             # Validate component type
             if component_type not in self.component_registry:
-                return {
-                    'success': False,
-                    'error': f'Unknown component type: {component_type}'
-                }
+                raise ValueError(f"HARD FAILURE: Unknown component type '{component_type}'. Valid types: {list(self.component_registry.keys())}")
             
             # Generate unique component ID if not provided
             if not component_id:
@@ -162,6 +159,17 @@ class ComponentManager:
                     'error_history': deque(maxlen=50)
                 }
                 
+                # Initialize metrics tracking
+                self.component_metrics[component_id] = {
+                    'render_count': 0,
+                    'update_count': 0,
+                    'error_count': 0,
+                    'total_render_time': 0.0,
+                    'total_update_time': 0.0,
+                    'last_render': None,
+                    'last_update': None
+                }
+                
                 # Process dependencies
                 if 'dependencies' in configuration:
                     self.component_dependencies[component_id] = set(configuration['dependencies'])
@@ -177,12 +185,11 @@ class ComponentManager:
                     'component_state': self.component_states[component_id]
                 }
                 
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component registration failed: {e}")
-            return {
-                'success': False,
-                'error': f'Registration failed: {str(e)}'
-            }
+            raise RuntimeError(f"HARD FAILURE: Component registration failed: {e}")
     
     def update_components(self, components: Dict[str, Any], 
                          data: Dict[str, Any]) -> Dict[str, Any]:
@@ -213,9 +220,11 @@ class ComponentManager:
             
             return updated_components
             
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component update failed: {e}")
-            return {}
+            raise RuntimeError(f"HARD FAILURE: Component update failed: {e}")
     
     def update_interface_components(self, user_id: str, 
                                   interaction_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -268,15 +277,14 @@ class ComponentManager:
             
         except Exception as e:
             self.logger.error(f"Interface component update failed: {e}")
-            return {}
+            raise RuntimeError(f"HARD FAILURE: Interface component update failed: {e}")
     
     def apply_component_update(self, component_id: str, update_data: Dict[str, Any]):
         """Apply specific update to component"""
         try:
             with self._lock:
                 if component_id not in self.component_states:
-                    self.logger.warning(f"Component not found: {component_id}")
-                    return
+                    raise ValueError(f"HARD FAILURE: Component not found: {component_id}")
                 
                 component = self.component_states[component_id]
                 
@@ -295,30 +303,29 @@ class ComponentManager:
                 # Queue for rendering
                 self._queue_component_update(component_id)
                 
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component update application failed: {e}")
+            raise RuntimeError(f"HARD FAILURE: Component update application failed: {e}")
     
     def get_component_state(self, component_id: str) -> Dict[str, Any]:
         """Get current state of component"""
         try:
             with self._lock:
                 if component_id not in self.component_states:
-                    return {
-                        'success': False,
-                        'error': f'Component not found: {component_id}'
-                    }
+                    raise ValueError(f"HARD FAILURE: Component not found for state retrieval: {component_id}")
                 
                 return {
                     'success': True,
                     'component_state': self.component_states[component_id].copy()
                 }
                 
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component state retrieval failed: {e}")
-            return {
-                'success': False,
-                'error': f'State retrieval failed: {str(e)}'
-            }
+            raise RuntimeError(f"HARD FAILURE: Component state retrieval failed: {e}")
     
     def get_component_metrics(self, component_id: Optional[str] = None) -> Dict[str, Any]:
         """Get component performance metrics"""
@@ -326,7 +333,7 @@ class ComponentManager:
             with self._lock:
                 if component_id:
                     if component_id not in self.component_metrics:
-                        return {'error': f'No metrics for component: {component_id}'}
+                        raise ValueError(f'HARD FAILURE: No metrics found for component: {component_id}')
                     
                     return {
                         'component_id': component_id,
@@ -344,24 +351,23 @@ class ComponentManager:
                         'summary': self._generate_metrics_summary()
                     }
                     
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component metrics retrieval failed: {e}")
-            return {'error': str(e)}
+            raise RuntimeError(f"HARD FAILURE: Component metrics retrieval failed: {e}")
     
     def remove_component(self, component_id: str) -> Dict[str, Any]:
         """Remove component and clean up resources"""
         try:
             with self._lock:
                 if component_id not in self.component_states:
-                    return {
-                        'success': False,
-                        'error': f'Component not found: {component_id}'
-                    }
+                    raise ValueError(f"HARD FAILURE: Component not found for removal: {component_id}")
                 
                 # Remove from all tracking structures
                 del self.component_states[component_id]
-                del self.component_lifecycle[component_id]
-                del self.component_metrics[component_id]
+                self.component_lifecycle.pop(component_id, None)
+                self.component_metrics.pop(component_id, None)
                 
                 # Remove from dependencies
                 self.component_dependencies.pop(component_id, None)
@@ -385,12 +391,11 @@ class ComponentManager:
                     'message': f'Component {component_id} removed successfully'
                 }
                 
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component removal failed: {e}")
-            return {
-                'success': False,
-                'error': f'Removal failed: {str(e)}'
-            }
+            raise RuntimeError(f"HARD FAILURE: Component removal failed: {e}")
     
     def _update_single_component(self, component_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update single component with data"""
@@ -399,10 +404,7 @@ class ComponentManager:
             
             with self._lock:
                 if component_id not in self.component_states:
-                    return {
-                        'success': False,
-                        'error': f'Component not found: {component_id}'
-                    }
+                    raise ValueError(f"HARD FAILURE: Component not found for single update: {component_id}")
                 
                 component = self.component_states[component_id]
                 
@@ -440,12 +442,11 @@ class ComponentManager:
                         'error': render_result.get('error')
                     }
                     
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Single component update failed: {e}")
-            return {
-                'success': False,
-                'error': f'Update failed: {str(e)}'
-            }
+            raise RuntimeError(f"HARD FAILURE: Single component update failed: {e}")
     
     def _render_component(self, component_id: str) -> Dict[str, Any]:
         """Render component based on type and data"""
@@ -496,20 +497,20 @@ class ComponentManager:
                 'content': content
             }
             
+        except (ValueError, RuntimeError):
+            raise  # Re-raise our own hard failures without double-wrapping
         except Exception as e:
             self.logger.error(f"Component rendering failed: {e}")
             
             # Record error in lifecycle
-            self.component_lifecycle[component_id]['error_history'].append({
-                'timestamp': time.time(),
-                'error': str(e),
-                'type': 'render_error'
-            })
+            if component_id in self.component_lifecycle:
+                self.component_lifecycle[component_id]['error_history'].append({
+                    'timestamp': time.time(),
+                    'error': str(e),
+                    'type': 'render_error'
+                })
             
-            return {
-                'success': False,
-                'error': f'Rendering failed: {str(e)}'
-            }
+            raise RuntimeError(f"HARD FAILURE: Component rendering failed: {e}")
     
     def _render_chart_component(self, component: Dict[str, Any]) -> Dict[str, Any]:
         """Render chart component"""
@@ -633,6 +634,17 @@ class ComponentManager:
         value = data.get('value', 0)
         min_value = config.get('min', 0)
         max_value = config.get('max', 100)
+        
+        # Validate all values are numeric
+        try:
+            value = float(value)
+            min_value = float(min_value)
+            max_value = float(max_value)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"HARD FAILURE: Gauge component requires numeric values. Got value={type(value).__name__}, min={type(min_value).__name__}, max={type(max_value).__name__}: {e}")
+        
+        if max_value <= min_value:
+            raise ValueError(f"HARD FAILURE: Gauge max_value ({max_value}) must be greater than min_value ({min_value})")
         
         # Calculate percentage
         percentage = ((value - min_value) / (max_value - min_value)) * 100
@@ -810,14 +822,18 @@ class ComponentManager:
             component['state'] = new_state
             
             # Track state change
-            self.component_lifecycle[component_id]['state_changes'].append(
-                (new_state, time.time())
-            )
+            lifecycle = self.component_lifecycle[component_id]
+            lifecycle['state_changes'].append((new_state, time.time()))
+            
+            # Enforce state_changes limit immediately
+            if len(lifecycle['state_changes']) > 100:
+                lifecycle['state_changes'] = lifecycle['state_changes'][-100:]
             
             self.logger.debug(f"Component {component_id} state: {old_state} -> {new_state}")
             
         except Exception as e:
             self.logger.error(f"State update failed: {e}")
+            raise RuntimeError(f"HARD FAILURE: Component state update failed: {e}")
     
     def _process_cascading_updates(self, initial_components: List[str]) -> Dict[str, Any]:
         """Process cascading updates for dependent components"""
@@ -850,7 +866,7 @@ class ComponentManager:
             
         except Exception as e:
             self.logger.error(f"Cascading update processing failed: {e}")
-            return {}
+            raise RuntimeError(f"HARD FAILURE: Cascading update processing failed: {e}")
     
     def _queue_component_update(self, component_id: str):
         """Queue component for batched update"""
@@ -871,6 +887,7 @@ class ComponentManager:
             
         except Exception as e:
             self.logger.error(f"Update queueing failed: {e}")
+            raise RuntimeError(f"HARD FAILURE: Update queueing failed: {e}")
     
     def _execute_component_update(self, component_id: str):
         """Execute queued component update"""
@@ -886,6 +903,7 @@ class ComponentManager:
                 
         except Exception as e:
             self.logger.error(f"Component update execution failed: {e}")
+            raise RuntimeError(f"HARD FAILURE: Component update execution failed: {e}")
     
     def _generate_component_id(self, component_type: str) -> str:
         """Generate unique component ID"""
@@ -922,7 +940,7 @@ class ComponentManager:
             
         except Exception as e:
             self.logger.error(f"Metrics summary generation failed: {e}")
-            return {}
+            raise RuntimeError(f"HARD FAILURE: Metrics summary generation failed: {e}")
     
     def _start_background_threads(self):
         """Start background maintenance threads"""
@@ -963,7 +981,7 @@ class ComponentManager:
                 
             except Exception as e:
                 self.logger.error(f"Component health check error: {e}")
-                time.sleep(60)
+                raise RuntimeError(f"HARD FAILURE: Component health check failed: {e}")
     
     def _metrics_cleanup_loop(self):
         """Clean up old metrics data"""
@@ -980,4 +998,4 @@ class ComponentManager:
                 
             except Exception as e:
                 self.logger.error(f"Metrics cleanup error: {e}")
-                time.sleep(7200)  # 2 hours on error
+                raise RuntimeError(f"HARD FAILURE: Metrics cleanup failed: {e}")

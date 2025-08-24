@@ -832,6 +832,107 @@ class DomainStateManager:
             self.logger.error(f"Failed to export states: {e}")
             return False
     
+    def sync_all_states(self) -> bool:
+        """
+        Synchronize all domain states with the domain registry.
+        
+        Returns:
+            True if all states synced successfully, False otherwise
+        """
+        try:
+            sync_count = 0
+            for domain_name, domain_state in self._domain_states.items():
+                try:
+                    registry_state = {
+                        'model_parameters': domain_state.model_parameters,
+                        'learning_state': domain_state.learning_state,
+                        'performance_metrics': domain_state.performance_metrics,
+                        'last_synced': datetime.now().isoformat(),
+                        'version': domain_state.version,
+                        'total_training_steps': domain_state.total_training_steps,
+                        'total_predictions': domain_state.total_predictions,
+                        'best_performance': domain_state.best_performance
+                    }
+                    self.domain_registry.set_domain_state(domain_name, registry_state)
+                    sync_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to sync state for domain '{domain_name}': {e}")
+            
+            self.logger.info(f"Synchronized {sync_count}/{len(self._domain_states)} domain states")
+            return sync_count == len(self._domain_states)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to sync all domain states: {e}")
+            return False
+    
+    def save_all_states(self) -> int:
+        """
+        Save all domain states to disk.
+        
+        Returns:
+            Number of states successfully saved
+        """
+        saved_count = 0
+        for domain_name in self._domain_states:
+            if self.save_domain_state(domain_name):
+                saved_count += 1
+        
+        self.logger.info(f"Saved {saved_count}/{len(self._domain_states)} domain states")
+        return saved_count
+    
+    def get_all_domains(self) -> List[str]:
+        """Get list of all domains with state."""
+        with self._global_lock:
+            return list(self._domain_states.keys())
+    
+    def get_domain_count(self) -> int:
+        """Get total number of domains with state."""
+        with self._global_lock:
+            return len(self._domain_states)
+    
+    def cleanup_old_states(self, max_age_days: int = 30) -> int:
+        """
+        Clean up old state files and versions.
+        
+        Args:
+            max_age_days: Maximum age in days for state files
+            
+        Returns:
+            Number of files cleaned up
+        """
+        try:
+            from datetime import timedelta
+            cutoff_date = datetime.now() - timedelta(days=max_age_days)
+            cleaned_count = 0
+            
+            # Clean up old state files
+            if self.storage_path.exists():
+                for state_file in self.storage_path.glob("*_state.json"):
+                    file_time = datetime.fromtimestamp(state_file.stat().st_mtime)
+                    if file_time < cutoff_date:
+                        state_file.unlink()
+                        cleaned_count += 1
+                        
+                        # Also clean up related embeddings file
+                        embeddings_file = state_file.with_suffix('.embeddings.npz')
+                        if embeddings_file.exists():
+                            embeddings_file.unlink()
+                            cleaned_count += 1
+            
+            # Clean up old versions from memory
+            for domain_name in list(self._state_versions.keys()):
+                versions = self._state_versions[domain_name]
+                self._state_versions[domain_name] = [
+                    v for v in versions if v.timestamp >= cutoff_date
+                ]
+            
+            self.logger.info(f"Cleaned up {cleaned_count} old state files")
+            return cleaned_count
+            
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup old states: {e}")
+            return 0
+    
     def __repr__(self) -> str:
         """String representation."""
         return (f"DomainStateManager(domains={len(self._domain_states)}, "

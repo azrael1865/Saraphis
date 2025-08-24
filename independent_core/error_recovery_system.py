@@ -93,33 +93,72 @@ class RecoveryCheckpoint:
     checksum: str
     size_bytes: int
 
-def _extract_primitive_parameter(context: Dict[str, Any], param_name: str, default_value: Any, param_type: type) -> Any:
+def _extract_primitive_parameter(context: Dict[str, Any], param_name: str, param_type: type) -> Any:
     """
-    SYSTEMIC FIX: Extract primitive parameter value from context, handling various input formats.
+    HARD FAILURE: Extract primitive parameter value from context - NO FALLBACKS.
     
     Args:
         context: Context dictionary containing the parameter
         param_name: Name of the parameter to extract
-        default_value: Default value if extraction fails
         param_type: Expected type (int, float, etc.)
         
     Returns:
         Primitive value of the specified type
+        
+    Raises:
+        ValueError: If parameter cannot be extracted or converted
     """
-    value = context.get(param_name, default_value)
+    if param_name not in context:
+        raise ValueError(f"HARD FAILURE: Required parameter '{param_name}' not found in context")
+    
+    value = context[param_name]
     
     # Handle various input formats and ensure we get a primitive value
     if isinstance(value, dict):
-        # Extract from dictionary if needed
+        # Helper function for recursive value extraction
+        def find_value_recursively(obj):
+            if isinstance(obj, dict):
+                if 'value' in obj:
+                    return obj['value']
+                elif 'suggested_value' in obj:
+                    return obj['suggested_value']
+                else:
+                    for v in obj.values():
+                        result = find_value_recursively(v)
+                        if result is not None:
+                            return result
+            return None
+        
+        # Extract from nested dictionary if needed
         if param_name in value:
-            value = value[param_name]
+            nested_value = value[param_name]
+            # Handle nested dictionaries recursively
+            if isinstance(nested_value, dict):
+                # Try direct keys first
+                if 'value' in nested_value:
+                    value = nested_value['value']
+                elif 'suggested_value' in nested_value:
+                    value = nested_value['suggested_value']
+                else:
+                    # Try recursive search through all nested values
+                    extracted = find_value_recursively(nested_value)
+                    if extracted is not None:
+                        value = extracted
+                    else:
+                        raise ValueError(f"HARD FAILURE: Could not extract {param_name} from nested dictionary")
+            else:
+                value = nested_value
         elif 'value' in value:
             value = value['value']
         elif 'suggested_value' in value:
             value = value['suggested_value']
         else:
-            value = default_value
-            logger.warning(f"Could not extract {param_name} from dictionary, using default: {default_value}")
+            # Try recursive search on the entire dictionary if param_name not found at top level
+            extracted = find_value_recursively(value)
+            if extracted is not None:
+                value = extracted
+            else:
+                raise ValueError(f"HARD FAILURE: Could not extract {param_name} from dictionary")
     elif isinstance(value, (list, tuple)) and len(value) > 0:
         value = value[0]
         logger.info(f"Extracted {param_name} from list/tuple: {value}")
@@ -129,18 +168,16 @@ def _extract_primitive_parameter(context: Dict[str, Any], param_name: str, defau
         if param_type == int:
             value = int(value)
             if value <= 0:
-                value = default_value
-                logger.warning(f"Invalid {param_name} value, using default: {default_value}")
+                raise ValueError(f"HARD FAILURE: Invalid {param_name} value {value} - must be positive")
         elif param_type == float:
             value = float(value)
             if value <= 0:
-                value = default_value
-                logger.warning(f"Invalid {param_name} value, using default: {default_value}")
+                raise ValueError(f"HARD FAILURE: Invalid {param_name} value {value} - must be positive")
         else:
             value = param_type(value)
-    except (ValueError, TypeError):
-        value = default_value
-        logger.warning(f"Could not convert {param_name} to {param_type.__name__}, using default: {default_value}")
+    except (ValueError, TypeError) as e:
+        logger.error(f"Could not convert {param_name} to {param_type.__name__}: {e}")
+        raise ValueError(f"Parameter {param_name} type conversion failed: {e}")
     
     return value
 
@@ -181,6 +218,9 @@ class ErrorClassifier:
             ],
             ErrorType.CHECKPOINT_ERROR: [
                 "checkpoint", "state_dict", "model.load", "torch.load"
+            ],
+            ErrorType.UNKNOWN_ERROR: [
+                "unknown", "unexpected", "generic", "unhandled"
             ]
         }
         
@@ -192,10 +232,13 @@ class ErrorClassifier:
                 "error", "exception", "failed", "corrupt"
             ],
             ErrorSeverity.MEDIUM: [
-                "warning", "issue", "problem"
+                "issue", "problem", "moderate"
             ],
             ErrorSeverity.LOW: [
                 "notice", "info", "minor"
+            ],
+            ErrorSeverity.WARNING: [
+                "warning", "warn", "caution", "alert"
             ]
         }
     
@@ -306,7 +349,7 @@ class ErrorClassifier:
         if consecutive_failures > 2:
             # Escalate to more aggressive strategies
             if RecoveryStrategy.RESTART_TRAINING not in strategies:
-                strategies.append(RecoveryStrategy.RESTART_TRAINING)
+                strategies.insert(-1, RecoveryStrategy.RESTART_TRAINING)  # Insert before last strategy
         
         if consecutive_failures > 5:
             strategies = [RecoveryStrategy.EMERGENCY_STOP]
@@ -462,7 +505,8 @@ class CheckpointRecovery:
                     self.checkpoints[checkpoint.checkpoint_id] = checkpoint
                     
             except Exception as e:
-                logger.warning(f"Failed to load checkpoint index: {e}")
+                logger.error(f"Failed to load checkpoint index: {e}")
+                raise RuntimeError(f"Checkpoint index loading failed: {e}")
     
     def _save_checkpoint_index(self):
         """Save checkpoint index to disk."""
@@ -494,8 +538,19 @@ class CheckpointRecovery:
         
         to_delete = sorted_checkpoints[self.max_checkpoints:]
         
+        # Delete checkpoints without acquiring lock (already held)
         for checkpoint in to_delete:
-            self.delete_checkpoint(checkpoint.checkpoint_id)
+            checkpoint_path = self.checkpoint_dir / checkpoint.checkpoint_id
+            if checkpoint_path.exists():
+                shutil.rmtree(checkpoint_path)
+            
+            if checkpoint.checkpoint_id in self.checkpoints:
+                del self.checkpoints[checkpoint.checkpoint_id]
+            
+            logger.info(f"Cleaned up old checkpoint {checkpoint.checkpoint_id}")
+        
+        # Save updated index after cleanup
+        self._save_checkpoint_index()
 
 class StateRollback:
     """Manages state rollback for quick recovery."""
@@ -551,10 +606,17 @@ class StateRollback:
             self.state_history.clear()
 
 class ErrorRecoveryManager:
-    """Central coordinator for error recovery operations."""
+    """Central coordinator for error recovery operations.
+    
+    By default, operates in 'fail-hard' mode where errors are logged with
+    comprehensive diagnostics but NOT automatically recovered from.
+    This ensures problems are visible and properly addressed.
+    """
     
     def __init__(self, checkpoint_dir: str = ".checkpoints", 
-                 max_checkpoints: int = 10, max_state_history: int = 50):
+                 max_checkpoints: int = 10, max_state_history: int = 50,
+                 fail_hard: bool = True):
+        self.fail_hard = fail_hard  # If True, never attempt automatic recovery
         self.classifier = ErrorClassifier()
         self.checkpoint_recovery = CheckpointRecovery(checkpoint_dir, max_checkpoints)
         self.state_rollback = StateRollback(max_state_history)
@@ -574,49 +636,68 @@ class ErrorRecoveryManager:
         self.recovery_callbacks: List[Callable] = []
     
     def handle_error(self, error: Exception, context: Dict[str, Any] = None) -> bool:
-        """Handle an error with automatic recovery attempt."""
+        """Handle an error by logging diagnostics and failing hard.
+        
+        This method captures comprehensive error information but does NOT attempt
+        automatic recovery. Instead, it ensures errors fail fast with detailed
+        diagnostics for debugging.
+        """
         start_time = time.time()
         context = context or {}
         
-        # Classify the error
+        # Classify the error for diagnostic purposes
         error_type, severity = self.classifier.classify_error(error, context)
         
-        # Get recovery strategies
+        # Get what recovery strategies WOULD be used (for diagnostics only)
         recovery_strategies = self.classifier.get_recovery_strategies(error_type, severity, context)
         
-        logger.error(f"Error occurred: {error_type.value} (severity: {severity.value})")
+        logger.error(f"HARD FAILURE - Error occurred: {error_type.value} (severity: {severity.value})")
         logger.error(f"Error message: {str(error)}")
+        logger.error(f"Error traceback:\n{traceback.format_exc()}")
+        logger.error(f"Context at failure: {json.dumps(context, default=str, indent=2)}")
+        logger.error(f"Suggested recovery strategies (NOT applied): {[s.value for s in recovery_strategies]}")
         
         recovery_success = False
         recovery_strategy_used = None
         
-        # Attempt recovery
-        for strategy in recovery_strategies:
-            try:
-                logger.info(f"Attempting recovery with strategy: {strategy.value}")
-                
-                if self._execute_recovery_strategy(strategy, error, context):
-                    recovery_success = True
-                    recovery_strategy_used = strategy
-                    logger.info(f"Recovery successful with strategy: {strategy.value}")
-                    break
-                else:
-                    logger.warning(f"Recovery strategy {strategy.value} failed")
+        if self.fail_hard:
+            # DO NOT attempt recovery - just log what we would have done
+            logger.error(f"FAILING HARD - No automatic recovery attempted")
+            logger.error(f"Manual intervention required to address: {error_type.value}")
+            
+            # Log diagnostic information about what recovery would be attempted
+            for strategy in recovery_strategies[:1]:  # Just show primary strategy
+                diagnosis = self._diagnose_recovery_strategy(strategy, error, context)
+                logger.error(f"Diagnosis: {json.dumps(diagnosis, default=str, indent=2)}")
+        else:
+            # Legacy behavior - attempt automatic recovery (NOT RECOMMENDED)
+            logger.warning("Automatic recovery mode enabled (NOT RECOMMENDED for production)")
+            for strategy in recovery_strategies:
+                try:
+                    logger.info(f"Attempting recovery with strategy: {strategy.value}")
                     
-            except Exception as recovery_error:
-                logger.error(f"Recovery strategy {strategy.value} raised exception: {recovery_error}")
+                    if self._execute_recovery_strategy_legacy(strategy, error, context):
+                        recovery_success = True
+                        recovery_strategy_used = strategy
+                        logger.info(f"Recovery successful with strategy: {strategy.value}")
+                        break
+                    else:
+                        logger.warning(f"Recovery strategy {strategy.value} failed")
+                        
+                except Exception as recovery_error:
+                    logger.error(f"Recovery strategy {strategy.value} raised exception: {recovery_error}")
         
         recovery_time = time.time() - start_time
         
-        # Record the error and recovery attempt
+        # Record the error (no recovery attempt)
         error_record = ErrorRecord(
             timestamp=datetime.now(),
             error_type=error_type,
             severity=severity,
             message=str(error),
             traceback_str=traceback.format_exc(),
-            recovery_strategy=recovery_strategy_used,
-            recovery_success=recovery_success,
+            recovery_strategy=recovery_strategy_used,  # Always None now
+            recovery_success=False,  # Always False - we don't recover
             recovery_time=recovery_time,
             context=context,
             session_id=context.get('session_id'),
@@ -628,55 +709,148 @@ class ErrorRecoveryManager:
             self.error_history.append(error_record)
             self._update_recovery_stats(error_record)
         
-        # Notify callbacks
+        # Notify callbacks (for logging/monitoring only)
         for callback in self.recovery_callbacks:
             try:
                 callback(error_record)
             except Exception as e:
-                logger.warning(f"Recovery callback failed: {e}")
+                logger.error(f"Error notification callback failed: {e}")
+                raise RuntimeError(f"Callback failure during error handling: {e}")
         
-        return recovery_success
+        if self.fail_hard:
+            # Always re-raise the original error for hard failure
+            logger.error(f"Re-raising original error for hard failure")
+            raise error
+        else:
+            # Legacy behavior - return success/failure status
+            return recovery_success
     
-    def _execute_recovery_strategy(self, strategy: RecoveryStrategy, 
+    def _diagnose_recovery_strategy(self, strategy: RecoveryStrategy, 
+                                  error: Exception, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Diagnose what a recovery strategy WOULD do (without executing it).
+        
+        This is for diagnostic purposes only - no actual recovery is performed.
+        Returns a dictionary describing what would be done.
+        """
+        diagnosis = {'strategy': strategy.value, 'would_perform': []}
+        
+        try:
+            if strategy == RecoveryStrategy.RETRY:
+                diagnosis['would_perform'].append('Retry the failed operation')
+                diagnosis['recommended_action'] = 'Check if error is transient'
+            
+            elif strategy == RecoveryStrategy.REDUCE_BATCH_SIZE:
+                if 'batch_size' in context:
+                    current_batch_size = _extract_primitive_parameter(context, 'batch_size', int)
+                    new_batch_size = max(1, current_batch_size // 2)
+                    diagnosis['would_perform'].append(f'Reduce batch size from {current_batch_size} to {new_batch_size}')
+                else:
+                    diagnosis['would_perform'].append(f'Reduce batch size (current size unknown)')
+                diagnosis['recommended_action'] = 'Manually reduce batch size if OOM errors persist'
+            
+            elif strategy == RecoveryStrategy.REDUCE_LEARNING_RATE:
+                if 'learning_rate' in context:
+                    current_lr = _extract_primitive_parameter(context, 'learning_rate', float)
+                    new_lr = max(1e-8, current_lr * 0.5)
+                    diagnosis['would_perform'].append(f'Reduce learning rate from {current_lr} to {new_lr}')
+                else:
+                    diagnosis['would_perform'].append(f'Reduce learning rate (current rate unknown)')
+                diagnosis['recommended_action'] = 'Check gradient magnitudes and adjust LR manually'
+            
+            elif strategy == RecoveryStrategy.GRADIENT_CLIPPING:
+                if 'gradient_clipping' in context:
+                    current_clipping = _extract_primitive_parameter(context, 'gradient_clipping', float)
+                    new_clipping = min(current_clipping, 0.5)
+                    diagnosis['would_perform'].append(f'Set gradient clipping from {current_clipping} to {new_clipping}')
+                else:
+                    diagnosis['would_perform'].append(f'Enable gradient clipping (current setting unknown)')
+                diagnosis['recommended_action'] = 'Enable gradient clipping if experiencing gradient explosion'
+            
+            elif strategy == RecoveryStrategy.CLEAR_CACHE:
+                diagnosis['would_perform'].append('Clear CUDA cache and run garbage collection')
+                diagnosis['recommended_action'] = 'Manually clear cache or restart with smaller batch'
+            
+            elif strategy == RecoveryStrategy.ROLLBACK_STATE:
+                diagnosis['would_perform'].append('Rollback to previous training state')
+                diagnosis['recommended_action'] = 'Load previous checkpoint manually'
+            
+            elif strategy == RecoveryStrategy.ROLLBACK_CHECKPOINT:
+                diagnosis['would_perform'].append('Restore from last checkpoint')
+                diagnosis['recommended_action'] = 'Manually restore from checkpoint and investigate root cause'
+            
+            elif strategy == RecoveryStrategy.SKIP_BATCH:
+                diagnosis['would_perform'].append('Skip the current problematic batch')
+                diagnosis['recommended_action'] = 'Inspect batch data for corruption or outliers'
+            
+            elif strategy == RecoveryStrategy.RESTART_TRAINING:
+                diagnosis['would_perform'].append('Restart training from beginning')
+                diagnosis['recommended_action'] = 'Fix root cause before restarting training'
+            
+            elif strategy == RecoveryStrategy.EMERGENCY_STOP:
+                diagnosis['would_perform'].append('Emergency stop - critical failure')
+                diagnosis['recommended_action'] = 'Investigate critical failure before any restart'
+            
+        except Exception as e:
+            diagnosis['diagnosis_error'] = str(e)
+        
+        return diagnosis
+    
+    def _execute_recovery_strategy_legacy(self, strategy: RecoveryStrategy, 
                                   error: Exception, context: Dict[str, Any]) -> bool:
-        """Execute a specific recovery strategy."""
+        """[LEGACY] Execute a specific recovery strategy.
+        
+        This method should only be used when fail_hard=False (not recommended).
+        For production use, errors should fail hard with diagnostics.
+        """
         try:
             if strategy == RecoveryStrategy.RETRY:
                 return True  # Signal that retry should be attempted
             
             elif strategy == RecoveryStrategy.REDUCE_BATCH_SIZE:
-                # SYSTEMIC FIX: Use utility function for robust parameter extraction
-                current_batch_size = _extract_primitive_parameter(context, 'batch_size', 32, int)
+                if 'batch_size' not in context:
+                    raise ValueError("HARD FAILURE: Cannot reduce batch_size - parameter not provided in context")
+                current_batch_size = _extract_primitive_parameter(context, 'batch_size', int)
                 new_batch_size = max(1, current_batch_size // 2)
                 context['suggested_batch_size'] = int(new_batch_size)
+                context['batch_size_reduced'] = True
                 logger.info(f"Reduced batch size from {current_batch_size} to {new_batch_size}")
                 return True
             
             elif strategy == RecoveryStrategy.REDUCE_LEARNING_RATE:
-                # SYSTEMIC FIX: Use utility function for robust parameter extraction
-                current_lr = _extract_primitive_parameter(context, 'learning_rate', 0.001, float)
-                new_lr = current_lr * 0.5
+                if 'learning_rate' not in context:
+                    raise ValueError("HARD FAILURE: Cannot reduce learning_rate - parameter not provided in context")
+                current_lr = _extract_primitive_parameter(context, 'learning_rate', float)
+                new_lr = max(1e-8, current_lr * 0.5)
                 context['suggested_learning_rate'] = float(new_lr)
+                context['learning_rate_reduced'] = True
                 logger.info(f"Reduced learning rate from {current_lr} to {new_lr}")
                 return True
             
             elif strategy == RecoveryStrategy.GRADIENT_CLIPPING:
-                # SYSTEMIC FIX: Use utility function for robust parameter extraction
-                current_clipping = _extract_primitive_parameter(context, 'gradient_clipping', 1.0, float)
+                if 'gradient_clipping' not in context:
+                    raise ValueError("HARD FAILURE: Cannot set gradient_clipping - parameter not provided in context")
+                current_clipping = _extract_primitive_parameter(context, 'gradient_clipping', float)
                 new_clipping = min(current_clipping, 0.5)
                 context['suggested_gradient_clipping'] = float(new_clipping)
-                logger.info(f"Reduced gradient clipping from {current_clipping} to {new_clipping}")
+                context['gradient_clipping_enabled'] = True
+                logger.info(f"Set gradient clipping from {current_clipping} to {new_clipping}")
                 return True
             
             elif strategy == RecoveryStrategy.CLEAR_CACHE:
-                # This would need PyTorch-specific implementation
                 try:
-                    # Mock cache clearing - real implementation would use torch.cuda.empty_cache()
-                    import gc
-                    gc.collect()
-                    return True
-                except:
-                    return False
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                except ImportError as e:
+                    logger.error(f"PyTorch not available for CUDA cache clearing: {e}")
+                    raise RuntimeError(f"CUDA cache clearing failed - PyTorch not available: {e}")
+                
+                import gc
+                gc.collect()
+                context['cache_cleared'] = True
+                logger.info("Cleared memory cache")
+                return True
             
             elif strategy == RecoveryStrategy.ROLLBACK_STATE:
                 rolled_back_state = self.state_rollback.rollback(1)
@@ -817,9 +991,14 @@ class ErrorRecoveryManager:
 def integrate_error_recovery(training_manager, progress_tracker=None, 
                            checkpoint_dir: str = ".checkpoints",
                            max_checkpoints: int = 10,
-                           max_state_history: int = 50) -> ErrorRecoveryManager:
+                           max_state_history: int = 50,
+                           fail_hard: bool = True) -> ErrorRecoveryManager:
     """
     Integrate error recovery system with existing training infrastructure.
+    
+    NOTE: By default (fail_hard=True), this system will NOT attempt automatic recovery.
+    Instead, it provides comprehensive error diagnostics and fails fast to ensure
+    problems are properly addressed rather than masked.
     
     Args:
         training_manager: TrainingManager instance
@@ -827,6 +1006,8 @@ def integrate_error_recovery(training_manager, progress_tracker=None,
         checkpoint_dir: Directory for storing recovery checkpoints
         max_checkpoints: Maximum number of checkpoints to keep
         max_state_history: Maximum number of state snapshots to keep
+        fail_hard: If True (default), errors fail immediately with diagnostics.
+                  If False, attempts automatic recovery (NOT RECOMMENDED).
     
     Returns:
         ErrorRecoveryManager instance
@@ -835,8 +1016,16 @@ def integrate_error_recovery(training_manager, progress_tracker=None,
     recovery_manager = ErrorRecoveryManager(
         checkpoint_dir=checkpoint_dir,
         max_checkpoints=max_checkpoints,
-        max_state_history=max_state_history
+        max_state_history=max_state_history,
+        fail_hard=fail_hard
     )
+    
+    if fail_hard:
+        logger.info("Error recovery system configured for HARD FAILURE mode (recommended)")
+        logger.info("Errors will fail fast with comprehensive diagnostics")
+    else:
+        logger.warning("Error recovery system configured for automatic recovery (NOT RECOMMENDED)")
+        logger.warning("Consider using fail_hard=True for production systems")
     
     # Set up integration with training manager
     if hasattr(training_manager, '_error_recovery_manager'):

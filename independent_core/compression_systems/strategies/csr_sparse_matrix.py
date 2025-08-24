@@ -40,13 +40,14 @@ class CSRPadicMatrix:
     Memory complexity: O(nnz + m) where nnz = non-zeros, m = rows
     """
     
-    def __init__(self, matrix: Union[torch.Tensor, np.ndarray], threshold: float = 1e-6):
+    def __init__(self, matrix: Union[torch.Tensor, np.ndarray], threshold: float = 1e-6, optimize_dtypes: bool = True):
         """
         Initialize CSR representation from dense matrix.
         
         Args:
             matrix: Dense torch tensor or numpy array
             threshold: Values with absolute value below this are considered zero
+            optimize_dtypes: Whether to use smaller dtypes (int16) for better compression when possible
         """
         if not isinstance(matrix, (torch.Tensor, np.ndarray)):
             raise TypeError(f"Expected torch.Tensor or np.ndarray, got {type(matrix)}")
@@ -66,25 +67,42 @@ class CSRPadicMatrix:
         
         self.shape = matrix_np.shape
         self.threshold = threshold
+        self.optimize_dtypes = optimize_dtypes
         
-        # Build CSR structure
-        self.values = []
-        self.col_idx = []
-        self.row_ptr = [0]
+        # Build CSR structure using vectorized operations for better performance
+        # Find non-zero elements efficiently
+        mask = (np.abs(matrix_np) > threshold) | np.isnan(matrix_np) | np.isinf(matrix_np)
         
-        # Process each row
-        for i in range(self.shape[0]):
-            row = matrix_np[i]
-            for j in range(self.shape[1]):
-                if abs(row[j]) > threshold:
-                    self.values.append(row[j])
-                    self.col_idx.append(j)
-            self.row_ptr.append(len(self.values))
+        # Get row and column indices of non-zero elements
+        rows, cols = np.where(mask)
         
-        # Convert to numpy arrays for efficient operations
-        self.values = np.array(self.values, dtype=np.float32)
-        self.col_idx = np.array(self.col_idx, dtype=np.int32)
-        self.row_ptr = np.array(self.row_ptr, dtype=np.int32)
+        # Extract values
+        values = matrix_np[rows, cols]
+        
+        # Build row pointer array
+        row_ptr = np.zeros(self.shape[0] + 1, dtype=np.int32)
+        np.add.at(row_ptr[1:], rows, 1)
+        row_ptr = np.cumsum(row_ptr)
+        
+        # Store as numpy arrays directly for efficient memory usage
+        # Use optimal dtypes based on matrix size if optimization is enabled
+        if self.optimize_dtypes:
+            # Check if we can safely use int16 (no negative indices possible in valid CSR)
+            if self.shape[1] < 32768 and np.all(cols >= 0):  # Use int16 for safety
+                self.col_idx = cols.astype(np.int16)
+            else:
+                self.col_idx = cols.astype(np.int32)
+                
+            if self.shape[0] < 32768 and len(values) < 32768:  # Use int16 for safety
+                self.row_ptr = row_ptr.astype(np.int16)
+            else:
+                self.row_ptr = row_ptr.astype(np.int32)
+        else:
+            # Use standard int32 for compatibility
+            self.col_idx = cols.astype(np.int32)
+            self.row_ptr = row_ptr.astype(np.int32)
+            
+        self.values = values.astype(np.float32)
         
         # Calculate compression metrics
         self.metrics = self._calculate_compression_metrics()
@@ -104,11 +122,15 @@ class CSRPadicMatrix:
         # Dense: m * n * sizeof(float32)
         dense_size = total_elements * 4  # 4 bytes per float32
         
-        # Sparse: nnz * (sizeof(float32) + sizeof(int32)) + (m+1) * sizeof(int32)
-        # values: nnz * 4 bytes
-        # col_idx: nnz * 4 bytes  
-        # row_ptr: (m+1) * 4 bytes
-        sparse_size = nnz * 8 + (self.shape[0] + 1) * 4
+        # Sparse: Calculate actual memory based on dtypes used
+        # values: nnz * 4 bytes (float32)
+        values_size = nnz * 4
+        # col_idx: nnz * size of col_idx dtype
+        col_idx_size = nnz * self.col_idx.itemsize if len(self.col_idx) > 0 else 0
+        # row_ptr: (m+1) * size of row_ptr dtype  
+        row_ptr_size = (self.shape[0] + 1) * self.row_ptr.itemsize if len(self.row_ptr) > 0 else 0
+        
+        sparse_size = values_size + col_idx_size + row_ptr_size
         
         compression_ratio = dense_size / sparse_size if sparse_size > 0 else 1.0
         memory_saved = max(0, dense_size - sparse_size)
@@ -230,21 +252,34 @@ class CSRPadicMatrix:
         if isinstance(v, torch.Tensor):
             v = v.detach().cpu().numpy()
         
-        v = v.flatten()
+        v = v.flatten().astype(np.float32)
         if len(v) != self.shape[1]:
             raise ValueError(f"Vector length {len(v)} doesn't match matrix columns {self.shape[1]}")
         
-        result = np.zeros(self.shape[0], dtype=np.float32)
-        
-        for i in range(self.shape[0]):
-            start = self.row_ptr[i]
-            end = self.row_ptr[i + 1]
+        # Try to use scipy if available for better performance
+        try:
+            from scipy.sparse import csr_matrix
+            # Create scipy CSR matrix and use its optimized multiplication
+            scipy_csr = csr_matrix(
+                (self.values, self.col_idx, self.row_ptr),
+                shape=self.shape,
+                dtype=np.float32
+            )
+            return scipy_csr.dot(v)
+        except ImportError:
+            # Fallback to our implementation
+            result = np.zeros(self.shape[0], dtype=np.float32)
             
-            for idx in range(start, end):
-                j = self.col_idx[idx]
-                result[i] += self.values[idx] * v[j]
-        
-        return result
+            # Vectorized approach for better performance
+            for i in range(self.shape[0]):
+                start = self.row_ptr[i]
+                end = self.row_ptr[i + 1]
+                
+                if start < end:  # Skip empty rows
+                    # Vectorized computation for the entire row
+                    result[i] = np.dot(self.values[start:end], v[self.col_idx[start:end]])
+            
+            return result
     
     def multiply_matrix(self, B: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
         """
@@ -269,9 +304,11 @@ class CSRPadicMatrix:
             start = self.row_ptr[i]
             end = self.row_ptr[i + 1]
             
-            for idx in range(start, end):
-                j = self.col_idx[idx]
-                result[i] += self.values[idx] * B[j]
+            if start < end:  # Skip empty rows
+                # Vectorized computation
+                row_indices = self.col_idx[start:end]
+                row_values = self.values[start:end]
+                result[i] = np.dot(row_values, B[row_indices])
         
         return result
     
@@ -302,7 +339,7 @@ class CSRPadicMatrix:
             transposed[c, r] = v
         
         # Convert back to CSR
-        return CSRPadicMatrix(transposed, threshold=self.threshold)
+        return CSRPadicMatrix(transposed, threshold=self.threshold, optimize_dtypes=self.optimize_dtypes)
     
     def add(self, other: 'CSRPadicMatrix', alpha: float = 1.0) -> 'CSRPadicMatrix':
         """
@@ -323,7 +360,7 @@ class CSRPadicMatrix:
         dense_other = other.to_dense()
         result = dense_self + alpha * dense_other
         
-        return CSRPadicMatrix(result, threshold=self.threshold)
+        return CSRPadicMatrix(result, threshold=self.threshold, optimize_dtypes=self.optimize_dtypes)
     
     def scale(self, alpha: float) -> 'CSRPadicMatrix':
         """
@@ -338,11 +375,16 @@ class CSRPadicMatrix:
         scaled = CSRPadicMatrix.__new__(CSRPadicMatrix)
         scaled.shape = self.shape
         scaled.threshold = self.threshold
+        scaled.optimize_dtypes = self.optimize_dtypes
         scaled.original_device = self.original_device
         scaled.original_dtype = self.original_dtype
         
-        # Scale values in-place
-        scaled.values = self.values * alpha
+        # Scale values with overflow protection
+        with np.errstate(over='ignore'):  # Suppress overflow warning - we handle it
+            scaled.values = self.values * alpha
+            # Replace overflow values with inf (which is correct behavior)
+            scaled.values = np.where(np.isfinite(scaled.values), scaled.values, 
+                                    np.sign(self.values) * np.sign(alpha) * np.inf)
         scaled.col_idx = self.col_idx.copy()
         scaled.row_ptr = self.row_ptr.copy()
         
@@ -472,6 +514,7 @@ class CSRPadicMatrix:
         matrix = cls.__new__(cls)
         matrix.shape = (rows, cols)
         matrix.threshold = threshold
+        matrix.optimize_dtypes = True  # Default to optimized for deserialized matrices
         matrix.values = values
         matrix.col_idx = col_idx
         matrix.row_ptr = row_ptr
@@ -685,7 +728,7 @@ class GPUCSRMatrix:
     def to_cpu_csr(self) -> CSRPadicMatrix:
         """Convert back to CPU CSR format"""
         dense = self.sparse_tensor.to_dense().cpu().numpy()
-        return CSRPadicMatrix(dense, threshold=self.threshold)
+        return CSRPadicMatrix(dense, threshold=self.threshold, optimize_dtypes=getattr(self, 'optimize_dtypes', True))
 
 
 # Performance monitoring utilities

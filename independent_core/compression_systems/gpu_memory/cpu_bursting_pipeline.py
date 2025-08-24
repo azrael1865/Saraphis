@@ -28,12 +28,12 @@ try:
     from ..padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
     from .gpu_auto_detector import get_config_updater, AutoOptimizedConfig
 except ImportError:
-    # Direct imports for testing
-    from compression_systems.padic.padic_encoder import PadicWeight, validate_single_weight
-    from compression_systems.padic.padic_advanced import PadicDecompressionEngine
-    from compression_systems.padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
-    from compression_systems.padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
-    from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater, AutoOptimizedConfig
+    # Fallback to relative imports
+    from ..padic.padic_encoder import PadicWeight, validate_single_weight
+    from ..padic.padic_advanced import PadicDecompressionEngine
+    from ..padic.memory_pressure_handler import MemoryPressureHandler, PressureHandlerConfig
+    from ..padic.safe_reconstruction import SafePadicReconstructor, ReconstructionConfig, ReconstructionMethod
+    from .gpu_auto_detector import get_config_updater, AutoOptimizedConfig
 
 
 class DecompressionMode(Enum):

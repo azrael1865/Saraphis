@@ -39,11 +39,17 @@ class BasicGradientBounder:
             config = {}
             
         # Configuration
-        self.max_norm = config.get('max_norm', 1.0)
-        self.min_norm = config.get('min_norm', 1e-8)
         self.clip_value = config.get('clip_value', 10.0)
+        # If max_norm not specified, default based on clip_value for consistency
+        default_max_norm = 1.0 if 'clip_value' not in config else self.clip_value * 2.0
+        self.max_norm = config.get('max_norm', default_max_norm)
+        self.min_norm = config.get('min_norm', 1e-8)
         self.enable_adaptive_scaling = config.get('enable_adaptive_scaling', True)
         self.scaling_factor = config.get('scaling_factor', 1.0)
+        
+        # Enable/disable specific bounding methods
+        self.enable_norm_clipping = config.get('enable_norm_clipping', True)
+        self.enable_value_clipping = config.get('enable_value_clipping', True)
         
         # Norm calculation method
         self.norm_type = config.get('norm_type', 2)  # L2 norm by default
@@ -103,21 +109,23 @@ class BasicGradientBounder:
             bounding_metadata['vanishing'] = vanishing_check
             self.vanishing_detections += 1
         
-        # Step 3: Apply norm clipping
-        norm_result = self._apply_norm_clipping(bounded_gradients)
-        if norm_result['clipped']:
-            bounded_gradients = norm_result['gradients']
-            applied_operations.append('norm_clipping')
-            bounding_metadata['norm_clipping'] = norm_result
-            self.norm_clips += 1
+        # Step 3: Apply value clipping first (element-wise bounds)
+        if self.enable_value_clipping:
+            value_result = self._apply_value_clipping(bounded_gradients)
+            if value_result['clipped']:
+                bounded_gradients = value_result['gradients']
+                applied_operations.append('value_clipping')
+                bounding_metadata['value_clipping'] = value_result
+                self.value_clips += 1
         
-        # Step 4: Apply value clipping
-        value_result = self._apply_value_clipping(bounded_gradients)
-        if value_result['clipped']:
-            bounded_gradients = value_result['gradients']
-            applied_operations.append('value_clipping')
-            bounding_metadata['value_clipping'] = value_result
-            self.value_clips += 1
+        # Step 4: Apply norm clipping (global constraint)
+        if self.enable_norm_clipping:
+            norm_result = self._apply_norm_clipping(bounded_gradients)
+            if norm_result['clipped']:
+                bounded_gradients = norm_result['gradients']
+                applied_operations.append('norm_clipping')
+                bounding_metadata['norm_clipping'] = norm_result
+                self.norm_clips += 1
         
         # Step 5: Apply adaptive scaling if enabled
         scaling_result = None
@@ -213,8 +221,8 @@ class BasicGradientBounder:
             # Scale up to minimum viable norm
             target_norm = self.min_norm
             scale_factor = target_norm / (current_norm + 1e-12)
-            # Cap the scaling to prevent overcorrection
-            scale_factor = min(scale_factor, 1000.0)
+            # Cap the scaling to prevent overcorrection - increase limit for very small gradients
+            scale_factor = min(scale_factor, 1e8)  # Allow much larger scaling for vanishing gradients
             return gradients * scale_factor
         
         return gradients

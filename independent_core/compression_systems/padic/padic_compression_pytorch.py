@@ -60,7 +60,7 @@ class PurelyPyTorchConfig:
     
     # PyTorch optimization
     compile_mode: str = "reduce-overhead"
-    enable_triton: bool = True
+    enable_triton: bool = False  # Triton permanently disabled
     device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     dtype: torch.dtype = torch.float32
     

@@ -68,6 +68,15 @@ class AuditLogger:
     def log_security_event(self, event: Dict[str, Any]) -> bool:
         """Log a security event with integrity protection"""
         try:
+            # Validate input - must be a dictionary
+            if not isinstance(event, dict):
+                self.logger.warning(f"Invalid event type: {type(event)}, expected dict")
+                return False
+            
+            if not event:
+                self.logger.warning("Empty event dictionary provided")
+                return False
+            
             # Add timestamp and metadata
             event_record = {
                 'event_id': self._generate_event_id(),
@@ -110,6 +119,10 @@ class AuditLogger:
                    time_range: Optional[Dict[str, datetime]] = None) -> List[Dict[str, Any]]:
         """Search audit logs based on criteria"""
         try:
+            # Validate criteria input
+            if not isinstance(criteria, dict):
+                criteria = {}  # Use empty dict for invalid criteria
+            
             results = []
             
             # Search in memory buffer first
@@ -388,7 +401,8 @@ class AuditLogger:
                         os.remove(log_file)
                         self.logger.info(f"Removed old log file: {log_file}")
                         
-                except:
+                except Exception as e:
+                    self.logger.warning(f"Skipping log file with unparseable timestamp: {log_file}")
                     continue
                     
         except Exception as e:
@@ -480,7 +494,8 @@ class AuditLogger:
                                 event = json.loads(line)
                                 if 'event_id' in event and self._matches_criteria(event, criteria, time_range):
                                     results.append(event)
-                            except:
+                            except Exception as e:
+                                self.logger.warning(f"Skipping corrupted line in compressed log: {e}")
                                 continue
                 else:
                     # Regular file
@@ -490,7 +505,8 @@ class AuditLogger:
                                 event = json.loads(line)
                                 if 'event_id' in event and self._matches_criteria(event, criteria, time_range):
                                     results.append(event)
-                            except:
+                            except Exception as e:
+                                self.logger.warning(f"Skipping corrupted line in regular log: {e}")
                                 continue
                 
                 # Stop if we have enough results
@@ -524,7 +540,8 @@ class AuditLogger:
                 
                 relevant_files.append(log_file)
                 
-            except:
+            except Exception as e:
+                self.logger.warning(f"Skipping log file with unparseable date: {log_file}")
                 continue
         
         return relevant_files

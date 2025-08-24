@@ -103,6 +103,7 @@ class WeightCategory:
     ieee754_channels: List[IEEE754Channels] = field(default_factory=list)
     padic_weights: List[PadicWeight] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    compression_metadata: Dict[str, Any] = field(default_factory=dict)
     metrics: CategoryMetrics = field(init=False)
     
     def __post_init__(self):

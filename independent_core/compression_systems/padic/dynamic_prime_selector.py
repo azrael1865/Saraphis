@@ -142,19 +142,28 @@ class DynamicPrimeSelector:
         # Convert to numpy for faster processing
         sample_values = sample_tensor.detach().cpu().numpy()
         
-        # Filter out zeros and very small values
-        non_zero_mask = np.abs(sample_values) > 1e-10
+        # Filter out zeros, very small values, and invalid values (inf/nan)
+        finite_mask = np.isfinite(sample_values)
+        non_zero_mask = (np.abs(sample_values) > 1e-10) & finite_mask
+        
         if not np.any(non_zero_mask):
-            # All zeros - any prime works, choose smallest
+            # All zeros/invalid - any prime works, choose smallest
             computation_time = time.time() - start_time
             self.total_selection_time += computation_time
+            
+            # Determine rationale based on what was filtered out
+            if not np.any(finite_mask):
+                rationale = "All infinite/NaN values - using smallest prime"
+            else:
+                rationale = "All zeros tensor - using smallest prime"
+            
             result = PrimeSelectionResult(
                 optimal_prime=candidate_primes[0],
                 efficiency=1.0,
                 average_digits=1.0,
                 entropy=0.0,
                 distribution_type=distribution_type,
-                selection_rationale="All zeros tensor - using smallest prime",
+                selection_rationale=rationale,
                 candidate_scores={p: 1.0 for p in candidate_primes},
                 computation_time=computation_time
             )
@@ -189,8 +198,9 @@ class DynamicPrimeSelector:
                 best_avg_digits = avg_digits
                 best_entropy = entropy
                 
-                # Early stopping if efficiency is very high
-                if efficiency > early_stopping_threshold:
+                # Early stopping if efficiency is very high (but only for default primes)
+                # If custom primes are provided, evaluate all of them
+                if primes is None and efficiency > early_stopping_threshold:
                     break
         
         # Generate selection rationale
@@ -241,7 +251,7 @@ class DynamicPrimeSelector:
         digit_counts = np.zeros(prime, dtype=np.int64)
         
         for val in values:
-            if abs(val) < 1e-10:
+            if not np.isfinite(val) or abs(val) < 1e-10:
                 digit_counts[0] += max_digits
                 continue
             
@@ -298,11 +308,13 @@ class DynamicPrimeSelector:
                 continue
             
             # Calculate digits needed
-            # Using formula: ⌈log_p(|x|)⌉
             abs_val = abs(val)
             if abs_val >= 1:
-                # For values >= 1, use logarithm
-                digits_needed = math.ceil(math.log(abs_val) / math.log(prime))
+                # For values >= 1, use formula: ⌊log_p(|x|)⌋ + 1
+                if abs_val == 1:
+                    digits_needed = 1  # Special case: 1 needs 1 digit in any base
+                else:
+                    digits_needed = math.floor(math.log(abs_val) / math.log(prime)) + 1
             else:
                 # For values < 1, need to represent fractional part
                 # Estimate based on precision needed
@@ -417,26 +429,38 @@ class DynamicPrimeSelector:
         
         characteristics = {}
         
-        # Sparsity
-        characteristics['sparsity'] = np.mean(np.abs(flat_tensor) < 1e-10)
+        # Filter out non-finite values for analysis
+        finite_mask = np.isfinite(flat_tensor)
+        finite_values = flat_tensor[finite_mask] if np.any(finite_mask) else np.array([0.0])
+        
+        # Sparsity (including inf/nan as sparse)
+        characteristics['sparsity'] = np.mean((np.abs(flat_tensor) < 1e-10) | ~finite_mask)
         
         # Dynamic range
-        non_zero = flat_tensor[np.abs(flat_tensor) > 1e-10]
-        if len(non_zero) > 0:
-            characteristics['dynamic_range'] = np.max(np.abs(non_zero)) / np.min(np.abs(non_zero))
+        finite_non_zero = finite_values[np.abs(finite_values) > 1e-10]
+        if len(finite_non_zero) > 0:
+            characteristics['dynamic_range'] = np.max(np.abs(finite_non_zero)) / np.min(np.abs(finite_non_zero))
         else:
             characteristics['dynamic_range'] = 1.0
         
-        # Statistical moments
-        characteristics['mean'] = np.mean(flat_tensor)
-        characteristics['std'] = np.std(flat_tensor)
-        characteristics['skewness'] = stats.skew(flat_tensor)
-        characteristics['kurtosis'] = stats.kurtosis(flat_tensor)
-        
-        # Periodicity detection using FFT
+        # Statistical moments (only on finite values)
         try:
-            if len(flat_tensor) > 10:
-                fft_result = np.fft.fft(flat_tensor[:min(1024, len(flat_tensor))])
+            characteristics['mean'] = np.mean(finite_values)
+            characteristics['std'] = np.std(finite_values)
+            characteristics['skewness'] = stats.skew(finite_values)
+            characteristics['kurtosis'] = stats.kurtosis(finite_values)
+        except (ValueError, RuntimeWarning):
+            # Handle edge cases (all same values, etc.)
+            characteristics['mean'] = np.mean(finite_values) if len(finite_values) > 0 else 0.0
+            characteristics['std'] = 0.0
+            characteristics['skewness'] = 0.0
+            characteristics['kurtosis'] = 0.0
+        
+        # Periodicity detection using FFT (only on finite values)
+        try:
+            if len(finite_values) > 10:
+                fft_data = finite_values[:min(1024, len(finite_values))]
+                fft_result = np.fft.fft(fft_data)
                 fft_magnitude = np.abs(fft_result)
                 
                 # Find dominant frequency
@@ -456,10 +480,10 @@ class DynamicPrimeSelector:
             characteristics['dominant_period'] = 0
             characteristics['periodicity_score'] = 0
         
-        # Quantization level detection
-        unique_values = np.unique(flat_tensor)
+        # Quantization level detection (only on finite values)
+        unique_values = np.unique(finite_values)
         characteristics['unique_values'] = len(unique_values)
-        characteristics['quantization_ratio'] = len(unique_values) / len(flat_tensor)
+        characteristics['quantization_ratio'] = len(unique_values) / max(1, len(finite_values))
         
         return characteristics
     
@@ -471,13 +495,17 @@ class DynamicPrimeSelector:
         """
         flat_tensor = tensor.flatten().detach().cpu().numpy()
         
-        # Check for sparsity first
-        sparsity = np.mean(np.abs(flat_tensor) < 1e-10)
+        # Filter finite values
+        finite_mask = np.isfinite(flat_tensor)
+        
+        # Check for sparsity first (including inf/nan as sparse)
+        sparsity = np.mean((np.abs(flat_tensor) < 1e-10) | ~finite_mask)
         if sparsity > 0.7:
             return "sparse"
         
-        # Remove zeros for distribution analysis
-        non_zero = flat_tensor[np.abs(flat_tensor) > 1e-10]
+        # Remove zeros and non-finite values for distribution analysis
+        finite_values = flat_tensor[finite_mask]
+        non_zero = finite_values[np.abs(finite_values) > 1e-10]
         if len(non_zero) < 10:
             return "sparse"
         
@@ -495,16 +523,16 @@ class DynamicPrimeSelector:
         if jb_stat < 5.99 and abs(skewness) < 0.5 and abs(kurtosis_val) < 1:
             return "gaussian"
         
-        # Test for bimodality
-        if self._test_bimodality(non_zero):
-            return "bimodal"
-        
-        # Test for uniformity
+        # Test for uniformity first (before bimodality to avoid false positives)
         if len(non_zero) > 30:
             normalized = (non_zero - non_zero.min()) / (non_zero.max() - non_zero.min() + 1e-10)
             ks_stat, p_value = stats.kstest(normalized, 'uniform')
             if p_value > 0.05:
                 return "uniform"
+        
+        # Test for bimodality
+        if self._test_bimodality(non_zero):
+            return "bimodal"
         
         # Check for multimodality
         num_modes = self._count_modes(non_zero)
@@ -585,12 +613,16 @@ class DynamicPrimeSelector:
         """Compute cache key for tensor based on statistical properties."""
         flat_tensor = tensor.flatten()
         
+        # Filter out non-finite values for statistics
+        finite_mask = torch.isfinite(flat_tensor)
+        finite_tensor = flat_tensor[finite_mask] if finite_mask.any() else torch.tensor([0.0])
+        
         # Use statistical properties as key
         properties = [
-            float(flat_tensor.mean()),
-            float(flat_tensor.std()),
-            float(flat_tensor.min()),
-            float(flat_tensor.max()),
+            float(finite_tensor.mean()) if len(finite_tensor) > 0 else 0.0,
+            float(finite_tensor.std()) if len(finite_tensor) > 1 else 0.0,
+            float(finite_tensor.min()) if len(finite_tensor) > 0 else 0.0,
+            float(finite_tensor.max()) if len(finite_tensor) > 0 else 0.0,
             tensor.shape,
             tensor.dtype
         ]
@@ -679,14 +711,38 @@ class DynamicPrimeSelector:
                 if m not in prime_set and self._is_prime(m):
                     prime_set.append(m)
         
-        if characteristics.get('periodicity_score', 0) > 0.8:
-            # Strong periodicity - add primes near the period
+        if characteristics.get('periodicity_score', 0) > 0.7:
+            # Strong periodicity - add mathematically relevant primes
             period = int(characteristics.get('dominant_period', 0))
             if period > 0:
-                for offset in [-2, -1, 1, 2]:
-                    candidate = period + offset
-                    if candidate > 1 and candidate not in prime_set and self._is_prime(candidate):
-                        prime_set.append(candidate)
+                initial_size = len(prime_set)
+                
+                # Add primes near the period
+                for offset in range(-5, 6):
+                    if offset != 0:  # Don't include the exact period
+                        candidate = period + offset
+                        if candidate > 1 and candidate not in prime_set and self._is_prime(candidate):
+                            prime_set.append(candidate)
+                
+                # Add primes related to period harmonics/subharmonics
+                for divisor in [2, 3, 4, 5]:
+                    if period % divisor == 0:
+                        subperiod = period // divisor
+                        if subperiod > 1 and subperiod not in prime_set and self._is_prime(subperiod):
+                            prime_set.append(subperiod)
+                
+                # Add small primes that divide well into the period
+                small_primes = [101, 103, 107, 109, 113]  # Primes not in default set
+                for p in small_primes:
+                    if p not in prime_set and period % p < 3:  # Period is close to multiple of p
+                        prime_set.append(p)
+                
+                # If no additional primes were found, add some extended primes for periodic data
+                if len(prime_set) == initial_size:
+                    extended_periodic_primes = [101, 103]  # Add a couple from extended set
+                    for p in extended_periodic_primes:
+                        if p not in prime_set:
+                            prime_set.append(p)
         
         return sorted(prime_set)
     

@@ -651,11 +651,17 @@ class SportsExpert(DomainExpert):
         
         # Check if it's golf-related
         sport = operation.parameters.get("sport", "")
-        golf_keywords = ["golf", "score", "fairway", "green", "putting", "drive"]
+        golf_keywords = ["golf", "fairway", "green", "putting", "birdie", "eagle", "par"]
+        
+        # More specific golf detection - check for "golf" explicitly or multiple golf terms
+        input_str = str(operation.input_data).lower()
+        params_str = str(operation.parameters).lower()
         
         is_golf_related = (sport == "golf" or 
-                          any(keyword in str(operation.input_data).lower() for keyword in golf_keywords) or
-                          any(keyword in str(operation.parameters).lower() for keyword in golf_keywords))
+                          "golf" in input_str or
+                          "golf" in params_str or
+                          sum(keyword in input_str for keyword in golf_keywords) >= 2 or
+                          sum(keyword in params_str for keyword in golf_keywords) >= 2)
         
         if is_golf_related:
             return 0.9
@@ -802,6 +808,9 @@ class DomainOrchestrator:
             start_time = time.time()
             operation.started_at = start_time
             
+            # Store expert type in operation metadata for performance tracking
+            operation.metadata['expert_type'] = type(expert).__name__
+            
             try:
                 result = expert.handle_operation(operation)
                 operation.status = "completed"
@@ -854,7 +863,13 @@ class DomainOrchestrator:
     
     def _create_domain_operation(self, parameters: Dict[str, Any]) -> DomainOperation:
         """Create domain operation from parameters"""
-        operation_id = parameters.get('operation_id', f"domain_op_{int(time.time())}")
+        # Use time with microseconds and a counter for guaranteed uniqueness
+        if not hasattr(self, '_operation_counter'):
+            self._operation_counter = 0
+        with self._lock:
+            self._operation_counter += 1
+            counter = self._operation_counter
+        operation_id = parameters.get('operation_id', f"domain_op_{int(time.time() * 1000000)}_{counter}")
         domain = DomainType(parameters.get('domain', 'general'))
         operation_mode = OperationMode(parameters.get('operation_mode', 'analysis'))
         input_data = parameters.get('input_data')

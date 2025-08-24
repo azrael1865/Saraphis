@@ -23,13 +23,23 @@ import statistics
 # PyTorch training infrastructure will be imported after Brain class definition
 
 # Import Brain components
-from .brain_core import BrainCore, BrainConfig, PredictionResult
-from .domain_registry import DomainRegistry, DomainConfig, DomainStatus, DomainType
-from .domain_router import DomainRouter, RoutingStrategy
-from .domain_state import DomainStateManager
-from .training_manager import TrainingManager, TrainingConfig, TrainingStatus
-from .progress_tracker import ProgressTracker, AlertSeverity
-from .error_recovery_system import integrate_error_recovery, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord
+try:
+    from .brain_core import BrainCore, BrainConfig, PredictionResult
+    from .domain_registry import DomainRegistry, DomainConfig, DomainStatus, DomainType
+    from .domain_router import DomainRouter, RoutingStrategy
+    from .domain_state import DomainStateManager
+    from .training_manager import TrainingManager, TrainingConfig, TrainingStatus
+    from .progress_tracker import ProgressTracker, AlertSeverity
+    from .error_recovery_system import integrate_error_recovery, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord
+except ImportError:
+    # Fallback to absolute imports for standalone execution
+    from brain_core import BrainCore, BrainConfig, PredictionResult
+    from domain_registry import DomainRegistry, DomainConfig, DomainStatus, DomainType
+    from domain_router import DomainRouter, RoutingStrategy
+    from domain_state import DomainStateManager
+    from training_manager import TrainingManager, TrainingConfig, TrainingStatus
+    from progress_tracker import ProgressTracker, AlertSeverity
+    from error_recovery_system import integrate_error_recovery, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord
 
 # Import Brain-GAC Integration components
 try:

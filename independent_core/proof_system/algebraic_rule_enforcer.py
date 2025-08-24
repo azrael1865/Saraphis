@@ -51,12 +51,20 @@ class AlgebraicRuleEnforcer:
             
         # Calculate gradient statistics
         gradient_norm = np.linalg.norm(gradients)
-        gradient_mean = np.mean(gradients)
-        gradient_std = np.std(gradients)
-        max_gradient = np.max(np.abs(gradients))
+        gradient_mean = np.mean(gradients) if gradients.size > 0 else 0.0
+        gradient_std = np.std(gradients) if gradients.size > 0 else 0.0
+        max_gradient = np.max(np.abs(gradients)) if gradients.size > 0 else 0.0
         
         # Check gradient constraints
         constraints_satisfied = []
+        
+        # Handle empty gradients case
+        if gradients.size == 0:
+            return {
+                'valid': False,
+                'error': 'Empty gradient array',
+                'timestamp': datetime.now().isoformat()
+            }
         
         # Constraint 1: Gradient norm should be reasonable
         if gradient_norm < 1e-10:
@@ -296,13 +304,21 @@ class AlgebraicRuleEnforcer:
             }
             
         # Check if recent losses are within tolerance
-        recent_losses = loss_history[-patience:]
-        min_recent = min(recent_losses)
-        max_recent = max(recent_losses)
+        # We need patience+1 points to check patience intervals
+        recent_losses = loss_history[-(patience+1):]
         
-        relative_change = (max_recent - min_recent) / (min_recent + 1e-10)
+        # Check if all consecutive changes are within tolerance
+        converged = True
+        max_relative_change = 0.0
         
-        converged = relative_change < tolerance
+        for i in range(len(recent_losses) - 1):
+            if recent_losses[i] > 0:
+                change = abs(recent_losses[i+1] - recent_losses[i]) / recent_losses[i]
+                max_relative_change = max(max_relative_change, change)
+                if change > tolerance:
+                    converged = False
+                    
+        relative_change = max_relative_change
         
         # Calculate convergence rate
         if len(loss_history) >= 10:
@@ -322,7 +338,7 @@ class AlgebraicRuleEnforcer:
         # Estimate iterations to convergence
         if convergence_rate > 0 and not converged:
             current_loss = loss_history[-1]
-            target_loss = min_recent * (1 - tolerance)
+            target_loss = min(recent_losses) * (1 - tolerance)
             iterations_to_converge = max(0, np.log(target_loss / current_loss) / (-convergence_rate))
         else:
             iterations_to_converge = 0
@@ -335,8 +351,8 @@ class AlgebraicRuleEnforcer:
             'patience_used': patience,
             'iterations_to_converge': int(iterations_to_converge) if iterations_to_converge < 1000 else None,
             'recent_loss_stats': {
-                'min': float(min_recent),
-                'max': float(max_recent),
+                'min': float(min(recent_losses)),
+                'max': float(max(recent_losses)),
                 'mean': float(np.mean(recent_losses)),
                 'std': float(np.std(recent_losses))
             },

@@ -15,10 +15,10 @@ from enum import Enum
 from collections import deque
 import warnings
 
-# FIXED: Direct imports with NO FALLBACKS - will fail immediately if missing
-from compression_systems.gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
-from compression_systems.gpu_memory.auto_swap_manager import MemoryPressureLevel  
-from compression_systems.gpu_memory.gpu_auto_detector import get_config_updater
+# FIXED: Use relative imports for internal module references
+from ..gpu_memory.gpu_memory_core import GPUMemoryOptimizer, MemoryState
+from ..gpu_memory.auto_swap_manager import MemoryPressureLevel  
+from ..gpu_memory.gpu_auto_detector import get_config_updater
 
 # Rest of the file remains the same...
 

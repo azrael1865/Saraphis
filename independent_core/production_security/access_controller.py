@@ -8,7 +8,7 @@ import time
 import logging
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional, Set
 from collections import defaultdict, deque
 import jwt
@@ -209,7 +209,15 @@ class AccessController:
                     'code': 'INVALID_TOKEN'
                 }
             
-            # Check session
+            # Verify session matches token first (before checking if session exists)
+            if token_session_id != session_id:
+                return {
+                    'valid': False,
+                    'error': 'Session mismatch',
+                    'code': 'SESSION_MISMATCH'
+                }
+            
+            # Check session exists
             if session_id not in self.user_sessions:
                 return {
                     'valid': False,
@@ -218,14 +226,6 @@ class AccessController:
                 }
             
             session = self.user_sessions[session_id]
-            
-            # Verify session matches token
-            if token_session_id != session_id:
-                return {
-                    'valid': False,
-                    'error': 'Session mismatch',
-                    'code': 'SESSION_MISMATCH'
-                }
             
             # Check session expiry
             if datetime.now() > session['expires']:
@@ -503,13 +503,50 @@ class AccessController:
     
     def _check_ip_restrictions(self, ip_address: str) -> bool:
         """Check IP-based access restrictions"""
-        # If blacklisted, deny
-        if ip_address in self.ip_blacklist:
-            return False
+        import ipaddress
         
-        # If whitelist exists and IP not in it, deny
-        if self.ip_whitelist and ip_address not in self.ip_whitelist:
-            return False
+        try:
+            ip = ipaddress.ip_address(ip_address)
+        except ValueError as e:
+            # Invalid IP format - FAIL HARD
+            raise ValueError(f"Invalid IP address format: {ip_address}") from e
+        
+        # Check blacklist (supports CIDR and individual IPs)
+        for blocked_ip in self.ip_blacklist:
+            try:
+                if '/' in blocked_ip:
+                    # CIDR notation
+                    if ip in ipaddress.ip_network(blocked_ip, strict=False):
+                        return False
+                else:
+                    # Individual IP
+                    if ip == ipaddress.ip_address(blocked_ip):
+                        return False
+            except ValueError as e:
+                # Invalid IP format in blacklist - FAIL HARD
+                raise ValueError(f"Invalid IP format in blacklist: {blocked_ip}") from e
+        
+        # Check whitelist (supports CIDR and individual IPs)
+        if self.ip_whitelist:
+            allowed = False
+            for allowed_ip in self.ip_whitelist:
+                try:
+                    if '/' in allowed_ip:
+                        # CIDR notation
+                        if ip in ipaddress.ip_network(allowed_ip, strict=False):
+                            allowed = True
+                            break
+                    else:
+                        # Individual IP
+                        if ip == ipaddress.ip_address(allowed_ip):
+                            allowed = True
+                            break
+                except ValueError as e:
+                    # Invalid IP format in whitelist - FAIL HARD
+                    raise ValueError(f"Invalid IP format in whitelist: {allowed_ip}") from e
+            
+            if not allowed:
+                return False
         
         return True
     
@@ -529,29 +566,29 @@ class AccessController:
         # In production, this would check against user database
         # For now, simulate with basic validation
         
-        # Get stored password hash (simulated)
+        # Get stored password hash - MUST SUCCEED OR FAIL HARD
         stored_hash = self._get_password_hash(username)
         if not stored_hash:
-            return False
+            raise ValueError(f"No password hash found for user: {username}")
         
-        # Verify password
-        try:
-            return bcrypt.checkpw(password.encode('utf-8'), stored_hash)
-        except:
-            # Fallback for testing
-            return password == f"{username}_password"
+        # Verify password - NO FALLBACKS, FAIL HARD
+        return bcrypt.checkpw(password.encode('utf-8'), stored_hash)
     
-    def _get_password_hash(self, username: str) -> Optional[bytes]:
+    def _get_password_hash(self, username: str) -> bytes:
         """Get stored password hash for user"""
-        # In production, this would query user database
-        # For testing, generate deterministic hash
+        if not username or not username.strip():
+            raise ValueError("Username cannot be empty")
+        # Generate deterministic hash for testing - NEVER RETURNS None
         test_password = f"{username}_password"
         return bcrypt.hashpw(test_password.encode('utf-8'), bcrypt.gensalt())
     
     def _verify_mfa_token(self, username: str, token: str) -> bool:
         """Verify MFA token"""
-        # In production, this would verify TOTP/SMS/etc
-        # For testing, accept specific format
+        if not username or not username.strip():
+            raise ValueError("Username cannot be empty for MFA verification")
+        if not token or not token.strip():
+            raise ValueError("MFA token cannot be empty")
+        # For testing, accept specific format - HARD VALIDATION
         return token == f"MFA_{username}_123456"
     
     def _record_failed_attempt(self, username: str, ip_address: str):
@@ -607,8 +644,8 @@ class AccessController:
         payload = {
             'username': username,
             'session_id': session_id,
-            'exp': datetime.utcnow() + timedelta(hours=self.token_expiry),
-            'iat': datetime.utcnow()
+            'exp': datetime.now(timezone.utc) + timedelta(hours=self.token_expiry),
+            'iat': datetime.now(timezone.utc)
         }
         
         token = jwt.encode(payload, self.jwt_secret, algorithm=self.jwt_algorithm)
@@ -621,12 +658,15 @@ class AccessController:
     
     def _get_user_role(self, username: str) -> str:
         """Get user role"""
-        # In production, this would query user database
-        # For testing, assign default roles
+        if not username or not username.strip():
+            raise ValueError("Username cannot be empty for role assignment")
+        # Role assignment based on username prefix - HARD VALIDATION
         if username.startswith('admin'):
             return 'admin'
         elif username.startswith('operator'):
             return 'operator'
+        elif username.startswith('auditor'):
+            return 'auditor'
         else:
             return 'user'
     
@@ -654,7 +694,7 @@ class AccessController:
         """Check compliance with access policies"""
         return {
             'mfa_enabled': self.require_mfa,
-            'session_timeout_compliant': self.session_timeout <= 60,
+            'session_timeout_compliant': self.session_timeout < 60,
             'lockout_policy_compliant': self.max_failed_attempts <= 5,
             'ip_restrictions_enabled': bool(self.ip_whitelist or self.ip_blacklist),
             'rbac_implemented': bool(self.rbac_policies)

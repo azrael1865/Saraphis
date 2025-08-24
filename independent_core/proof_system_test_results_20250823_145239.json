@@ -1,0 +1,20 @@
+{
+  "unit_tests": {
+    "status": "failed",
+    "error": "No module named 'test_proof_components'"
+  },
+  "summary": {
+    "execution_time_seconds": 0.00022983551025390625,
+    "timestamp": "2025-08-23T14:52:39.295566",
+    "overall_metrics": {
+      "total_tests_executed": 0,
+      "total_tests_passed": 0,
+      "total_tests_failed": 0,
+      "overall_success_rate": 0
+    },
+    "categories_tested": [
+      "unit_tests"
+    ],
+    "ready_for_production": false
+  }
+}

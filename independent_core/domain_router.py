@@ -103,19 +103,23 @@ class DomainPattern:
                 except re.error:
                     continue
         
-        # Check input types
+        # Check input types (weighted less than content matches)
         if self.input_types:
-            total_checks += 1
+            total_checks += 0.5  # Weight input type matching less
             if input_type in self.input_types:
-                matches += 1
+                matches += 0.5
         
         if total_checks == 0:
+            return False, 0.0
+        
+        # Only calculate confidence if there are matches
+        if matches == 0:
             return False, 0.0
         
         base_confidence = matches / total_checks
         final_confidence = min(1.0, base_confidence + self.confidence_boost)
         
-        return matches > 0, final_confidence
+        return True, final_confidence
 
 
 @dataclass
@@ -177,7 +181,7 @@ class DomainRouter:
         self.default_strategy = RoutingStrategy(
             self.config.get('default_strategy', RoutingStrategy.HYBRID.value)
         )
-        self.confidence_threshold = self.config.get('confidence_threshold', 0.5)
+        self.confidence_threshold = self.config.get('confidence_threshold', 0.05)
         self.enable_fallback = self.config.get('enable_fallback', True)
         self.fallback_domain = self.config.get('fallback_domain', 'general')
         
@@ -218,10 +222,10 @@ class DomainRouter:
             domain_name="mathematics",
             keywords=["math", "calculate", "equation", "formula", "solve", "algebra", "geometry"],
             patterns=["calculate", "solve for", "find the", "what is the result"],
-            regex_patterns=[r'\d+[\+\-\*/]\d+', r'x\s*=', r'f\(x\)', r'\d+\^\d+'],
+            regex_patterns=[r'\d+\s*[\+\-\*/]\s*\d+', r'x\s*=', r'f\(x\)', r'\d+\^\d+'],
             input_types=["math", "equation", "calculation"],
-            priority=8,
-            confidence_boost=0.1
+            priority=10,
+            confidence_boost=0.35
         ))
         
         # Scientific domain patterns
@@ -229,10 +233,10 @@ class DomainRouter:
             domain_name="science",
             keywords=["chemistry", "physics", "biology", "molecule", "atom", "reaction", "experiment"],
             patterns=["chemical formula", "molecular structure", "scientific method"],
-            regex_patterns=[r'[A-Z][a-z]?\d*', r'pH\s*\d+', r'\d+\s*mol'],
+            regex_patterns=[r'\b[A-Z][a-z]?\d*\b', r'pH\s*\d+', r'\d+\s*mol'],
             input_types=["scientific", "chemical", "molecular"],
             priority=8,
-            confidence_boost=0.15
+            confidence_boost=0.05
         ))
         
         # Programming domain patterns
@@ -242,8 +246,8 @@ class DomainRouter:
             patterns=["write a function", "debug this code", "implement algorithm"],
             regex_patterns=[r'def\s+\w+', r'class\s+\w+', r'import\s+\w+', r'#include'],
             input_types=["code", "programming", "algorithm"],
-            priority=7,
-            confidence_boost=0.1
+            priority=10,
+            confidence_boost=0.45
         ))
         
         # Language/text domain patterns
@@ -389,6 +393,7 @@ class DomainRouter:
                 return RoutingResult(
                     target_domain=domain_hint,
                     confidence_score=min(1.0, confidence * 1.2),  # Boost for hint
+                    confidence_level=self._get_confidence_level(min(1.0, confidence * 1.2)),
                     reasoning=f"Domain hint matched with confidence {confidence:.3f}",
                     alternative_domains=[]
                 )
@@ -419,6 +424,7 @@ class DomainRouter:
         return RoutingResult(
             target_domain=best_domain,
             confidence_score=best_confidence,
+            confidence_level=self._get_confidence_level(best_confidence),
             reasoning=reasoning,
             alternative_domains=alternatives
         )
@@ -457,6 +463,7 @@ class DomainRouter:
         return RoutingResult(
             target_domain=pattern_result.target_domain,
             confidence_score=min(1.0, heuristic_confidence),
+            confidence_level=self._get_confidence_level(min(1.0, heuristic_confidence)),
             reasoning=reasoning + pattern_result.reasoning,
             alternative_domains=pattern_result.alternative_domains
         )
@@ -497,6 +504,7 @@ class DomainRouter:
             return RoutingResult(
                 target_domain=pattern_result.target_domain,
                 confidence_score=combined_confidence,
+                confidence_level=self._get_confidence_level(combined_confidence),
                 reasoning=f"Hybrid consensus: {pattern_result.target_domain}",
                 alternative_domains=pattern_result.alternative_domains
             )
@@ -545,6 +553,7 @@ class DomainRouter:
         return RoutingResult(
             target_domain=best_domain[0],
             confidence_score=best_domain[1],
+            confidence_level=self._get_confidence_level(best_domain[1]),
             reasoning=f"Confidence-weighted ensemble: {', '.join(reasoning_parts)}",
             alternative_domains=[(k, v) for k, v in sorted(domain_scores.items(), 
                                                           key=lambda x: x[1], reverse=True)[1:]]

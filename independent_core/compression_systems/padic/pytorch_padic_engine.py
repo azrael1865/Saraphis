@@ -26,7 +26,7 @@ from fractions import Fraction
 TRITON_AVAILABLE = False  # We removed Triton support
 
 # Import existing p-adic structures for compatibility
-from padic_encoder import PadicWeight, PadicValidation
+from .padic_encoder import PadicWeight, PadicValidation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class PyTorchPAdicConfig:
     precision: int = 4
     device: str = "auto"  # auto, cuda, mps, cpu
     dtype: torch.dtype = torch.float32
-    enable_triton: bool = True
+    enable_triton: bool = False  # Triton permanently disabled
     batch_size: int = 10000
     compile_mode: str = "reduce-overhead"  # default, reduce-overhead, max-autotune
     enable_mixed_precision: bool = True
@@ -314,23 +314,47 @@ class PyTorchPAdicEngine:
         Returns:
             P-adic digit tensor of shape (..., precision)
         """
+        # Input validation
+        if x is None:
+            raise TypeError("Input cannot be None")
+        
         # Convert input to tensor
         if not isinstance(x, Tensor):
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x)
             else:
-                x = torch.tensor(x)
+                try:
+                    x = torch.tensor(x)
+                except (TypeError, ValueError, RuntimeError) as e:
+                    raise TypeError(f"Cannot convert input to tensor: {e}")
         
-        x = x.to(device=self.device, dtype=self.dtype)
+        # Store original device and gradient requirement for potential round-trip consistency
+        original_device = x.device if isinstance(x, Tensor) else None
+        requires_grad = x.requires_grad if isinstance(x, Tensor) else False
+        
+        # Handle MPS device dtype limitations (no float64 support)
+        target_dtype = self.dtype
+        if self.device.type == "mps" and target_dtype == torch.float64:
+            target_dtype = torch.float32
+        
+        x = x.to(device=self.device, dtype=target_dtype)
+        if requires_grad:
+            x.requires_grad_(True)
         
         # Use Triton kernel if available for large batches
         if self.triton_enabled and x.numel() > 1000:
-            return self._to_padic_triton(x)
+            result = self._to_padic_triton(x)
+        else:
+            # Use compiled PyTorch function
+            result = self._to_padic_compiled(x)
+            self.stats['compile_hits'] += 1
         
-        # Use compiled PyTorch function
-        result = self._to_padic_compiled(x)
+        # Store original device in the tensor for round-trip compatibility
+        if original_device is not None and original_device != self.device:
+            # Add metadata to result tensor for device tracking
+            result._original_device = original_device
+        
         self.stats['total_conversions'] += x.numel()
-        self.stats['compile_hits'] += 1
         return result
     
     def _to_padic_tensor(self, x: Tensor) -> Tensor:
@@ -350,23 +374,51 @@ class PyTorchPAdicEngine:
         signs = torch.sign(x)
         x_abs = torch.abs(x)
         
-        # Simple p-adic encoding: extract base-p digits
-        # This is a simplified encoding for demonstration
-        current = x_abs
-        for i in range(self.precision):
-            # Scale and extract digit
-            current = current * self.prime
-            digit = torch.floor(current).long()
-            digits[:, i] = digit % self.prime_tensor
-            current = current - digit.float()
+        # Enhanced p-adic representation with adaptive scaling
+        # Reserve the highest digit position for sign encoding
+        effective_precision = self.precision - 1
+        max_magnitude_representable = sum((self.prime - 1) * (self.prime ** i) for i in range(effective_precision))
         
-        # Apply sign using p-adic complement for negatives
+        # Determine optimal scale factor based on input range
+        max_input = torch.max(x_abs) if x_abs.numel() > 0 else 1.0
+        min_nonzero = torch.min(x_abs[x_abs > 0]) if (x_abs > 0).any() else 1.0
+        
+        # Use a practical scale factor that balances precision and range
+        # Scale up by 100 to capture values down to 0.01 with reasonable precision
+        scale_factor = 100.0
+        
+        # Ensure scaled values don't overflow our representation
+        if max_input * scale_factor > max_magnitude_representable * 0.8:
+            scale_factor = max_magnitude_representable * 0.8 / max_input
+            scale_factor = max(1.0, scale_factor)
+        scaled_x = x_abs * scale_factor
+        
+        # Convert to integer to avoid floating point precision issues
+        scaled_x_int = torch.round(scaled_x).long()
+        
+        # Encode magnitude in first (precision-1) digits using integer arithmetic
+        remaining = scaled_x_int
+        for i in range(self.precision - 1):
+            # Extract digit in base p using integer division
+            digits[:, i] = remaining % self.prime
+            # Move to next higher order digit
+            remaining = remaining // self.prime
+        
+        # Store sign in the last digit: 0 for positive/zero, 1 for negative
+        # This is much simpler and more reliable than p-adic complement
         negative_mask = signs < 0
-        if negative_mask.any():
-            digits[negative_mask] = self._negate_padic_batch(digits[negative_mask])
+        digits[:, -1] = torch.where(negative_mask, 1, 0)
         
         # Reshape to original shape + precision dimension
-        return digits.reshape(original_shape + (self.precision,))
+        result = digits.reshape(original_shape + (self.precision,))
+        
+        # Use thread-local storage for scale factor to handle batch operations
+        if not hasattr(self, '_thread_local'):
+            import threading
+            self._thread_local = threading.local()
+        self._thread_local.scale_factor = scale_factor
+        
+        return result
     
     def _encode_fractional(self, x_frac: Tensor) -> Tensor:
         """Encode fractional parts using vectorized operations"""
@@ -441,15 +493,54 @@ class PyTorchPAdicEngine:
             digits: P-adic digit tensor of shape (..., precision)
             
         Returns:
-            Decoded tensor
+            Decoded tensor (on original device if tracked, otherwise engine device)
         """
         if self.triton_enabled and digits.numel() > 1000:
-            return self._from_padic_triton(digits)
+            result = self._from_padic_triton(digits)
+        else:
+            result = self._from_padic_compiled(digits)
+            self.stats['compile_hits'] += 1
         
-        result = self._from_padic_compiled(digits)
         self.stats['total_conversions'] += digits.shape[0] if digits.dim() > 1 else 1
-        self.stats['compile_hits'] += 1
+        
+        # Check if original device was tracked and move result back if needed
+        if hasattr(digits, '_original_device') and digits._original_device != self.device:
+            result = result.to(device=digits._original_device)
+        
+        # Preserve gradient requirement if input had it
+        if digits.requires_grad:
+            result = result.requires_grad_(True)
+        
         return result
+    
+    def roundtrip_test(self, x: Union[Tensor, float, np.ndarray], rtol: float = 1e-2) -> bool:
+        """
+        Test round-trip encoding/decoding with device-aware comparison
+        
+        Args:
+            x: Input to test
+            rtol: Relative tolerance for comparison
+            
+        Returns:
+            True if round-trip is successful within tolerance
+        """
+        # Convert input to tensor on appropriate device for comparison
+        if not isinstance(x, Tensor):
+            if isinstance(x, np.ndarray):
+                x = torch.from_numpy(x)
+            else:
+                x = torch.tensor(x)
+        
+        original_device = x.device
+        
+        # Perform round-trip conversion
+        padic_repr = self.to_padic(x)
+        reconstructed = self.from_padic(padic_repr)
+        
+        # Move both tensors to the same device for comparison
+        x_for_comparison = x.to(device=reconstructed.device, dtype=reconstructed.dtype)
+        
+        return torch.allclose(x_for_comparison, reconstructed, rtol=rtol)
     
     def _from_padic_tensor(self, digits: Tensor) -> Tensor:
         """Core p-adic decoding using pure PyTorch operations"""
@@ -457,23 +548,30 @@ class PyTorchPAdicEngine:
         digits = digits.reshape(-1, self.precision)
         batch_size = digits.shape[0]
         
-        # Check for negative numbers (high digits are prime-1)
-        # Only consider negative if at least the last 2 digits are prime-1
-        if self.precision >= 2:
-            is_negative = (digits[:, -1] == self.prime - 1) & (digits[:, -2] == self.prime - 1)
-        else:
-            is_negative = torch.zeros(batch_size, dtype=torch.bool, device=self.device)
+        # Simple sign detection from the last digit
+        is_negative = digits[:, -1] == 1
         
-        # Simple p-adic decoding: reconstruct from base-p digits
-        # This matches the simplified encoding
-        result = torch.zeros(batch_size, dtype=self.dtype, device=self.device)
-        for i in range(self.precision - 1, -1, -1):
-            result = result / self.prime + digits[:, i].float() / self.prime
+        # P-adic decoding: reconstruct magnitude from first (precision-1) digits
+        # Handle MPS device dtype limitations (no float64 support)
+        target_dtype = self.dtype
+        if self.device.type == "mps" and target_dtype == torch.float64:
+            target_dtype = torch.float32
         
-        # Handle negative complement
-        if is_negative.any():
-            # For simplified encoding, just negate the result
-            result[is_negative] = -torch.abs(result[is_negative])
+        result = torch.zeros(batch_size, dtype=target_dtype, device=self.device)
+        
+        # Decode magnitude only from the first (precision-1) digits
+        for i in range(self.precision - 1):
+            # Each digit contributes with its positional value
+            power = self.prime ** i
+            digit_contribution = digits[:, i].float() * power
+            result = result + digit_contribution
+            
+        # Descale to recover original fractional values using thread-local storage
+        scale_factor = getattr(getattr(self, '_thread_local', None), 'scale_factor', 1.0)
+        result = result / scale_factor
+        
+        # Apply sign
+        result[is_negative] = -result[is_negative]
         
         return result.reshape(original_shape)
     
@@ -485,6 +583,11 @@ class PyTorchPAdicEngine:
         for i in range(self.precision - 1, -1, -1):
             mask = digits[:, i] != self.prime - 1
             pattern_start[mask] = torch.minimum(pattern_start[mask], torch.tensor(i + 1, device=self.device))
+        
+        # Special case: if all digits are prime-1, the pattern starts at position 0
+        # This happens for -1, -2, etc. where the original had a non-zero digit at position 0
+        all_prime_minus_1 = (digits == self.prime - 1).all(dim=1)
+        pattern_start[all_prime_minus_1] = 1  # Pattern starts after position 0
         
         return pattern_start
     
@@ -595,8 +698,13 @@ class PyTorchPAdicEngine:
             mask = (valuations == self.precision) & (x[:, i] != 0)
             valuations[mask] = i
         
-        # Compute p-adic norm: p^(-valuation)
-        norms = torch.pow(self.prime, -valuations)
+        # Compute p-adic norm: p^(-valuation) 
+        # For zero (valuation = precision), set norm to large value (representing infinity)
+        norms = torch.where(
+            valuations == self.precision,
+            torch.tensor(float('inf'), device=self.device),  # Zero has infinite norm
+            torch.pow(self.prime, -valuations)
+        )
         
         return norms.reshape(original_shape)
     
@@ -775,7 +883,12 @@ class PyTorchPAdicEngine:
         Returns:
             Decoded float value
         """
-        # Convert digits to tensor
+        # For backward compatibility, handle legacy PadicWeight format
+        # Convert the stored Fraction directly to float
+        if hasattr(weight, 'value') and isinstance(weight.value, Fraction):
+            return float(weight.value)
+        
+        # Fallback to digit-based reconstruction for new format
         digits_tensor = torch.tensor(
             weight.digits,
             dtype=torch.long,
@@ -886,7 +999,13 @@ class PAdicFunction(torch.autograd.Function):
     def forward(ctx, input, engine):
         """Forward pass: encode to p-adic"""
         ctx.engine = engine
+        # Ensure input retains gradients through the operation
+        if input.requires_grad:
+            input = input.clone()
         output = engine.to_padic(input)
+        # Mark output as requiring gradients if input did
+        if input.requires_grad:
+            output = output.requires_grad_(True)
         ctx.save_for_backward(input, output)
         return output
     

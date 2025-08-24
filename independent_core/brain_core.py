@@ -65,6 +65,9 @@ class UncertaintyMetrics:
 class BrainConfig:
     """Configuration for Brain Core system."""
     
+    # Proof engine settings
+    num_proof_engines: int = 4
+    
     # Shared knowledge settings
     shared_memory_size: int = 10000
     knowledge_persistence: bool = True
@@ -437,8 +440,16 @@ class BrainCore:
             # Calculate mean (for numerical predictions)
             if isinstance(predicted_value, (int, float)):
                 mean = float(predicted_value)
-            elif isinstance(predicted_value, np.ndarray) and predicted_value.size == 1:
-                mean = float(predicted_value)
+            elif isinstance(predicted_value, np.ndarray):
+                if predicted_value.size == 1:
+                    # Properly extract scalar from numpy array to avoid deprecation warning
+                    mean = float(predicted_value.item())
+                elif predicted_value.size > 1:
+                    # For multi-element arrays, use the mean
+                    mean = float(np.mean(predicted_value))
+                else:
+                    # Empty array
+                    mean = base_confidence
             else:
                 # For non-numerical predictions, use confidence as proxy
                 mean = base_confidence
@@ -551,17 +562,74 @@ class BrainCore:
             self.logger.error(f"Error calculating confidence score: {e}")
             return 0.5
     
-    def assess_reliability(self, prediction_data: Dict[str, Any], historical_data: Optional[List[Dict[str, Any]]] = None) -> float:
+    def assess_reliability(self, prediction_data: Optional[Dict[str, Any]] = None, 
+                         historical_data: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
-        Assess the reliability of a prediction based on historical performance and current metrics.
+        Assess the reliability of a prediction or the overall system reliability.
         
         Args:
-            prediction_data: Current prediction data
+            prediction_data: Current prediction data (optional - if None, assesses overall reliability)
             historical_data: Optional historical predictions for comparison
         
         Returns:
-            Reliability score between 0 and 1
+            Dictionary with reliability metrics and scores
         """
+        try:
+            if prediction_data is None:
+                # Assess overall system reliability
+                return self._assess_system_reliability()
+            else:
+                # Assess specific prediction reliability
+                return self._assess_prediction_reliability(prediction_data, historical_data)
+                
+        except Exception as e:
+            self.logger.error(f"Error assessing reliability: {e}")
+            return {'overall_reliability': 0.5, 'error': str(e)}
+    
+    def _assess_system_reliability(self) -> Dict[str, Any]:
+        """Assess overall system reliability."""
+        try:
+            reliability_metrics = {}
+            
+            # Historical accuracy
+            if self._prediction_accuracy_history:
+                historical_accuracy = np.mean(list(self._prediction_accuracy_history))
+                reliability_metrics['historical_accuracy'] = historical_accuracy
+            else:
+                reliability_metrics['historical_accuracy'] = 0.5
+            
+            # Domain confidence scores
+            if self._domain_confidence_scores:
+                avg_domain_confidence = np.mean(list(self._domain_confidence_scores.values()))
+                reliability_metrics['avg_domain_confidence'] = avg_domain_confidence
+            else:
+                reliability_metrics['avg_domain_confidence'] = 0.5
+            
+            # Uncertainty history consistency
+            if self._uncertainty_history:
+                recent_uncertainties = [h['epistemic'] + h['aleatoric'] for h in list(self._uncertainty_history)[-50:]]
+                if recent_uncertainties:
+                    uncertainty_std = np.std(recent_uncertainties)
+                    uncertainty_consistency = max(0.0, 1.0 - uncertainty_std)
+                    reliability_metrics['uncertainty_consistency'] = uncertainty_consistency
+                else:
+                    reliability_metrics['uncertainty_consistency'] = 0.5
+            else:
+                reliability_metrics['uncertainty_consistency'] = 0.5
+            
+            # Overall system reliability
+            overall = np.mean(list(reliability_metrics.values()))
+            reliability_metrics['overall_reliability'] = overall
+            
+            return reliability_metrics
+            
+        except Exception as e:
+            self.logger.error(f"Error assessing system reliability: {e}")
+            return {'overall_reliability': 0.5, 'error': str(e)}
+    
+    def _assess_prediction_reliability(self, prediction_data: Dict[str, Any], 
+                                     historical_data: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        """Assess reliability of a specific prediction."""
         try:
             reliability_factors = []
             
@@ -595,8 +663,11 @@ class BrainCore:
                     if recent_uncertainties:
                         avg_uncertainty = np.mean(recent_uncertainties)
                         current_uncertainty = prediction_data.get('epistemic_uncertainty', 0.5) + prediction_data.get('aleatoric_uncertainty', 0.5)
-                        consistency = 1.0 - min(1.0, abs(current_uncertainty - avg_uncertainty) / avg_uncertainty)
-                        reliability_factors.append(consistency * 0.15)
+                        if avg_uncertainty > 0:
+                            consistency = 1.0 - min(1.0, abs(current_uncertainty - avg_uncertainty) / avg_uncertainty)
+                            reliability_factors.append(consistency * 0.15)
+                        else:
+                            reliability_factors.append(0.5 * 0.15)
                     else:
                         reliability_factors.append(0.5 * 0.15)
                 else:
@@ -613,11 +684,18 @@ class BrainCore:
             if current_confidence < self.config.confidence_threshold:
                 reliability *= 0.8  # Penalize low confidence predictions
             
-            return max(0.0, min(1.0, reliability))
+            final_reliability = max(0.0, min(1.0, reliability))
+            
+            return {
+                'prediction_reliability': final_reliability,
+                'confidence_score': current_confidence,
+                'domain': domain,
+                'stability_score': stability_score
+            }
             
         except Exception as e:
-            self.logger.error(f"Error assessing reliability: {e}")
-            return 0.5
+            self.logger.error(f"Error assessing prediction reliability: {e}")
+            return {'prediction_reliability': 0.5, 'error': str(e)}
     
     def _uncertainty_metrics(self, data: Any) -> Dict[str, float]:
         """
@@ -861,8 +939,19 @@ class BrainCore:
         if len(self._uncertainty_history) < 10:
             return 'insufficient_data'
         
-        recent = list(self._uncertainty_history)[-10:]
-        older = list(self._uncertainty_history)[-20:-10] if len(self._uncertainty_history) >= 20 else list(self._uncertainty_history)[:10]
+        history_list = list(self._uncertainty_history)
+        
+        # For meaningful comparison, we need at least 20 entries
+        if len(history_list) >= 20:
+            # Compare last 10 with the 10 before that
+            recent = history_list[-10:]
+            older = history_list[-20:-10]
+        else:
+            # With 10-19 entries, compare second half with first half
+            # This ensures equal-sized comparisons
+            mid_point = len(history_list) // 2
+            older = history_list[:mid_point]
+            recent = history_list[-mid_point:]
         
         recent_avg = np.mean([h['confidence'] for h in recent])
         older_avg = np.mean([h['confidence'] for h in older])
@@ -1003,8 +1092,10 @@ class BrainCore:
             'available_domains': list(knowledge_base.keys()),
             'relevant_patterns': reasoning_patterns,
             'recent_insights': insights,
+            'domain': domain,
             'domain_knowledge': knowledge_base.get(domain, {}) if domain else {},
-            'input_characteristics': self._analyze_input_characteristics(validated_input)
+            'input_characteristics': self._analyze_input_characteristics(validated_input),
+            'timestamp': datetime.now().isoformat()
         }
         
         return context
@@ -1043,16 +1134,25 @@ class BrainCore:
         if not isinstance(d, dict) or not d:
             return current_depth
         
-        return max(self._get_dict_depth(v, current_depth + 1) 
-                  for v in d.values() 
-                  if isinstance(v, dict)) or current_depth + 1
+        # Find all nested dictionaries
+        nested_depths = [self._get_dict_depth(v, current_depth + 1) 
+                        for v in d.values() 
+                        if isinstance(v, dict)]
+        
+        # If there are nested dicts, return max depth; otherwise return current + 1
+        if nested_depths:
+            return max(nested_depths)
+        else:
+            return current_depth + 1
     
     def _select_domain(self, validated_input: Any, requested_domain: Optional[str], context: Dict[str, Any]) -> Optional[str]:
         """Select the most appropriate domain for prediction."""
-        # If domain explicitly requested and available, use it
-        if requested_domain and requested_domain in context['available_domains']:
+        # If domain explicitly requested, use it regardless of availability
+        # This allows predictions in new domains
+        if requested_domain:
             return requested_domain
         
+        # If no domain requested, try to auto-detect from available domains
         # For now, return None to use general prediction
         # This will be enhanced when domain lobes are implemented
         return None
@@ -1458,10 +1558,18 @@ class BrainCore:
         stats = {
             'total_domains': len(knowledge_base),
             'total_knowledge_items': sum(len(domain_knowledge) for domain_knowledge in knowledge_base.values()),
+            'knowledge_entries': sum(len(domain_knowledge) for domain_knowledge in knowledge_base.values()),
+            'total_predictions': len(self._uncertainty_history) if hasattr(self, '_uncertainty_history') else 0,
+            'average_confidence': np.mean([h.get('confidence', 0.5) for h in self._uncertainty_history]) if hasattr(self, '_uncertainty_history') and self._uncertainty_history else 0.0,
             'reasoning_patterns_count': len(self._shared_state.get('reasoning_patterns', {})),
             'cross_domain_insights_count': len(self._shared_state.get('cross_domain_insights', [])),
             'metadata': self._shared_state.get('metadata', {}),
             'cache_size': len(self._cache) if self._cache is not None else 0,
+            'cache_stats': {
+                'size': len(self._cache) if self._cache is not None else 0,
+                'hits': getattr(self, '_cache_hits', 0),
+                'misses': getattr(self, '_cache_misses', 0)
+            },
             'memory_estimate_mb': self._estimate_memory_usage() / (1024 * 1024)
         }
         
@@ -1496,7 +1604,8 @@ class BrainCore:
             self.logger.debug("Cache cleared")
     
     def add_shared_knowledge(self, key: str, value: Any, domain: str = "general", 
-                           metadata: Optional[Dict[str, Any]] = None) -> bool:
+                           metadata: Optional[Dict[str, Any]] = None,
+                           overwrite: bool = False) -> bool:
         """
         Add knowledge to the shared knowledge base with indexing.
         
@@ -1505,6 +1614,7 @@ class BrainCore:
             value: The knowledge value (can be any type)
             domain: Domain to store the knowledge in
             metadata: Optional metadata about the knowledge
+            overwrite: If True, overwrite existing knowledge with same key
             
         Returns:
             True if knowledge was added successfully, False otherwise
@@ -1570,16 +1680,18 @@ class BrainCore:
             self.logger.error(f"Failed to add shared knowledge {key}: {e}")
             return False
     
-    def get_shared_knowledge(self, key: str, domain: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_shared_knowledge(self, key: str, domain: Optional[str] = None, 
+                           value_only: bool = True) -> Optional[Any]:
         """
         Retrieve shared knowledge by key.
         
         Args:
             key: Knowledge identifier
             domain: Optional domain to search in. If None, searches all domains
+            value_only: If True, returns only the stored value. If False, returns full metadata
             
         Returns:
-            Knowledge entry with metadata, or None if not found
+            Knowledge value (if value_only=True) or entry with metadata, or None if not found
         """
         if not isinstance(key, str) or not key.strip():
             return None
@@ -1589,9 +1701,17 @@ class BrainCore:
         try:
             if self._state_lock:
                 with self._state_lock:
-                    return self._get_knowledge_from_store(key, domain)
+                    entry = self._get_knowledge_from_store(key, domain)
             else:
-                return self._get_knowledge_from_store(key, domain)
+                entry = self._get_knowledge_from_store(key, domain)
+            
+            if entry is None:
+                return None
+                
+            if value_only:
+                return entry.get('value')
+            else:
+                return entry
                 
         except Exception as e:
             self.logger.error(f"Failed to retrieve shared knowledge {key}: {e}")
@@ -2759,6 +2879,8 @@ class BrainCore:
                     'persistence_enabled': self.config.knowledge_persistence,
                     'shared_memory_size': self.config.shared_memory_size
                 },
+                'statistics': self.get_statistics(),
+                'memory_usage': self._estimate_memory_usage() / (1024 * 1024),
                 'knowledge': {
                     'total_domains': len(self._shared_state['knowledge_base']),
                     'total_items': sum(len(d) for d in self._shared_state['knowledge_base'].values()),
@@ -2836,6 +2958,7 @@ class BrainCore:
                     'created_at': datetime.now().isoformat(),
                     'version': '1.0.0',
                     'total_domains': 0,
+                    'total_predictions': 0,
                     'last_updated': datetime.now().isoformat()
                 }
             }
@@ -2893,11 +3016,15 @@ class BrainCore:
             # Set backup path
             if backup_path:
                 self._auto_backup_path = Path(backup_path)
+                # Create parent directory if it doesn't exist
+                self._auto_backup_path.parent.mkdir(parents=True, exist_ok=True)
             else:
                 if self.config.knowledge_path:
                     self._auto_backup_path = self.config.knowledge_path.with_suffix('.auto_backup')
                 else:
                     self._auto_backup_path = Path("brain_auto_backup.json")
+                # Create parent directory if it doesn't exist
+                self._auto_backup_path.parent.mkdir(parents=True, exist_ok=True)
             
             # Start backup thread
             self._auto_backup_enabled = True
@@ -2958,7 +3085,9 @@ class BrainCore:
             Dictionary containing backup status
         """
         return {
+            'enabled': self._auto_backup_enabled,
             'auto_backup_enabled': self._auto_backup_enabled,
+            'interval_seconds': self._auto_backup_interval,
             'backup_interval_seconds': self._auto_backup_interval,
             'last_backup_time': self._last_backup_time.isoformat() if self._last_backup_time else None,
             'backup_path': str(self._auto_backup_path) if hasattr(self, '_auto_backup_path') else None,

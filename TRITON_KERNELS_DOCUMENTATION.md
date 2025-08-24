@@ -1,7 +1,9 @@
 # Enhanced Triton Kernels Documentation
 
+**⚠️ IMPORTANT: Triton support has been PERMANENTLY DISABLED in Saraphis. This documentation is preserved for reference only. All Triton functionality is disconnected and cannot be activated. The system uses pure PyTorch implementations instead.**
+
 ## Overview
-This document describes the three critical Triton kernels that have been added to enhance the p-adic compression system's performance.
+This document describes the three critical Triton kernels that were originally designed to enhance the p-adic compression system's performance. These kernels are no longer in use.
 
 ## 1. Enhanced Batch P-adic Conversion Kernel
 

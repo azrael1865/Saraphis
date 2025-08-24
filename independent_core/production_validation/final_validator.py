@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union, Tuple, Set, Callable
 from dataclasses import dataclass, field, asdict
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque
 import statistics
 import concurrent.futures
@@ -34,23 +34,16 @@ import uuid
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-try:
+# Hard failures only - no fallbacks
+# Import type hints only to avoid circular imports
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
     from brain import Brain
-    from production_monitoring_system import ProductionMonitoringSystem, HealthStatus
-    from production_deployment_config import DeploymentConfigManager
-    from production_security_validator import ProductionSecurityValidator
-    from production_config_manager import ProductionConfigManager
-    from orchestrators.brain_orchestrator import BrainOrchestrator
-    from orchestrators.neural_orchestrator import NeuralOrchestrator
-    from orchestrators.reasoning_orchestrator import ReasoningOrchestrator
-    from orchestrators.uncertainty_orchestrator import UncertaintyOrchestrator
-    from gac_system.gradient_ascent_clipping import GradientAscentClipping
-    from proof_system.proof_integration_manager import ProofIntegrationManager
-    from compression_systems.services.compression_api import CompressionAPI
-    from training_manager import TrainingManager
-    from error_recovery_system import ErrorRecoverySystem
-except ImportError as e:
-    logging.warning(f"Import warning: {e}")
+    
+from production_monitoring_system import ProductionMonitoringSystem, HealthStatus
+from production_deployment_config import DeploymentConfigManager
+from production_security_validator import SecurityValidator as ProductionSecurityValidator
+from production_config_manager import ProductionConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +80,7 @@ class ValidationResult:
     severity: ValidationSeverity
     message: str
     duration_ms: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     details: Dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self):
@@ -106,7 +99,7 @@ class SystemHealthScore:
     status: HealthStatus
     metrics: Dict[str, float] = field(default_factory=dict)
     issues: List[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -121,7 +114,7 @@ class DeploymentDecision:
     critical_issues: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     recommendations: List[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ProductionFinalValidator:
@@ -132,7 +125,7 @@ class ProductionFinalValidator:
     to ensure production readiness with strict validation criteria.
     """
     
-    def __init__(self, brain_system: Brain, all_components: Dict[str, Any], 
+    def __init__(self, brain_system: Any, all_components: Dict[str, Any], 
                  production_config: Dict[str, Any]):
         self.brain_system = brain_system
         self.all_components = all_components
@@ -532,7 +525,7 @@ class ProductionFinalValidator:
             # Generate report
             report = {
                 'report_id': str(uuid.uuid4()),
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'deployment_decision': asdict(decision),
                 'scores': scores,
                 'validation_results': validation_results,
@@ -1339,7 +1332,7 @@ class ProductionFinalValidator:
             raise RuntimeError(error_msg)
 
 
-def create_production_final_validator(brain_system: Brain, 
+def create_production_final_validator(brain_system: Any, 
                                     all_components: Dict[str, Any],
                                     production_config: Dict[str, Any]) -> ProductionFinalValidator:
     """Factory function to create ProductionFinalValidator instance."""

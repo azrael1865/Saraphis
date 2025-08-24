@@ -53,16 +53,20 @@ class BackupManager:
         
         self.logger.info("Backup Manager initialized")
     
-    def create_backup(self, backup_type: str = 'incremental') -> Dict[str, Any]:
+    def create_backup(self, data: Any = None, backup_id: str = None, backup_type: str = 'incremental') -> Dict[str, Any]:
         """Create a new backup"""
         try:
             start_time = time.time()
             
-            # Generate backup ID
-            backup_id = f"backup_{backup_type}_{int(time.time())}"
+            # Use provided backup_id or generate one
+            if backup_id is None:
+                backup_id = f"backup_{backup_type}_{int(time.time())}"
             
-            # Collect data for backup
-            backup_data = self._collect_backup_data(backup_type)
+            # Use provided data or collect data for backup
+            if data is not None:
+                backup_data = data
+            else:
+                backup_data = self._collect_backup_data(backup_type)
             
             # Calculate original size
             original_size = len(pickle.dumps(backup_data))
@@ -213,6 +217,14 @@ class BackupManager:
                 'backup_id': backup_id,
                 'duration_seconds': time.time() - start_time if 'start_time' in locals() else 0
             }
+    
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """List all available backups"""
+        try:
+            return self._get_all_backup_metadata()
+        except Exception as e:
+            self.logger.error(f"Failed to list backups: {e}")
+            return []
     
     def validate_backup_integrity(self) -> Dict[str, Any]:
         """Validate integrity of all backups"""

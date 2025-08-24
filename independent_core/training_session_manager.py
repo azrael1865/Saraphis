@@ -254,6 +254,9 @@ class TrainingSessionManager:
         self.sessions: Dict[str, TrainingSession] = {}
         self.active_sessions: List[str] = []
         
+        # Thread safety
+        self.lock = threading.Lock()
+        
         # Monitoring
         self.monitoring_active = False
         self.monitoring_thread = None
@@ -300,7 +303,7 @@ class TrainingSessionManager:
         
         # Store session
         self.sessions[session_id] = session
-        self.active_sessions.append(session_id)
+        # Don't add to active_sessions yet - wait for start_session
         
         # Create session directory
         session_dir = self.storage_path / session_id
@@ -320,20 +323,49 @@ class TrainingSessionManager:
         session.start_time = datetime.now()
         session.last_activity = datetime.now()
         
+        # Add to active sessions
+        if session_id not in self.active_sessions:
+            self.active_sessions.append(session_id)
+        
         self.logger.info(f"Started training session: {session_id}")
         return True
     
     def update_metrics(
         self,
         session_id: str,
-        metrics_update: Dict[str, Any]
+        metrics_update: Optional[Dict[str, Any]] = None,
+        epoch: Optional[int] = None,
+        batch: Optional[int] = None,
+        loss: Optional[float] = None,
+        accuracy: Optional[float] = None,
+        val_loss: Optional[float] = None,
+        val_accuracy: Optional[float] = None,
+        **kwargs
     ) -> bool:
         """Update session metrics."""
         if session_id not in self.sessions:
             return False
         
-        session = self.sessions[session_id]
-        session.last_activity = datetime.now()
+        with self.lock:  # Thread safety for concurrent updates
+            session = self.sessions[session_id]
+            session.last_activity = datetime.now()
+        
+        # Handle metrics_update dict if provided
+        if metrics_update is None:
+            metrics_update = {}
+        
+        # Merge keyword arguments into metrics_update
+        if loss is not None:
+            metrics_update['loss'] = loss
+        if accuracy is not None:
+            metrics_update['accuracy'] = accuracy
+        if val_loss is not None:
+            metrics_update['val_loss'] = val_loss
+        if val_accuracy is not None:
+            metrics_update['val_accuracy'] = val_accuracy
+        
+        # Add any additional kwargs to metrics_update
+        metrics_update.update(kwargs)
         
         # Update metrics
         if 'loss' in metrics_update:
@@ -348,10 +380,15 @@ class TrainingSessionManager:
         if 'val_accuracy' in metrics_update:
             session.metrics.update_accuracy(metrics_update['val_accuracy'], is_validation=True)
         
-        if 'epoch' in metrics_update:
+        # Support both dict and parameter-based epoch/batch updates
+        if epoch is not None:
+            session.metrics.current_epoch = epoch
+        elif 'epoch' in metrics_update:
             session.metrics.current_epoch = metrics_update['epoch']
         
-        if 'batch' in metrics_update:
+        if batch is not None:
+            session.metrics.current_batch = batch
+        elif 'batch' in metrics_update:
             session.metrics.current_batch = metrics_update['batch']
         
         # Calculate progress
@@ -370,8 +407,10 @@ class TrainingSessionManager:
         session_id: str,
         epoch: int,
         batch: int,
-        total_batches: int,
-        epoch_start_time: Optional[float] = None
+        total_batches: Optional[int] = None,
+        epoch_start_time: Optional[float] = None,
+        loss: Optional[float] = None,
+        accuracy: Optional[float] = None
     ) -> bool:
         """Report training progress."""
         if session_id not in self.sessions:
@@ -383,12 +422,19 @@ class TrainingSessionManager:
         # Update progress metrics
         session.metrics.current_epoch = epoch
         session.metrics.current_batch = batch
-        session.metrics.total_batches = total_batches
+        if total_batches is not None:
+            session.metrics.total_batches = total_batches
         
         # Calculate timing metrics
         if epoch_start_time:
             epoch_duration = time.time() - epoch_start_time
             session.metrics.epoch_duration.append(epoch_duration)
+        
+        # Update loss/accuracy if provided
+        if loss is not None:
+            session.metrics.update_loss(loss)
+        if accuracy is not None:
+            session.metrics.update_accuracy(accuracy)
         
         # Update progress
         self._update_progress(session)
@@ -407,7 +453,11 @@ class TrainingSessionManager:
         self,
         session_id: str,
         error: Exception,
-        context: Dict[str, Any]
+        context: Optional[Dict[str, Any]] = None,
+        error_type: Optional[str] = None,
+        epoch: Optional[int] = None,
+        batch: Optional[int] = None,
+        **kwargs
     ) -> bool:
         """Handle training error with recovery."""
         if session_id not in self.sessions:
@@ -416,12 +466,25 @@ class TrainingSessionManager:
         session = self.sessions[session_id]
         session.status = SessionStatus.RECOVERING
         
-        # Classify error
-        error_type = self._classify_error(error)
+        # Update metrics if provided
+        if epoch is not None:
+            session.metrics.current_epoch = epoch
+        if batch is not None:
+            session.metrics.current_batch = batch
+        
+        # Use provided error_type or classify
+        if error_type is None:
+            error_type_enum = self._classify_error(error)
+        else:
+            # Convert string to ErrorType enum if needed
+            try:
+                error_type_enum = ErrorType[error_type.upper()] if isinstance(error_type, str) else error_type
+            except (KeyError, AttributeError):
+                error_type_enum = self._classify_error(error)
         
         # Create error record
         training_error = TrainingError(
-            error_type=error_type,
+            error_type=error_type_enum,
             error_message=str(error),
             traceback_str=traceback.format_exc(),
             timestamp=datetime.now(),
@@ -435,7 +498,7 @@ class TrainingSessionManager:
         
         # Attempt recovery if possible
         if session.recovery_attempts < session.max_recovery_attempts:
-            recovery_strategy = self._determine_recovery_strategy(error_type)
+            recovery_strategy = self._determine_recovery_strategy(error_type_enum)
             if recovery_strategy:
                 success = self._attempt_recovery(session, training_error, recovery_strategy)
                 if success:
@@ -450,7 +513,7 @@ class TrainingSessionManager:
         # Call callbacks
         self._call_callbacks(session, 'error_occurred', {
             'error': error,
-            'error_type': error_type,
+            'error_type': error_type_enum,
             'recovery_attempted': training_error.recovery_attempted
         })
         
@@ -462,13 +525,36 @@ class TrainingSessionManager:
         model_state: Optional[Dict] = None,
         optimizer_state: Optional[Dict] = None,
         is_best: bool = False,
-        is_auto: bool = True
+        is_auto: bool = True,
+        checkpoint_data: Optional[Dict[str, Any]] = None,
+        epoch: Optional[int] = None,
+        batch: Optional[int] = None,
+        **kwargs
     ) -> Optional[str]:
         """Create a training checkpoint."""
         if session_id not in self.sessions:
             return None
         
         session = self.sessions[session_id]
+        
+        # Support checkpoint_data parameter for convenience
+        if checkpoint_data is not None:
+            if model_state is None:
+                model_state = checkpoint_data.get('model_state', {})
+            if optimizer_state is None:
+                optimizer_state = checkpoint_data.get('optimizer_state', {})
+        
+        # Use empty dicts if still None
+        if model_state is None:
+            model_state = {}
+        if optimizer_state is None:
+            optimizer_state = {}
+        
+        # Update metrics if provided
+        if epoch is not None:
+            session.metrics.current_epoch = epoch
+        if batch is not None:
+            session.metrics.current_batch = batch
         
         # Generate checkpoint ID
         checkpoint_id = f"checkpoint_{session.metrics.current_epoch}_{session.metrics.current_batch}"
@@ -518,8 +604,12 @@ class TrainingSessionManager:
         self,
         session_id: str,
         checkpoint_id: Optional[str] = None
-    ) -> Optional[TrainingCheckpoint]:
-        """Recover from a checkpoint."""
+    ) -> Optional[Tuple[Dict, Dict]]:
+        """Recover from a checkpoint.
+        
+        Returns:
+            Optional tuple of (model_state, optimizer_state) if successful, None otherwise
+        """
         if session_id not in self.sessions:
             return None
         
@@ -548,8 +638,11 @@ class TrainingSessionManager:
                 self.logger.error(f"Failed to load checkpoint: {e}")
                 return None
         
+        # Update session status to recovering
+        session.status = SessionStatus.RECOVERING
+        
         self.logger.info(f"Recovered from checkpoint {checkpoint.checkpoint_id} in session {session_id}")
-        return checkpoint
+        return (checkpoint.model_state, checkpoint.optimizer_state)
     
     def complete_session(
         self,
@@ -653,6 +746,13 @@ class TrainingSessionManager:
                         checkpoint.file_path.unlink()
                     except Exception as e:
                         self.logger.warning(f"Failed to delete checkpoint file: {e}")
+            
+            # Also clean up any checkpoint files in storage_path matching session_id pattern
+            for file in self.storage_path.glob(f"{session_id}*.pkl"):
+                try:
+                    file.unlink()
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete file {file}: {e}")
         
         # Remove session
         del self.sessions[session_id]
@@ -711,7 +811,7 @@ class TrainingSessionManager:
         """Determine recovery strategy for error type."""
         strategy_map = {
             ErrorType.OUT_OF_MEMORY: RecoveryStrategy.REDUCE_BATCH_SIZE,
-            ErrorType.NAN_LOSS: RecoveryStrategy.REDUCE_LEARNING_RATE,
+            ErrorType.NAN_LOSS: RecoveryStrategy.RESET_OPTIMIZER,  # NaN should reset optimizer
             ErrorType.INFINITE_LOSS: RecoveryStrategy.REDUCE_LEARNING_RATE,
             ErrorType.GRADIENT_EXPLOSION: RecoveryStrategy.REDUCE_LEARNING_RATE,
             ErrorType.DATA_ERROR: RecoveryStrategy.SKIP_BATCH,
@@ -843,6 +943,53 @@ class TrainingSessionManager:
         if gpu_usage > self.resource_alert_thresholds['gpu']:
             session.resource_metrics.high_gpu_alerts += 1
             self.logger.warning(f"High GPU usage in session {session.session_id}: {gpu_usage:.1f}%")
+    
+    def cleanup_files(self, session_id: str, keep_best: bool = True) -> int:
+        """Clean up checkpoint files for a session.
+        
+        Args:
+            session_id: ID of the session
+            keep_best: Whether to keep the best checkpoint
+            
+        Returns:
+            Number of files deleted
+        """
+        if session_id not in self.sessions:
+            return 0
+        
+        session = self.sessions[session_id]
+        deleted_count = 0
+        
+        # Clean up checkpoints
+        for checkpoint in session.checkpoints:
+            # Skip best checkpoint if requested
+            if keep_best and checkpoint.is_best:
+                continue
+            
+            if checkpoint.file_path and checkpoint.file_path.exists():
+                try:
+                    checkpoint.file_path.unlink()
+                    deleted_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete checkpoint file {checkpoint.file_path}: {e}")
+        
+        # Clean up session directory if empty
+        session_dir = self.storage_path / session_id
+        if session_dir.exists():
+            try:
+                # Remove checkpoints directory if empty
+                checkpoint_dir = session_dir / "checkpoints"
+                if checkpoint_dir.exists() and not any(checkpoint_dir.iterdir()):
+                    checkpoint_dir.rmdir()
+                
+                # Remove session directory if empty
+                if not any(session_dir.iterdir()):
+                    session_dir.rmdir()
+                    deleted_count += 1
+            except Exception as e:
+                self.logger.warning(f"Failed to clean up directories: {e}")
+        
+        return deleted_count
 
 # ======================== CONVENIENCE FUNCTIONS ========================
 

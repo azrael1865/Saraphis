@@ -78,6 +78,8 @@ class RateLimiter:
             
             # Check if client is blacklisted
             if client_id in self.blacklisted_clients:
+                # Update metrics for blacklisted requests
+                self.rate_limit_metrics[client_id]['denied'] += 1
                 return {
                     'allowed': False,
                     'details': 'Client is blacklisted',
@@ -87,6 +89,9 @@ class RateLimiter:
             # Check if client is currently throttled
             if self._is_client_throttled(client_id):
                 throttle_info = self.throttled_clients[client_id]
+                # Update metrics for throttled requests
+                self.rate_limit_metrics[client_id]['denied'] += 1
+                self.rate_limit_metrics[client_id]['throttled'] += 1
                 return {
                     'allowed': False,
                     'details': 'Client is temporarily throttled',
@@ -116,7 +121,11 @@ class RateLimiter:
                 result = self._check_token_bucket_limit(client_id, rate_limit_config)
             
             # Update metrics
-            self._update_metrics(client_id, result['allowed'])
+            try:
+                self._update_metrics(client_id, result['allowed'])
+            except ValueError:
+                # Re-raise ValueError for invalid client_id
+                raise
             
             # Apply throttling if needed
             if not result['allowed']:
@@ -200,7 +209,7 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Client ID extraction failed: {e}")
-            return 'anonymous'
+            raise ValueError(f"Failed to extract client ID: {e}")
     
     def _get_rate_limit_config(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Get rate limit configuration for request"""
@@ -241,13 +250,7 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Rate limit config retrieval failed: {e}")
-            return {
-                'requests_per_minute': 100,
-                'requests_per_hour': 1000,
-                'burst_size': 20,
-                'priority': 'medium',
-                'service': 'unknown'
-            }
+            raise RuntimeError(f"Failed to get rate limit config: {e}")
     
     def _check_global_rate_limit(self) -> Dict[str, Any]:
         """Check global rate limit across all clients"""
@@ -279,7 +282,7 @@ class RateLimiter:
                     
         except Exception as e:
             self.logger.error(f"Global rate limit check failed: {e}")
-            return {'allowed': True}  # Fail open for global limit
+            raise RuntimeError(f"Global rate limit check failed: {e}")
     
     def _check_token_bucket_limit(self, client_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """Check rate limit using token bucket algorithm"""
@@ -357,8 +360,9 @@ class RateLimiter:
                 
                 bucket['last_leak'] = current_time
                 
-                # Check if queue has space
-                if len(bucket['queue']) < config['burst_size']:
+                # Check if queue has space - use max_queue if available
+                max_queue_size = bucket.get('max_queue', config['burst_size'])
+                if len(bucket['queue']) < max_queue_size:
                     bucket['queue'].append(current_time)
                     return {
                         'allowed': True,
@@ -402,8 +406,9 @@ class RateLimiter:
                 
                 window = self.fixed_windows[window_key]
                 
-                # Check if window has expired
+                # Check if window has expired - fixed window resets completely
                 if current_time - window['window_start'] >= window_size:
+                    # Hard reset - start new window from now
                     window['window_start'] = current_time
                     window['request_count'] = 0
                 
@@ -454,14 +459,16 @@ class RateLimiter:
                 while window and window[0] < current_time - window_size:
                     window.popleft()
                 
-                # Check if limit exceeded
+                # Check if limit exceeded - smooth rate limiting
                 if len(window) < config['requests_per_minute']:
                     window.append(current_time)
                     
                     return {
                         'allowed': True,
+                        'algorithm': 'sliding_window',
                         'requests_in_window': len(window),
-                        'window_limit': config['requests_per_minute']
+                        'window_limit': config['requests_per_minute'],
+                        'smooth_distribution': True
                     }
                 else:
                     # Calculate retry after
@@ -495,12 +502,12 @@ class RateLimiter:
             
             # Adjust based on denial rate
             total_requests = client_metrics.get('allowed', 0) + client_metrics.get('denied', 0)
-            if total_requests > 100:  # Enough data to adapt
+            if total_requests > 50:  # Enough data to adapt
                 denial_rate = client_metrics.get('denied', 0) / total_requests
                 
-                if denial_rate > 0.5:  # High denial rate, reduce limit
+                if denial_rate >= 0.5:  # High denial rate, reduce limit
                     adaptive_limit = int(base_limit * 0.5)
-                elif denial_rate > 0.2:  # Moderate denial rate
+                elif denial_rate >= 0.2:  # Moderate denial rate
                     adaptive_limit = int(base_limit * 0.8)
                 else:  # Low denial rate, can increase
                     adaptive_limit = int(base_limit * 1.2)
@@ -515,7 +522,11 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Adaptive limit check failed: {e}")
-            return self._check_sliding_window_limit(client_id, config)
+            # Return a denial on error rather than propagating the exception
+            return {
+                'allowed': False,
+                'details': f'Adaptive limit check error: {str(e)}'
+            }
     
     def _is_client_throttled(self, client_id: str) -> bool:
         """Check if client is currently throttled"""
@@ -533,7 +544,7 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Throttle check failed: {e}")
-            return False
+            raise RuntimeError(f"Throttle check failed: {e}")
     
     def _apply_throttling(self, client_id: str, config: Dict[str, Any]):
         """Apply throttling to client based on violations"""
@@ -547,9 +558,9 @@ class RateLimiter:
                 violation_rate = metrics['denied'] / total_requests
                 
                 # Determine throttle duration based on severity
-                if violation_rate > 0.8:  # Severe violations
+                if violation_rate >= 0.8:  # Severe violations (80% denial rate or higher)
                     throttle_duration = 300  # 5 minutes
-                elif violation_rate > 0.5:  # Moderate violations
+                elif violation_rate >= 0.3:  # Moderate violations (30% denial rate or higher)
                     throttle_duration = 60  # 1 minute
                 else:
                     return  # No throttling needed
@@ -565,10 +576,16 @@ class RateLimiter:
                 
         except Exception as e:
             self.logger.error(f"Failed to apply throttling: {e}")
+            raise RuntimeError(f"Failed to apply throttling: {e}")
     
     def _update_metrics(self, client_id: str, allowed: bool):
         """Update rate limit metrics"""
         try:
+            if not client_id or not isinstance(client_id, str):
+                error_msg = f"Invalid client_id: {client_id}"
+                self.logger.error(f"Metrics update failed: {error_msg}")
+                raise ValueError(error_msg)
+                
             if allowed:
                 self.rate_limit_metrics[client_id]['allowed'] += 1
             else:
@@ -576,6 +593,7 @@ class RateLimiter:
                 
         except Exception as e:
             self.logger.error(f"Metrics update failed: {e}")
+            raise  # Re-raise exception to propagate it
     
     def _start_cleanup_thread(self):
         """Start background cleanup thread"""
@@ -629,7 +647,7 @@ class RateLimiter:
                 
         except Exception as e:
             self.logger.error(f"Failed to get rate limiter status: {e}")
-            return {'error': str(e)}
+            raise RuntimeError(f"Failed to get rate limiter status: {e}")
     
     def _get_metrics_summary(self) -> Dict[str, Any]:
         """Get summary of rate limit metrics"""
@@ -648,7 +666,7 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Metrics summary generation failed: {e}")
-            return {}
+            raise RuntimeError(f"Metrics summary generation failed: {e}")
     
     def _get_top_clients(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get top clients by request count"""
@@ -671,4 +689,4 @@ class RateLimiter:
             
         except Exception as e:
             self.logger.error(f"Top clients calculation failed: {e}")
-            return []
+            raise RuntimeError(f"Top clients calculation failed: {e}")

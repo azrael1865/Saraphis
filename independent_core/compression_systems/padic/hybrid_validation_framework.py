@@ -16,12 +16,12 @@ from typing import Dict, Any, List, Tuple, Optional, Union, Callable, Set
 from enum import Enum
 
 # Import hybrid system components
-from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
-from hybrid_padic_compressor import HybridPadicCompressionSystem
-from dynamic_switching_manager import DynamicSwitchingManager
+from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager, HybridPadicValidator
+from .hybrid_padic_compressor import HybridPadicCompressionSystem
+from .dynamic_switching_manager import DynamicSwitchingManager
 
 # Import existing components for validation
-from padic_encoder import PadicWeight, PadicCompressionSystem, PadicMathematicalOperations
+from .padic_encoder import PadicWeight, PadicCompressionSystem, PadicMathematicalOperations
 
 
 class ValidationType(Enum):

@@ -18,23 +18,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import tropical components
-from independent_core.compression_systems.tropical.jax_tropical_engine import (
+from .jax_tropical_engine import (
     TropicalJAXEngine,
     JAXTropicalConfig,
     JAXChannelProcessor
 )
-from independent_core.compression_systems.tropical.tropical_channel_extractor import (
+from .tropical_channel_extractor import (
     TropicalChannelExtractor,
     TropicalChannels,
     ChannelReconstructionConfig
 )
-from independent_core.compression_systems.tropical.tropical_compression_pipeline import (
+from .tropical_compression_pipeline import (
     TropicalCompressionResult,
     TropicalCompressionConfig
 )
 
 # Import memory management
-from independent_core.compression_systems.padic.memory_pressure_handler import (
+from ..padic.memory_pressure_handler import (
     MemoryPressureHandler,
     ProcessingMode,
     MemoryState

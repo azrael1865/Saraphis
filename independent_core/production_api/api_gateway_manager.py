@@ -65,11 +65,11 @@ class APIGatewayManager:
     
     def route_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Route API request through the gateway with full processing"""
+        request_id = self._generate_request_id()
+        start_time = time.time()
+        status = 'error'
+        
         try:
-            # Start request processing
-            request_id = self._generate_request_id()
-            start_time = time.time()
-            
             # Add request metadata
             request['request_id'] = request_id
             request['received_at'] = start_time
@@ -77,16 +77,19 @@ class APIGatewayManager:
             # Validate request format
             validation_result = self.request_validator.validate_request_format(request)
             if not validation_result['valid']:
+                status = 'validation_error'
                 return self._format_error_response(400, 'Invalid request format', validation_result['errors'])
             
             # Check rate limits
             rate_limit_result = self.rate_limiter.check_rate_limits(request)
             if not rate_limit_result['allowed']:
+                status = 'rate_limited'
                 return self._format_error_response(429, 'Rate limit exceeded', rate_limit_result['details'])
             
             # Authenticate request
             auth_result = self.auth_manager.authenticate_request(request)
             if not auth_result['authenticated']:
+                status = 'auth_failed'
                 return self._format_error_response(401, 'Authentication failed', auth_result['details'])
             
             # Add user context to request
@@ -96,21 +99,25 @@ class APIGatewayManager:
             # Authorize request
             authz_result = self.auth_manager.authorize_request(request, auth_result['user'])
             if not authz_result['authorized']:
+                status = 'authorization_failed'
                 return self._format_error_response(403, 'Authorization failed', authz_result['details'])
             
             # Route to appropriate service
             routing_result = self._route_to_service(request)
             if not routing_result['success']:
+                status = 'routing_failed'
                 return self._format_error_response(502, 'Service routing failed', routing_result['details'])
             
             # Check circuit breaker
             if not self._check_circuit_breaker(routing_result['service']):
+                status = 'circuit_breaker_open'
                 return self._format_error_response(503, 'Service temporarily unavailable', 'Circuit breaker open')
             
             # Load balance request
             load_balance_result = self.load_balancer.distribute_request(request, routing_result['service'])
             if not load_balance_result['success']:
                 self._record_circuit_breaker_failure(routing_result['service'])
+                status = 'load_balancing_failed'
                 return self._format_error_response(503, 'Service unavailable', load_balance_result['details'])
             
             # Process request with retries
@@ -120,6 +127,7 @@ class APIGatewayManager:
             
             if not processing_result['success']:
                 self._record_circuit_breaker_failure(routing_result['service'])
+                status = 'processing_failed'
                 return self._format_error_response(500, 'Request processing failed', processing_result['details'])
             
             # Record circuit breaker success
@@ -137,21 +145,25 @@ class APIGatewayManager:
             # Track metrics
             self.metrics_collector.track_request_metrics(request_id, request, response, processing_time)
             
-            # Store in history
+            status = 'success'
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"API gateway routing failed: {e}")
+            status = 'exception'
+            return self._format_error_response(500, 'Internal server error', str(e))
+            
+        finally:
+            # Always store in history regardless of success/failure
+            processing_time = time.time() - start_time
             self.request_history.append({
                 'request_id': request_id,
                 'timestamp': start_time,
                 'processing_time': processing_time,
                 'endpoint': request.get('endpoint'),
                 'method': request.get('method'),
-                'status': 'success'
+                'status': status
             })
-            
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"API gateway routing failed: {e}")
-            return self._format_error_response(500, 'Internal server error', str(e))
     
     def _initialize_routes(self) -> Dict[str, Dict[str, Any]]:
         """Initialize API routes and their configurations"""
@@ -276,7 +288,8 @@ class APIGatewayManager:
             
         except Exception as e:
             self.logger.error(f"Circuit breaker check failed: {e}")
-            return True
+            # NO FALLBACKS - FAIL CLOSED: Circuit breaker failure blocks all requests
+            raise RuntimeError(f"Circuit breaker system failure - failing closed for safety: {e}") from e
     
     def _record_circuit_breaker_failure(self, service: str):
         """Record circuit breaker failure"""

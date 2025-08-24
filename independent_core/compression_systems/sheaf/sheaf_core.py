@@ -12,9 +12,18 @@ import pickle
 import json
 from datetime import datetime
 
-from ..base.compression_base import CompressionAlgorithm as CompressionBase
-from ...proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
-from ...proof_system.confidence_generator import ConfidenceGenerator
+try:
+    from ..base.compression_base import CompressionAlgorithm as CompressionBase
+    from ...proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
+    from ...proof_system.confidence_generator import ConfidenceGenerator
+except ImportError:
+    # Fallback to absolute imports for testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from compression_systems.base.compression_base import CompressionAlgorithm as CompressionBase
+    from proof_system.algebraic_rule_enforcer import AlgebraicRuleEnforcer
+    from proof_system.confidence_generator import ConfidenceGenerator
 
 
 @dataclass

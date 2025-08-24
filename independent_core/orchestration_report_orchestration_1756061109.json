@@ -1,0 +1,178 @@
+{
+  "report_id": "orchestration_1756061109",
+  "timestamp": "2025-08-24T14:45:09.137690",
+  "executive_summary": {
+    "overall_health": 0.9016666666666667,
+    "critical_issues": 0,
+    "total_operations": 0,
+    "success_rate": 0,
+    "emergency_responses": 0,
+    "predictive_actions": 0
+  },
+  "component_reports": {
+    "scaling": {
+      "report_id": "scaling_1756061109",
+      "timestamp": "2025-08-24T14:45:09.137705",
+      "summary": {
+        "total_operations": 0,
+        "successful_operations": 0,
+        "total_time": 0,
+        "success": false
+      },
+      "operations": [],
+      "current_state": {
+        "system_instances": {},
+        "agent_instances": {
+          "pattern_agent": 1
+        }
+      },
+      "performance_metrics": null,
+      "recommendations": [
+        "Scaling operation failed - review error logs and retry"
+      ]
+    },
+    "recovery": {
+      "report_id": "recovery_1756061109",
+      "timestamp": "2025-08-24T14:45:09.137715",
+      "summary": {
+        "total_recoveries": 0,
+        "successful_recoveries": 0,
+        "failed_recoveries": 0,
+        "total_time": 0,
+        "success": false
+      },
+      "details": {
+        "is_running": false,
+        "active_recoveries": {},
+        "performance": {
+          "success_rate": 0.0,
+          "average_time": 0.0,
+          "total_recoveries": 0
+        },
+        "recent_recoveries": []
+      },
+      "performance_metrics": {
+        "timestamp": "2025-08-24 14:45:09.137718",
+        "overall": {
+          "success_rate": 0.0,
+          "average_time": 0.0,
+          "total_recoveries": 0
+        },
+        "by_component_type": {},
+        "by_strategy": {},
+        "recent_failures": []
+      },
+      "recommendations": [
+        "Success rate below target: 0.0% < 99%"
+      ]
+    },
+    "load_balancing": {
+      "report_id": "balancing_1756061109",
+      "timestamp": "2025-08-24T14:45:09.137833",
+      "summary": {
+        "current_efficiency": 0.5511964501333333,
+        "meets_threshold": false,
+        "total_operations": 0,
+        "success_rate": 0.0,
+        "rebalance_operations": 0
+      },
+      "distribution_analysis": {
+        "timestamp": "2025-08-24 14:45:09.137726",
+        "system_distribution": {
+          "brain_core": {
+            "load_score": 42.02,
+            "cpu": 45,
+            "memory": 60,
+            "throughput": 100,
+            "instances": 1
+          },
+          "compression_system": {
+            "load_score": 58.016,
+            "cpu": 70,
+            "memory": 75,
+            "throughput": 80,
+            "instances": 1
+          },
+          "training_system": {
+            "load_score": 54.012,
+            "cpu": 55,
+            "memory": 80,
+            "throughput": 60,
+            "instances": 1
+          }
+        },
+        "agent_distribution": {
+          "reasoning_agent": {
+            "load_score": 62.0,
+            "active_tasks": 5,
+            "response_time": 120,
+            "instances": 1
+          },
+          "pattern_agent": {
+            "load_score": 98.0,
+            "active_tasks": 8,
+            "response_time": 180,
+            "instances": 1
+          },
+          "optimization_agent": {
+            "load_score": 39.0,
+            "active_tasks": 3,
+            "response_time": 90,
+            "instances": 1
+          }
+        },
+        "overall_efficiency": 0.5511964501333333,
+        "load_variance": 448.80354986666663,
+        "hotspots": [
+          {
+            "type": "agent",
+            "name": "pattern_agent",
+            "load": 98.0
+          }
+        ],
+        "underutilized": [],
+        "average_load": 58.84133333333333
+      },
+      "routing_table": {},
+      "performance_metrics": {
+        "timestamp": "2025-08-24 14:45:09.137844",
+        "metrics": {
+          "total_distributions": 0,
+          "successful_distributions": 0,
+          "failed_distributions": 0,
+          "average_efficiency": 0.95,
+          "rebalance_operations": 0,
+          "strategy_switches": 0
+        },
+        "current_efficiency": 0.5511964501333333,
+        "routing_table": {},
+        "active_strategy": "performance_based",
+        "recommendations": [
+          "Efficiency below threshold: 55.1% < 95.0%",
+          "Consider switching load balancing strategy"
+        ]
+      },
+      "recommendations": [
+        "Efficiency below target: 55.1% < 95.0%",
+        "Success rate below target: 0.0% < 95%",
+        "Persistent hotspots detected: 1 components overloaded"
+      ]
+    },
+    "predictions": {
+      "timestamp": "2025-08-24 14:45:09.137898",
+      "overall_accuracy": 0.0,
+      "component_accuracy": {},
+      "meets_threshold": false
+    }
+  },
+  "metrics": {
+    "total_operations": 0,
+    "successful_operations": 0,
+    "failed_operations": 0,
+    "emergency_responses": 0,
+    "predictive_actions": 0
+  },
+  "recommendations": [
+    "Prediction accuracy below threshold (0.0%) - retrain models"
+  ]
+}

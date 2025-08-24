@@ -172,13 +172,18 @@ class MetadataCompressor:
             json_str = json_bytes.decode('utf-8')
             metadata = json.loads(json_str)
             
+            # Restore binary data from base64
+            metadata = self._restore_binary_data(metadata)
+            
             # Fix pattern_dict keys - convert string keys back to integers
             if 'pattern_dict' in metadata and isinstance(metadata['pattern_dict'], dict):
                 metadata['pattern_dict'] = self._fix_pattern_dict_keys(metadata['pattern_dict'])
             
-            # Ensure compatibility fields
-            if 'entropy_metadata' in metadata:
-                self._ensure_compatibility_fields(metadata['entropy_metadata'])
+            # Fix integer keys in frequency_table and other fields
+            metadata = self._fix_integer_keys_in_metadata(metadata)
+            
+            # For full metadata format (0x03), preserve original structure exactly
+            # Don't add any compatibility fields - this is the modern format
             
             self.compression_stats['successful_decompressions'] += 1
             return metadata
@@ -299,6 +304,60 @@ class MetadataCompressor:
         else:
             return str(data)
     
+    def _restore_binary_data(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Restore binary data from base64 strings after JSON deserialization"""
+        import base64
+        
+        # Recursively process the metadata to restore binary data
+        def restore_recursive(obj, path=""):
+            if isinstance(obj, dict):
+                result = {}
+                for key, value in obj.items():
+                    new_path = f"{path}.{key}" if path else key
+                    result[key] = restore_recursive(value, new_path)
+                return result
+            elif isinstance(obj, list):
+                return [restore_recursive(item, f"{path}[{i}]") for i, item in enumerate(obj)]
+            elif isinstance(obj, str):
+                # Try to detect and decode base64 binary data
+                # Only attempt if string looks like base64 and is in a field that typically contains binary data
+                binary_field_indicators = ['binary_data', 'data', 'pattern', 'bytes']
+                if any(indicator in path.lower() for indicator in binary_field_indicators):
+                    try:
+                        if len(obj) > 0 and len(obj) % 4 == 0:
+                            decoded = base64.b64decode(obj, validate=True)
+                            # Only return bytes if it successfully decoded and looks like binary
+                            if len(decoded) > 0:
+                                return decoded
+                    except Exception:
+                        pass
+                return obj
+            else:
+                return obj
+        
+        return restore_recursive(metadata)
+    
+    def _fix_integer_keys_in_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Fix integer keys that were converted to strings during JSON serialization"""
+        if 'entropy_metadata' in metadata and isinstance(metadata['entropy_metadata'], dict):
+            entropy_meta = metadata['entropy_metadata']
+            
+            # Convert string keys in frequency_table to integers if needed
+            if 'frequency_table' in entropy_meta and entropy_meta['frequency_table']:
+                freq_table = entropy_meta['frequency_table']
+                if isinstance(freq_table, dict):
+                    first_key = next(iter(freq_table.keys()), None)
+                    if first_key is not None and isinstance(first_key, str):
+                        try:
+                            entropy_meta['frequency_table'] = {
+                                int(k) if k.isdigit() or (k.startswith('-') and k[1:].isdigit()) else k: v 
+                                for k, v in freq_table.items()
+                            }
+                        except:
+                            pass
+        
+        return metadata
+    
     def _decompress_entropy_metadata(self, data: bytes, offset: int) -> Tuple[Dict[str, Any], int]:
         """
         Decompress entropy metadata with full field preservation and backwards compatibility
@@ -376,12 +435,22 @@ class MetadataCompressor:
             json_str = json_bytes.decode('utf-8')
             entropy_meta = json.loads(json_str)
             
+            # Restore binary data from base64
+            entropy_meta = self._restore_binary_data(entropy_meta)
+            
             # Fix pattern_dict keys if this is actually full metadata
             if 'pattern_dict' in entropy_meta and isinstance(entropy_meta['pattern_dict'], dict):
                 entropy_meta['pattern_dict'] = self._fix_pattern_dict_keys(entropy_meta['pattern_dict'])
             
-            # Ensure backward compatibility fields
-            self._ensure_compatibility_fields(entropy_meta)
+            # Only ensure backward compatibility fields for legacy data
+            # Don't add fields that weren't originally there
+            if 'encoding_method' not in entropy_meta and 'method' not in entropy_meta:
+                entropy_meta['encoding_method'] = 'huffman'
+                entropy_meta['method'] = 'huffman'
+            elif 'encoding_method' not in entropy_meta and 'method' in entropy_meta:
+                entropy_meta['encoding_method'] = entropy_meta['method']
+            elif 'method' not in entropy_meta and 'encoding_method' in entropy_meta:
+                entropy_meta['method'] = entropy_meta['encoding_method']
             
             self.compression_stats['successful_decompressions'] += 1
             return entropy_meta, offset

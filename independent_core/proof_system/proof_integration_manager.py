@@ -84,16 +84,27 @@ class ProofIntegrationManager:
             engine_start = time.time()
             
             try:
-                if hasattr(engine, 'generate_proof'):
-                    proof = engine.generate_proof(transaction, model_state)
-                elif hasattr(engine, 'evaluate_transaction'):
+                # Try methods in order of specificity
+                if engine_name == 'rule_based' and hasattr(engine, 'evaluate_transaction'):
                     # For rule-based engine
                     proof = engine.evaluate_transaction(transaction)
-                elif hasattr(engine, 'generate_ml_proof'):
+                elif engine_name == 'ml_based' and hasattr(engine, 'generate_ml_proof'):
                     # For ML-based engine
                     proof = engine.generate_ml_proof(transaction, model_state)
-                elif hasattr(engine, 'generate_proof_for_transaction'):
+                elif engine_name == 'cryptographic' and hasattr(engine, 'generate_proof_for_transaction'):
                     # For cryptographic engine
+                    proof = engine.generate_proof_for_transaction(transaction)
+                elif hasattr(engine, 'generate_proof'):
+                    # Generic generate_proof method
+                    proof = engine.generate_proof(transaction, model_state)
+                elif hasattr(engine, 'evaluate_transaction'):
+                    # Fallback to evaluate_transaction
+                    proof = engine.evaluate_transaction(transaction)
+                elif hasattr(engine, 'generate_ml_proof'):
+                    # Fallback to generate_ml_proof
+                    proof = engine.generate_ml_proof(transaction, model_state)
+                elif hasattr(engine, 'generate_proof_for_transaction'):
+                    # Fallback to generate_proof_for_transaction
                     proof = engine.generate_proof_for_transaction(transaction)
                 else:
                     raise AttributeError(f"Engine {engine_name} has no recognized proof generation method")

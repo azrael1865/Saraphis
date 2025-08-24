@@ -1,0 +1,51 @@
+{
+  "domain_name": "test_domain_0",
+  "created_at": "2025-08-23T18:48:03.496088",
+  "last_updated": "2025-08-23T18:48:03.496105",
+  "version": 2,
+  "model_parameters": {
+    "layer_0": {
+      "weights": null,
+      "biases": null,
+      "activation": "relu"
+    },
+    "layer_1": {
+      "weights": null,
+      "biases": null,
+      "activation": "relu"
+    }
+  },
+  "learning_state": {
+    "optimizer_state": {},
+    "learning_rate_schedule": [],
+    "gradient_history": [],
+    "loss_history": []
+  },
+  "performance_metrics": {
+    "accuracy": 0.8,
+    "loss": Infinity,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "confusion_matrix": null
+  },
+  "training_history": [],
+  "configuration": {
+    "domain_type": "test",
+    "version": 1,
+    "max_memory_mb": 512,
+    "hidden_layers": [
+      64,
+      32
+    ],
+    "activation_function": "relu",
+    "learning_rate": 0.001,
+    "dropout_rate": 0.1
+  },
+  "knowledge_base": {},
+  "checkpoints": [],
+  "total_training_steps": 1000,
+  "total_predictions": 0,
+  "best_performance": 0.0,
+  "state_size_bytes": 590
+}

@@ -12,7 +12,10 @@ from collections import deque, defaultdict
 from datetime import datetime
 import logging
 
-from .gac_types import DirectionType, DirectionState
+try:
+    from .gac_types import DirectionType, DirectionState
+except ImportError:
+    from gac_types import DirectionType, DirectionState
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +90,14 @@ class DirectionStateManager:
         gradient_mean = gradients.mean().item()
         gradient_variance = gradients.var().item()
         
-        # Update smoothed magnitude
-        self.smoothed_magnitude = (
-            self.smoothing_factor * self.smoothed_magnitude + 
-            (1 - self.smoothing_factor) * gradient_norm
-        )
+        # Update smoothed magnitude (initialize on first update)
+        if self.smoothed_magnitude == 0.0 and self.total_updates == 0:
+            self.smoothed_magnitude = gradient_norm
+        else:
+            self.smoothed_magnitude = (
+                self.smoothing_factor * self.smoothed_magnitude + 
+                (1 - self.smoothing_factor) * gradient_norm
+            )
         
         # Update smoothed direction vector
         if gradient_norm > self.magnitude_threshold:
@@ -196,10 +202,17 @@ class DirectionStateManager:
             coeffs = np.polyfit(x, recent_norms, 1)
             slope = coeffs[0]
             
-            # Classify based on slope
-            if slope > self.direction_change_threshold:
+            # Classify based on slope relative to mean magnitude
+            mean_norm = np.mean(recent_norms)
+            relative_slope = slope / (mean_norm + 1e-8)
+            
+            # Use a more sensitive threshold for trend detection
+            # A relative slope of 0.2 means 20% increase per step
+            trend_threshold = self.direction_change_threshold * 0.4  # More sensitive
+            
+            if relative_slope > trend_threshold:
                 return DirectionType.ASCENT
-            elif slope < -self.direction_change_threshold:
+            elif relative_slope < -trend_threshold:
                 return DirectionType.DESCENT
             else:
                 return DirectionType.STABLE
@@ -282,8 +295,9 @@ class DirectionStateManager:
             # Lower confidence for oscillating detection
             confidence_factors = [f * 0.8 for f in confidence_factors]
         elif direction_type == DirectionType.STABLE and torch.norm(gradients).item() < self.magnitude_threshold:
-            # High confidence for genuinely small gradients
-            confidence_factors.append(0.9)
+            # High confidence for genuinely small gradients - override other factors
+            # When gradients are very small, we're confident it's stable
+            return 0.9
         
         # Combine factors (weighted average)
         weights = [0.3, 0.3, 0.2, 0.1, 0.05, 0.05][:len(confidence_factors)]
@@ -305,10 +319,15 @@ class DirectionStateManager:
         
         recent_history = list(self.direction_history)[-self.stability_window:]
         
-        # Factor 1: Direction consistency
+        # Factor 1: Direction consistency (penalize oscillation)
         directions = [h.direction for h in recent_history]
         most_common_direction = max(set(directions), key=directions.count)
         direction_consistency = directions.count(most_common_direction) / len(directions)
+        
+        # Penalize direction changes
+        direction_changes = sum(1 for i in range(1, len(directions)) if directions[i] != directions[i-1])
+        change_penalty = direction_changes / (len(directions) - 1) if len(directions) > 1 else 0
+        direction_consistency *= (1.0 - change_penalty)
         
         # Factor 2: Magnitude consistency
         magnitudes = [h.magnitude for h in recent_history]

@@ -31,10 +31,10 @@ class PIDControllerConfig:
     ki: float = 0.1  # Integral gain  
     kd: float = 0.05  # Derivative gain
     setpoint: float = 0.0  # Target value
-    output_min: float = 0.1  # Minimum output value
-    output_max: float = 10.0  # Maximum output value
+    output_min: float = -100.0  # Minimum output value
+    output_max: float = 100.0  # Maximum output value
     windup_limit: float = 100.0  # Anti-windup limit
-    sample_time: float = 0.1  # Sample time in seconds
+    sample_time: float = 0.0  # Sample time in seconds (0 = no limit)
     auto_tune: bool = True  # Enable auto-tuning
 
 class PIDController:
@@ -45,14 +45,48 @@ class PIDController:
     based on system performance and gradient behavior patterns.
     """
     
-    def __init__(self, config: PIDControllerConfig = None):
-        self.config = config or PIDControllerConfig()
+    def __init__(self, config: PIDControllerConfig = None, **kwargs):
+        # Allow both config object and direct parameters
+        if config is not None:
+            self.config = config
+        else:
+            # Support direct parameter passing for backward compatibility
+            self.config = PIDControllerConfig()
+            
+            # Map parameters
+            if 'kp' in kwargs:
+                self.config.kp = kwargs['kp']
+            if 'ki' in kwargs:
+                self.config.ki = kwargs['ki']
+            if 'kd' in kwargs:
+                self.config.kd = kwargs['kd']
+            if 'setpoint' in kwargs:
+                self.config.setpoint = kwargs['setpoint']
+            
+            # Handle output_limits as tuple
+            if 'output_limits' in kwargs:
+                limits = kwargs['output_limits']
+                if isinstance(limits, (tuple, list)) and len(limits) == 2:
+                    self.config.output_min = limits[0]
+                    self.config.output_max = limits[1]
+            
+            # Handle individual output limits
+            if 'output_min' in kwargs:
+                self.config.output_min = kwargs['output_min']
+            if 'output_max' in kwargs:
+                self.config.output_max = kwargs['output_max']
+            if 'windup_limit' in kwargs:
+                self.config.windup_limit = kwargs['windup_limit']
+            if 'sample_time' in kwargs:
+                self.config.sample_time = kwargs['sample_time']
+            if 'auto_tune' in kwargs:
+                self.config.auto_tune = kwargs['auto_tune']
         
         # PID state variables
         self.last_error = 0.0
         self.integral = 0.0
-        self.last_time = time.time()
-        self.last_output = self.config.setpoint
+        self.last_time = None  # None indicates first update
+        self.last_output = self.config.setpoint  # Initialize to setpoint for smooth startup
         
         # Performance tracking
         self.error_history = []
@@ -78,7 +112,23 @@ class PIDController:
             PID controller output
         """
         current_time = time.time()
-        dt = current_time - self.last_time
+        
+        # Handle first update
+        first_update = False
+        if self.last_time is None:
+            self.last_time = current_time
+            dt = self.config.sample_time if self.config.sample_time > 0 else 0.001  # Use sample_time or small value for first update
+            first_update = True
+        else:
+            dt = current_time - self.last_time
+            
+            # Skip update if sample time hasn't elapsed (unless sample_time is 0 which disables this check)
+            if self.config.sample_time > 0 and dt < self.config.sample_time:
+                return self.last_output
+            
+            # Ensure minimum dt for derivative calculation
+            if dt < 0.0001:  # Less than 0.1ms is effectively instantaneous
+                dt = 0.0001
         
         # Use provided target or default setpoint
         setpoint = target_value if target_value is not None else self.config.setpoint
@@ -86,24 +136,35 @@ class PIDController:
         # Calculate error
         error = setpoint - measured_value
         
-        # Skip update if sample time hasn't elapsed
-        if dt < self.config.sample_time:
-            return self.last_output
-        
         # Proportional term
         proportional = self.config.kp * error
         
-        # Integral term with windup protection
-        self.integral += error * dt
+        # Integral term with anti-windup
+        # Only integrate if we're not saturated or if error is reducing saturation
+        temp_integral = self.integral + error * dt
+        
+        # Check if integral would cause saturation
+        temp_output = proportional + self.config.ki * temp_integral
+        if self.config.output_min <= temp_output <= self.config.output_max:
+            # Not saturated, update integral
+            self.integral = temp_integral
+        elif (temp_output > self.config.output_max and error < 0) or \
+             (temp_output < self.config.output_min and error > 0):
+            # Error is reducing saturation, allow integral update
+            self.integral = temp_integral
+        
+        # Apply windup limit
         if abs(self.integral) > self.config.windup_limit:
             self.integral = self.config.windup_limit * (1 if self.integral > 0 else -1)
+        
         integral = self.config.ki * self.integral
         
-        # Derivative term
-        if dt > 0:
-            derivative = self.config.kd * (error - self.last_error) / dt
-        else:
+        # Derivative term with filtering
+        # On first update, use 0 derivative to avoid spike
+        if first_update:
             derivative = 0.0
+        else:
+            derivative = self.config.kd * (error - self.last_error) / dt
         
         # Calculate output
         output = proportional + integral + derivative
@@ -180,7 +241,8 @@ class PIDController:
         """Reset the PID controller state"""
         self.last_error = 0.0
         self.integral = 0.0
-        self.last_time = time.time()
+        self.last_time = None  # Reset to None for proper first update handling
+        self.last_output = self.config.setpoint  # Reset to setpoint
         self.error_history.clear()
         self.output_history.clear()
         logger.debug("PID Controller reset")
@@ -222,4 +284,7 @@ def create_gradient_threshold_pid(target_threshold: float = 1.0,
     
     return PIDController(config)
 
-__all__ = ['PIDController', 'PIDControllerConfig', 'create_gradient_threshold_pid']
+# Create alias for backward compatibility
+GACPIDController = PIDController
+
+__all__ = ['PIDController', 'PIDControllerConfig', 'create_gradient_threshold_pid', 'GACPIDController']

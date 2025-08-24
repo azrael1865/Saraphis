@@ -1,0 +1,913 @@
+{
+  "report_id": "data_report_1756054369",
+  "timestamp": "2025-08-24T12:52:49.212019",
+  "executive_summary": {
+    "data_status": "degraded",
+    "integrity_score": 0.7296,
+    "critical_issues": 0,
+    "total_data_size_gb": 2.2547319531440735e-06,
+    "backup_success_rate": 0.0,
+    "data_availability": 0.99
+  },
+  "validation_result": {
+    "status": "degraded",
+    "integrity_score": 0.7296,
+    "current_metrics": {
+      "backup": {},
+      "compression": {},
+      "encryption": {},
+      "storage": {},
+      "replication": {},
+      "integrity": {},
+      "performance": {},
+      "availability": {},
+      "real_time": {
+        "current_backup_operations": 0,
+        "current_restore_operations": 0,
+        "current_replication_operations": 0,
+        "active_encryption_operations": 0,
+        "storage_operations_per_second": 0.0,
+        "data_throughput_mbps": 0.0,
+        "system_health_score": 1.0
+      },
+      "system_health": {
+        "health_score": 1.0,
+        "active_alerts": 0,
+        "status": "excellent"
+      }
+    },
+    "backup_integrity": {
+      "integrity_score": 0.0,
+      "total_backups": 1,
+      "verified_backups": 0,
+      "failed_backups": 1,
+      "corrupted_backups": [
+        "backup_incremental_1756054369"
+      ],
+      "integrity_results": [
+        {
+          "backup_id": "backup_incremental_1756054369",
+          "verified": false,
+          "size_bytes": 77,
+          "compression_ratio": 4.052631578947368,
+          "age_hours": 7.530715730455186e-07
+        }
+      ],
+      "last_validated": "2025-08-24T12:52:49.210783"
+    },
+    "encryption_status": {
+      "encryption_score": 0.998,
+      "encryption_coverage": {
+        "coverage_percentage": 0.995,
+        "total_items": 10000,
+        "encrypted_items": 9950,
+        "unencrypted_items": 50,
+        "unencrypted_data": [
+          {
+            "location": "/data/unencrypted/file_0",
+            "size_bytes": 1024,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_1",
+            "size_bytes": 2048,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_2",
+            "size_bytes": 3072,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_3",
+            "size_bytes": 4096,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_4",
+            "size_bytes": 5120,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_5",
+            "size_bytes": 6144,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_6",
+            "size_bytes": 7168,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_7",
+            "size_bytes": 8192,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_8",
+            "size_bytes": 9216,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_9",
+            "size_bytes": 10240,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          }
+        ]
+      },
+      "key_integrity": {
+        "integrity_score": 1.0,
+        "total_keys": 1,
+        "valid_keys": 1,
+        "invalid_keys": [],
+        "current_key_valid": true
+      },
+      "key_rotation_status": {
+        "current_key_age_days": 6.082157293955486e-08,
+        "rotation_threshold_days": 90,
+        "rotation_needed": false,
+        "days_until_rotation": 89.99999993917842,
+        "last_rotation": 0,
+        "total_rotations": 0
+      },
+      "unencrypted_data": [
+        {
+          "location": "/data/unencrypted/file_0",
+          "size_bytes": 1024,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_1",
+          "size_bytes": 2048,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_2",
+          "size_bytes": 3072,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_3",
+          "size_bytes": 4096,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_4",
+          "size_bytes": 5120,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_5",
+          "size_bytes": 6144,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_6",
+          "size_bytes": 7168,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_7",
+          "size_bytes": 8192,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_8",
+          "size_bytes": 9216,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_9",
+          "size_bytes": 10240,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        }
+      ],
+      "encryption_metrics": {
+        "total_encryptions": 5,
+        "total_decryptions": 0,
+        "failed_operations": 0,
+        "data_encrypted_gb": 7.450580596923828e-06,
+        "encryption_time_ms": 0.19316673278808594,
+        "key_rotations": 0
+      },
+      "last_validated": "2025-08-24T12:52:49.210794"
+    },
+    "compression_integrity": {
+      "integrity_score": 1.0,
+      "test_results": {
+        "all_tests_passed": true,
+        "test_details": [
+          {
+            "algorithm": "LZ4",
+            "passed": true,
+            "compression_ratio": 0.01709090909090909
+          },
+          {
+            "algorithm": "ZLIB",
+            "passed": true,
+            "compression_ratio": 0.017272727272727273
+          },
+          {
+            "algorithm": "BROTLI",
+            "passed": true,
+            "compression_ratio": 0.012
+          }
+        ]
+      },
+      "efficiency_metrics": {
+        "total_data_compressed_gb": 0.0,
+        "total_space_saved_gb": 0.0,
+        "space_savings_percentage": 0,
+        "average_compression_ratio": 0.0,
+        "compression_speed_mbps": 0.0
+      },
+      "corruption_check": {
+        "corruption_detected": false,
+        "corrupted_items": 0,
+        "total_items_checked": 1000,
+        "corruption_rate": 0.0
+      },
+      "corrupted_items": 0,
+      "compression_metrics": {
+        "total_compressions": 0,
+        "total_decompressions": 0,
+        "total_data_compressed_gb": 0.0,
+        "total_data_saved_gb": 0.0,
+        "average_compression_ratio": 0.0,
+        "average_compression_time_ms": 0.0,
+        "algorithm_usage": {}
+      },
+      "last_validated": "2025-08-24T12:52:49.211022"
+    },
+    "storage_health": {
+      "health_score": 1.0,
+      "total_size_gb": 2.255663275718689e-06,
+      "storage_usage": {
+        "total_size_gb": 2.255663275718689e-06,
+        "hot_storage_gb": 1.2405216693878174e-06,
+        "warm_storage_gb": 1.0151416063308716e-06,
+        "cold_storage_gb": 0.0,
+        "hot_percentage": 54.99587118084228,
+        "warm_percentage": 45.00412881915772,
+        "cold_percentage": 0.0
+      },
+      "capacity_status": {
+        "hot": {
+          "current_gb": 1.2405216693878174e-06,
+          "limit_gb": 100,
+          "usage_percentage": 1.2405216693878174e-08,
+          "status": "normal",
+          "available_gb": 99.99999875947833
+        },
+        "warm": {
+          "current_gb": 1.0151416063308716e-06,
+          "limit_gb": 1000,
+          "usage_percentage": 1.0151416063308717e-09,
+          "status": "normal",
+          "available_gb": 999.9999989848584
+        },
+        "cold": {
+          "current_gb": 0.0,
+          "limit_gb": 10000,
+          "usage_percentage": 0.0,
+          "status": "normal",
+          "available_gb": 10000.0
+        }
+      },
+      "integrity_status": {
+        "integrity_score": 1.0,
+        "total_files": 0,
+        "verified_files": 0,
+        "corrupted_files": [],
+        "corruption_rate": 0
+      },
+      "tiering_efficiency": {
+        "efficiency_score": 1.0,
+        "total_files": 0,
+        "misplaced_files": 0,
+        "misplacement_details": {
+          "hot_to_warm": [],
+          "warm_to_cold": [],
+          "cold_to_warm": [],
+          "warm_to_hot": []
+        },
+        "optimization_needed": false
+      },
+      "issues": [],
+      "efficiency_score": 1.0,
+      "last_checked": "2025-08-24T12:52:49.211297"
+    },
+    "replication_status": {
+      "replication_score": 0.9,
+      "node_health": {
+        "health_score": 1.0,
+        "total_nodes": 3,
+        "active_nodes": 3,
+        "failed_nodes": 0,
+        "node_details": [
+          {
+            "node_id": "primary",
+            "region": "us-east-1",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          },
+          {
+            "node_id": "secondary_1",
+            "region": "us-west-2",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          },
+          {
+            "node_id": "secondary_2",
+            "region": "eu-west-1",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          }
+        ]
+      },
+      "replication_lag_seconds": 0.0,
+      "max_lag_seconds": 0.0,
+      "integrity_status": {
+        "integrity_score": 1.0,
+        "total_verified": 1000,
+        "integrity_failures": 0,
+        "verification_method": "checksum",
+        "last_verification": "2025-08-24T12:52:49.211304"
+      },
+      "rpo_compliance": {
+        "rpo_met": false,
+        "rpo_target_seconds": 3600,
+        "current_lag_seconds": 3600,
+        "compliance_percentage": 100
+      },
+      "active_nodes": 3,
+      "total_nodes": 3,
+      "replication_metrics": {
+        "total_replications": 0,
+        "successful_replications": 0,
+        "failed_replications": 0,
+        "data_replicated_gb": 0.0,
+        "average_lag_seconds": 0.0,
+        "sync_operations": 0,
+        "node_failures": 0
+      },
+      "last_validated": "2025-08-24T12:52:49.211307"
+    },
+    "data_issues": [
+      {
+        "type": "backup_integrity_issue",
+        "severity": "high",
+        "backup_score": 0.0,
+        "failed_backups": 1,
+        "description": "Backup integrity below threshold: 0.00"
+      }
+    ],
+    "last_validated": "2025-08-24T12:52:49.211313",
+    "validation_duration": 0.000746
+  },
+  "backup_report": {
+    "report_id": "backup_report_1756054369",
+    "timestamp": "2025-08-24T12:52:49.211508",
+    "backup_metrics": {
+      "total_backups": 1,
+      "successful_backups": 0,
+      "failed_backups": 1,
+      "total_backup_size_gb": 7.171183824539185e-08,
+      "average_backup_time": 0.0,
+      "compression_ratio": 4.052631578947368,
+      "last_full_backup": null,
+      "last_incremental_backup": 1756054369.208072
+    },
+    "integrity_validation": {
+      "integrity_score": 0.0,
+      "total_backups": 1,
+      "verified_backups": 0,
+      "failed_backups": 1,
+      "corrupted_backups": [
+        "backup_incremental_1756054369"
+      ],
+      "integrity_results": [
+        {
+          "backup_id": "backup_incremental_1756054369",
+          "verified": false,
+          "size_bytes": 77,
+          "compression_ratio": 4.052631578947368,
+          "age_hours": 9.50561629401313e-07
+        }
+      ],
+      "last_validated": "2025-08-24T12:52:49.211495"
+    },
+    "backup_statistics": {
+      "total_backups": 1,
+      "average_size_mb": 7.343292236328125e-05,
+      "max_size_mb": 7.343292236328125e-05,
+      "min_size_mb": 7.343292236328125e-05,
+      "average_duration_seconds": 0.0018439292907714844,
+      "average_compression_ratio": 4.052631578947368,
+      "backup_frequency": {
+        "full": 0.0,
+        "incremental": 0.03571428571428571,
+        "differential": 0.0
+      }
+    },
+    "storage_usage": {
+      "total_storage_gb": 7.171183824539185e-08,
+      "backup_count": {
+        "full": 0,
+        "incremental": 1,
+        "differential": 0
+      },
+      "average_backup_size_mb": 7.343292236328125e-05,
+      "storage_efficiency": -3.052631578947368
+    },
+    "recovery_readiness": {
+      "recovery_ready": true,
+      "last_full_backup_hours": 487792.88033652917,
+      "last_incremental_backup_hours": 9.536080890231662e-07,
+      "recovery_success_rate": 1.0,
+      "rpo_compliant": true,
+      "rpo_target_hours": 1,
+      "rto_target_hours": 2,
+      "total_recovery_tests": 0
+    },
+    "backup_policy_compliance": {
+      "full": {
+        "compliant": false,
+        "hours_since_backup": 487792.88033653056,
+        "required_frequency_hours": 24,
+        "encryption_enabled": true,
+        "compression_enabled": true,
+        "verification_enabled": true
+      },
+      "incremental": {
+        "compliant": true,
+        "hours_since_backup": 9.553300009833442e-07,
+        "required_frequency_hours": 6,
+        "encryption_enabled": true,
+        "compression_enabled": true,
+        "verification_enabled": true
+      },
+      "differential": {
+        "compliant": false,
+        "hours_since_backup": 487792.88033653115,
+        "required_frequency_hours": 12,
+        "encryption_enabled": true,
+        "compression_enabled": true,
+        "verification_enabled": true
+      }
+    },
+    "recommendations": [
+      "Investigate backup integrity issues - current score: 0.00",
+      "Improve backup reliability - current success rate: 0.00%",
+      "Consider optimizing compression settings for better storage efficiency",
+      "Improve full backup frequency - current: 0.0%",
+      "Improve incremental backup frequency - current: 3.6%",
+      "Improve differential backup frequency - current: 0.0%"
+    ]
+  },
+  "encryption_report": {
+    "report_id": "encryption_report_1756054369",
+    "timestamp": "2025-08-24T12:52:49.211530",
+    "encryption_status": {
+      "encryption_score": 0.998,
+      "encryption_coverage": {
+        "coverage_percentage": 0.995,
+        "total_items": 10000,
+        "encrypted_items": 9950,
+        "unencrypted_items": 50,
+        "unencrypted_data": [
+          {
+            "location": "/data/unencrypted/file_0",
+            "size_bytes": 1024,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_1",
+            "size_bytes": 2048,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_2",
+            "size_bytes": 3072,
+            "data_type": "application_data",
+            "risk_level": "high"
+          },
+          {
+            "location": "/data/unencrypted/file_3",
+            "size_bytes": 4096,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_4",
+            "size_bytes": 5120,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_5",
+            "size_bytes": 6144,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_6",
+            "size_bytes": 7168,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_7",
+            "size_bytes": 8192,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_8",
+            "size_bytes": 9216,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          },
+          {
+            "location": "/data/unencrypted/file_9",
+            "size_bytes": 10240,
+            "data_type": "application_data",
+            "risk_level": "medium"
+          }
+        ]
+      },
+      "key_integrity": {
+        "integrity_score": 1.0,
+        "total_keys": 1,
+        "valid_keys": 1,
+        "invalid_keys": [],
+        "current_key_valid": true
+      },
+      "key_rotation_status": {
+        "current_key_age_days": 6.92710832313255e-08,
+        "rotation_threshold_days": 90,
+        "rotation_needed": false,
+        "days_until_rotation": 89.99999993072892,
+        "last_rotation": 0,
+        "total_rotations": 0
+      },
+      "unencrypted_data": [
+        {
+          "location": "/data/unencrypted/file_0",
+          "size_bytes": 1024,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_1",
+          "size_bytes": 2048,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_2",
+          "size_bytes": 3072,
+          "data_type": "application_data",
+          "risk_level": "high"
+        },
+        {
+          "location": "/data/unencrypted/file_3",
+          "size_bytes": 4096,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_4",
+          "size_bytes": 5120,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_5",
+          "size_bytes": 6144,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_6",
+          "size_bytes": 7168,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_7",
+          "size_bytes": 8192,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_8",
+          "size_bytes": 9216,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        },
+        {
+          "location": "/data/unencrypted/file_9",
+          "size_bytes": 10240,
+          "data_type": "application_data",
+          "risk_level": "medium"
+        }
+      ],
+      "encryption_metrics": {
+        "total_encryptions": 5,
+        "total_decryptions": 0,
+        "failed_operations": 0,
+        "data_encrypted_gb": 7.450580596923828e-06,
+        "encryption_time_ms": 0.19316673278808594,
+        "key_rotations": 0
+      },
+      "last_validated": "2025-08-24T12:52:49.211523"
+    },
+    "encryption_statistics": {
+      "total_operations": 5,
+      "success_rate": 1.0,
+      "data_encrypted_gb": 7.450580596923828e-06,
+      "average_encryption_time_ms": 0.19316673278808594,
+      "operations_per_hour": 5
+    },
+    "key_management": {
+      "total_keys": 1,
+      "active_key_id": "key_1756054369_8a974125",
+      "key_rotations": 0,
+      "key_algorithm": "AES-256",
+      "key_integrity": {
+        "integrity_score": 1.0,
+        "total_keys": 1,
+        "valid_keys": 1,
+        "invalid_keys": [],
+        "current_key_valid": true
+      }
+    },
+    "policy_compliance": {
+      "overall_compliance": true,
+      "compliance_checks": {
+        "algorithm_compliant": true,
+        "key_length_compliant": true,
+        "rotation_policy_compliant": true,
+        "storage_compliant": true,
+        "authentication_required": true
+      },
+      "policy_version": "1.0.0"
+    },
+    "recommendations": []
+  },
+  "storage_report": {
+    "report_id": "storage_report_1756054369",
+    "timestamp": "2025-08-24T12:52:49.211971",
+    "storage_health": {
+      "health_score": 1.0,
+      "total_size_gb": 2.255663275718689e-06,
+      "storage_usage": {
+        "total_size_gb": 2.255663275718689e-06,
+        "hot_storage_gb": 1.2405216693878174e-06,
+        "warm_storage_gb": 1.0151416063308716e-06,
+        "cold_storage_gb": 0.0,
+        "hot_percentage": 54.99587118084228,
+        "warm_percentage": 45.00412881915772,
+        "cold_percentage": 0.0
+      },
+      "capacity_status": {
+        "hot": {
+          "current_gb": 1.2405216693878174e-06,
+          "limit_gb": 100,
+          "usage_percentage": 1.2405216693878174e-08,
+          "status": "normal",
+          "available_gb": 99.99999875947833
+        },
+        "warm": {
+          "current_gb": 1.0151416063308716e-06,
+          "limit_gb": 1000,
+          "usage_percentage": 1.0151416063308717e-09,
+          "status": "normal",
+          "available_gb": 999.9999989848584
+        },
+        "cold": {
+          "current_gb": 0.0,
+          "limit_gb": 10000,
+          "usage_percentage": 0.0,
+          "status": "normal",
+          "available_gb": 10000.0
+        }
+      },
+      "integrity_status": {
+        "integrity_score": 1.0,
+        "total_files": 0,
+        "verified_files": 0,
+        "corrupted_files": [],
+        "corruption_rate": 0
+      },
+      "tiering_efficiency": {
+        "efficiency_score": 1.0,
+        "total_files": 0,
+        "misplaced_files": 0,
+        "misplacement_details": {
+          "hot_to_warm": [],
+          "warm_to_cold": [],
+          "cold_to_warm": [],
+          "warm_to_hot": []
+        },
+        "optimization_needed": false
+      },
+      "issues": [],
+      "efficiency_score": 1.0,
+      "last_checked": "2025-08-24T12:52:49.211829"
+    },
+    "storage_statistics": {
+      "total_files": 0,
+      "files_by_tier": {},
+      "size_by_tier_gb": {},
+      "age_distribution": {
+        "< 1 day": 0,
+        "1-7 days": 0,
+        "7-30 days": 0,
+        "30-90 days": 0,
+        "> 90 days": 0
+      },
+      "storage_operations": 0,
+      "tiering_operations": 0
+    },
+    "access_patterns": {},
+    "cost_analysis": {
+      "monthly_costs_by_tier": {
+        "hot": 2.85319983959198e-08,
+        "warm": 1.2689270079135895e-08,
+        "cold": 0.0
+      },
+      "total_monthly_cost": 4.122126847505569e-08,
+      "annual_cost": 4.946552217006683e-07,
+      "cost_per_gb_average": 0.018274566473988438
+    },
+    "tiering_summary": {
+      "efficiency_score": 1.0,
+      "total_files": 0,
+      "optimally_placed_files": 0,
+      "misplaced_files": 0,
+      "pending_movements": {
+        "hot_to_warm": [],
+        "warm_to_cold": [],
+        "cold_to_warm": [],
+        "warm_to_hot": []
+      },
+      "last_optimization": "2025-08-24T12:52:49.211974"
+    },
+    "recommendations": []
+  },
+  "replication_report": {
+    "report_id": "replication_report_1756054369",
+    "timestamp": "2025-08-24T12:52:49.211994",
+    "replication_status": {
+      "replication_score": 0.9,
+      "node_health": {
+        "health_score": 1.0,
+        "total_nodes": 3,
+        "active_nodes": 3,
+        "failed_nodes": 0,
+        "node_details": [
+          {
+            "node_id": "primary",
+            "region": "us-east-1",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          },
+          {
+            "node_id": "secondary_1",
+            "region": "us-west-2",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          },
+          {
+            "node_id": "secondary_2",
+            "region": "eu-west-1",
+            "status": "active",
+            "lag_seconds": 0.0,
+            "pending_replications": 0
+          }
+        ]
+      },
+      "replication_lag_seconds": 0.0,
+      "max_lag_seconds": 0.0,
+      "integrity_status": {
+        "integrity_score": 1.0,
+        "total_verified": 1000,
+        "integrity_failures": 0,
+        "verification_method": "checksum",
+        "last_verification": "2025-08-24T12:52:49.211981"
+      },
+      "rpo_compliance": {
+        "rpo_met": false,
+        "rpo_target_seconds": 3600,
+        "current_lag_seconds": 3600,
+        "compliance_percentage": 100
+      },
+      "active_nodes": 3,
+      "total_nodes": 3,
+      "replication_metrics": {
+        "total_replications": 0,
+        "successful_replications": 0,
+        "failed_replications": 0,
+        "data_replicated_gb": 0.0,
+        "average_lag_seconds": 0.0,
+        "sync_operations": 0,
+        "node_failures": 0
+      },
+      "last_validated": "2025-08-24T12:52:49.211984"
+    },
+    "replication_statistics": {
+      "total_replications": 0,
+      "success_rate": 1.0,
+      "data_replicated_gb": 0.0,
+      "average_lag_seconds": 0.0,
+      "transfer_rate_mbps": 0,
+      "node_failures": 0,
+      "sync_operations": 0
+    },
+    "node_performance": {
+      "primary": {
+        "region": "us-east-1",
+        "status": "active",
+        "lag_seconds": 0.0,
+        "total_replications": 0,
+        "uptime_percentage": 99.5,
+        "performance_score": 1.0
+      },
+      "secondary_1": {
+        "region": "us-west-2",
+        "status": "active",
+        "lag_seconds": 0.0,
+        "total_replications": 0,
+        "uptime_percentage": 99.5,
+        "performance_score": 1.0
+      },
+      "secondary_2": {
+        "region": "eu-west-1",
+        "status": "active",
+        "lag_seconds": 0.0,
+        "total_replications": 0,
+        "uptime_percentage": 99.5,
+        "performance_score": 1.0
+      }
+    },
+    "disaster_recovery_readiness": {
+      "dr_ready": false,
+      "dr_score": 0.6,
+      "rpo_status": {
+        "rpo_met": false,
+        "rpo_target_seconds": 3600,
+        "current_lag_seconds": 3600,
+        "compliance_percentage": 100
+      },
+      "rto_compliant": true,
+      "estimated_recovery_time_seconds": 1800,
+      "active_regions": 3,
+      "total_regions": 3,
+      "cross_region_replication": true
+    },
+    "sync_history_summary": {},
+    "recommendations": [
+      "Improve disaster recovery readiness to meet RTO/RPO targets"
+    ]
+  },
+  "metrics_report": {
+    "report_id": "error_report_1756054369",
+    "timestamp": 1756054369.212018,
+    "error": "'DataMetricsCollector' object has no attribute '_generate_alert_summary'"
+  },
+  "recommendations": [
+    "Improve data integrity - current score: 0.73",
+    "Investigate backup failures to achieve 95%+ success rate",
+    "Encrypt all data at rest to achieve 99%+ encryption coverage",
+    "Optimize storage tiering and compression for better efficiency"
+  ]
+}

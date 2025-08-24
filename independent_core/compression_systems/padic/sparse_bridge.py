@@ -5,7 +5,7 @@ Uses pure PyTorch for all sparse operations
 
 import torch
 import torch.sparse
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 import numpy as np
 import sys
 import os
@@ -40,8 +40,12 @@ class SparsePAdicBridge:
         
         # Device handling - use provided device or auto-detect
         if device is not None:
-            self.device = device
-            self.use_gpu = (device.type == 'cuda')
+            # Handle both string and torch.device inputs
+            if isinstance(device, str):
+                self.device = torch.device(device)
+            else:
+                self.device = device
+            self.use_gpu = (self.device.type == 'cuda')
         else:
             self.use_gpu = use_gpu and torch.cuda.is_available()
             self.device = torch.device('cuda' if self.use_gpu else 'cpu')
@@ -246,22 +250,20 @@ class SparsePAdicBridge:
         return ratio
 
     def batch_padic_to_sparse(self, padic_batch: torch.Tensor,
-                              valuations_batch: torch.Tensor) -> torch.sparse.Tensor:
-        """Convert batch of p-adic weights to single sparse tensor."""
+                              valuations_batch: torch.Tensor) -> List[torch.sparse.Tensor]:
+        """Convert batch of p-adic weights to list of sparse tensors."""
         batch_size, num_weights, precision = padic_batch.shape
         
-        # Reshape to 2D for sparse conversion
-        padic_flat = padic_batch.reshape(batch_size * num_weights, precision)
-        valuations_flat = valuations_batch.reshape(batch_size * num_weights)
+        # Convert each batch item separately
+        sparse_results = []
+        for i in range(batch_size):
+            padic_item = padic_batch[i]  # Shape: [num_weights, precision]
+            valuations_item = valuations_batch[i]  # Shape: [num_weights]
+            
+            sparse_tensor = self.padic_to_sparse(padic_item, valuations_item)
+            sparse_results.append(sparse_tensor)
         
-        # Convert to sparse
-        sparse_tensor = self.padic_to_sparse(padic_flat, valuations_flat)
-        
-        # Store original shape for reconstruction
-        sparse_tensor.original_shape = (batch_size, num_weights, precision)
-        sparse_tensor.valuations_shape = (batch_size, num_weights)
-        
-        return sparse_tensor
+        return sparse_results
 
     def batch_sparse_to_padic(self, sparse_tensor: torch.sparse.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Convert sparse tensor back to batch of p-adic weights."""
@@ -284,8 +286,12 @@ class SparsePAdicBridge:
         return padic_batch, valuations_batch
 
     def optimize_for_pattern(self, sparse_tensor: torch.sparse.Tensor,
-                            pattern_type: str = 'block') -> torch.sparse.Tensor:
+                            pattern_type: str = 'block', pattern: str = None) -> torch.sparse.Tensor:
         """Optimize sparse tensor for specific sparsity patterns."""
+        # Support both parameter names for compatibility
+        if pattern is not None:
+            pattern_type = pattern
+        
         if pattern_type == 'block':
             return self._optimize_block_sparse(sparse_tensor)
         elif pattern_type == 'diagonal':
@@ -476,6 +482,7 @@ class SparsePAdicBridge:
             'nnz': nnz,
             'density': nnz / (shape[0] * shape[1]) if shape[0] * shape[1] > 0 else 0.0,
             'sparsity': 1.0 - (nnz / (shape[0] * shape[1]) if shape[0] * shape[1] > 0 else 0.0),
+            'sparsity_ratio': 1.0 - (nnz / (shape[0] * shape[1]) if shape[0] * shape[1] > 0 else 0.0),
             'dense_memory_bytes': dense_memory,
             'sparse_memory_bytes': sparse_memory,
             'valuations_memory_bytes': valuations_memory,
@@ -548,7 +555,7 @@ class AdaptiveSparsityManager:
                 self.current_threshold * 1.5,
                 self.max_threshold
             )
-        elif achieved_ratio > self.target_ratio * 1.5:
+        elif achieved_ratio > self.target_ratio * 1.2:  # More sensitive threshold
             # Too sparse - can reduce threshold
             self.current_threshold = max(
                 self.current_threshold * 0.75,

@@ -33,22 +33,22 @@ import hashlib
         return f if f else lambda func: func
 
 # Import tropical components
-from independent_core.compression_systems.tropical.tropical_channel_extractor import (
+from .tropical_channel_extractor import (
     TropicalChannels, 
     ExponentChannelConfig,
     MantissaChannelConfig
 )
-from independent_core.compression_systems.tropical.tropical_polynomial import (
+from .tropical_polynomial import (
     TropicalPolynomial,
     TropicalMonomial
 )
-from independent_core.compression_systems.tropical.tropical_core import (
+from .tropical_core import (
     TropicalNumber,
     TROPICAL_ZERO,
     TROPICAL_EPSILON
 )
 # JAX tropical engine removed - no longer supported
-from independent_core.compression_systems.tropical.channel_validation import (
+from .channel_validation import (
     TropicalChannelValidator,
     ChannelValidationConfig,
     ECCLevel
@@ -56,12 +56,12 @@ from independent_core.compression_systems.tropical.channel_validation import (
 # JAX config removed - no longer supported
 
 # Import GPU/CPU coordination
-from independent_core.compression_systems.gpu_memory.cpu_bursting_pipeline import (
+from ..gpu_memory.cpu_bursting_pipeline import (
     CPU_BurstingPipeline,
     DecompressionMode,
     CPUBurstingConfig
 )
-from independent_core.compression_systems.system_integration_coordinator import (
+from ..system_integration_coordinator import (
     SystemIntegrationCoordinator
 )
 

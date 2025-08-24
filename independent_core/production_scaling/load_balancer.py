@@ -107,8 +107,8 @@ class IntelligentLoadBalancer:
                 analysis = self.analyze_workload_distribution()
                 
                 # Check if rebalancing is needed
-                if analysis.get('efficiency') < self.efficiency_threshold:
-                    self.logger.info(f"Efficiency below threshold: {analysis['efficiency']:.2%}")
+                if analysis['overall_efficiency'] < self.efficiency_threshold:
+                    self.logger.info(f"Efficiency below threshold: {analysis['overall_efficiency']:.2%}")
                     
                     # Optimize load distribution
                     optimization_result = self.optimize_load_distribution()
@@ -1011,7 +1011,7 @@ class IntelligentLoadBalancer:
             self.is_running = False
             
             # Shutdown executor
-            self.executor.shutdown(wait=True, timeout=5.0)
+            self.executor.shutdown(wait=True)
             
             # Get final metrics
             final_performance = self.monitor_balancing_performance()

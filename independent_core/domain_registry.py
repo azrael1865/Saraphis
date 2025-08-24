@@ -1668,6 +1668,244 @@ class DomainRegistry:
                 'error': str(e)
             }
     
+    # Missing method aliases for backward compatibility
+    def has_domain(self, domain_name: str) -> bool:
+        """Check if domain exists (alias for is_domain_registered)"""
+        return self.is_domain_registered(domain_name)
+    
+    def get_domain(self, domain_name: str) -> Optional[DomainMetadata]:
+        """Get domain metadata by name"""
+        with self._lock:
+            return self._domains.get(domain_name.lower().strip()) if domain_name else None
+    
+    def activate_domain(self, domain_name: str) -> bool:
+        """Activate a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return False
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            if domain_name not in self._domains:
+                self.logger.error(f"Cannot activate non-existent domain '{domain_name}'")
+                return False
+            
+            metadata = self._domains[domain_name]
+            metadata.status = DomainStatus.ACTIVE
+            metadata.activation_count += 1
+            metadata.last_accessed = datetime.now()
+            metadata.last_updated = datetime.now()
+            
+            self.logger.info(f"Domain '{domain_name}' activated (activation count: {metadata.activation_count})")
+            return True
+    
+    def deactivate_domain(self, domain_name: str) -> bool:
+        """Deactivate a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return False
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            if domain_name not in self._domains:
+                self.logger.error(f"Cannot deactivate non-existent domain '{domain_name}'")
+                return False
+            
+            metadata = self._domains[domain_name]
+            metadata.status = DomainStatus.INACTIVE
+            metadata.last_updated = datetime.now()
+            
+            self.logger.info(f"Domain '{domain_name}' deactivated")
+            return True
+    
+    def list_domains(self) -> List[str]:
+        """List all domain names (simple version for compatibility)"""
+        with self._lock:
+            return list(self._domains.keys())
+    
+    def list_domains_by_status(self, status: DomainStatus) -> List[str]:
+        """List domains by status"""
+        with self._lock:
+            return [name for name, metadata in self._domains.items() 
+                   if metadata.status == status]
+    
+    def list_domains_by_type(self, domain_type: DomainType) -> List[str]:
+        """List domains by type"""
+        with self._lock:
+            return [name for name, metadata in self._domains.items() 
+                   if metadata.config.domain_type == domain_type]
+    
+    def set_domain_state(self, domain_name: str, state_data: Dict[str, Any]) -> bool:
+        """Set isolated state for a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return False
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            if domain_name not in self._domains:
+                self.logger.error(f"Cannot set state for non-existent domain '{domain_name}'")
+                return False
+            
+            self._domain_states[domain_name] = state_data.copy() if state_data else {}
+            
+            # Log access for audit trail
+            if domain_name not in self._domain_access_logs:
+                self._domain_access_logs[domain_name] = []
+            
+            self._domain_access_logs[domain_name].append({
+                'action': 'set_state',
+                'timestamp': datetime.now().isoformat(),
+                'data_size': len(str(state_data))
+            })
+            
+            self.logger.info(f"Domain isolation created for '{domain_name}'")
+            return True
+    
+    def get_domain_state(self, domain_name: str) -> Dict[str, Any]:
+        """Get isolated state for a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return {}
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            return self._domain_states.get(domain_name, {}).copy()
+    
+    def set_domain_knowledge(self, domain_name: str, knowledge_data: Dict[str, Any]) -> bool:
+        """Set isolated knowledge for a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return False
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            if domain_name not in self._domains:
+                self.logger.error(f"Cannot set knowledge for non-existent domain '{domain_name}'")
+                return False
+            
+            self._domain_knowledge[domain_name] = knowledge_data.copy() if knowledge_data else {}
+            
+            # Log access for audit trail
+            if domain_name not in self._domain_access_logs:
+                self._domain_access_logs[domain_name] = []
+            
+            self._domain_access_logs[domain_name].append({
+                'action': 'set_knowledge',
+                'timestamp': datetime.now().isoformat(),
+                'data_size': len(str(knowledge_data))
+            })
+            
+            return True
+    
+    def get_domain_knowledge(self, domain_name: str) -> Dict[str, Any]:
+        """Get isolated knowledge for a domain"""
+        if not domain_name or not isinstance(domain_name, str):
+            return {}
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            return self._domain_knowledge.get(domain_name, {}).copy()
+    
+    def update_domain_statistics(self, domain_name: str, stats: Dict[str, Any]) -> bool:
+        """Update domain statistics"""
+        if not domain_name or not isinstance(domain_name, str):
+            return False
+            
+        domain_name = domain_name.lower().strip()
+        
+        with self._lock:
+            if domain_name not in self._domains:
+                self.logger.error(f"Cannot update statistics for non-existent domain '{domain_name}'")
+                return False
+            
+            metadata = self._domains[domain_name]
+            
+            # Update specific statistics
+            if 'predictions' in stats:
+                metadata.total_predictions = stats['predictions']
+            if 'accuracy' in stats:
+                metadata.average_confidence = stats['accuracy']  
+            if 'memory_usage' in stats:
+                metadata.resource_usage['memory'] = stats['memory_usage']
+            
+            metadata.last_updated = datetime.now()
+            return True
+    
+    def save_registry(self) -> bool:
+        """Save registry state to persistence file"""
+        if not self._persistence_path:
+            self.logger.warning("No persistence path configured, cannot save registry")
+            return False
+        
+        try:
+            with self._lock:
+                # Prepare data for serialization
+                registry_data = {
+                    'domains': {name: metadata.to_dict() for name, metadata in self._domains.items()},
+                    'domain_order': self._domain_order.copy(),
+                    'dependencies': {k: list(v) for k, v in self._dependencies.items()},
+                    'dependents': {k: list(v) for k, v in self._dependents.items()},
+                    'domain_states': self._domain_states.copy(),
+                    'domain_knowledge': self._domain_knowledge.copy(),
+                    'isolation_metadata': self._isolation_metadata.copy(),
+                    'domain_access_logs': self._domain_access_logs.copy(),
+                    'total_registrations': self._total_registrations,
+                    'total_removals': self._total_removals,
+                    'registry_created': self._registry_created.isoformat()
+                }
+                
+                # Save to file
+                with open(self._persistence_path, 'w') as f:
+                    json.dump(registry_data, f, cls=TensorJSONEncoder, indent=2)
+                
+                self.logger.info(f"Registry saved to {self._persistence_path}")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Failed to save registry: {e}")
+            return False
+    
+    def _load_registry(self) -> bool:
+        """Load registry state from persistence file"""
+        try:
+            with open(self._persistence_path, 'r') as f:
+                registry_data = json.load(f)
+            
+            with self._lock:
+                # Load domains
+                for name, domain_data in registry_data.get('domains', {}).items():
+                    metadata = DomainMetadata.from_dict(domain_data)
+                    self._domains[name] = metadata
+                
+                # Load other data
+                self._domain_order = registry_data.get('domain_order', [])
+                
+                deps = registry_data.get('dependencies', {})
+                self._dependencies = {k: set(v) for k, v in deps.items()}
+                
+                deps = registry_data.get('dependents', {})
+                self._dependents = {k: set(v) for k, v in deps.items()}
+                
+                self._domain_states = registry_data.get('domain_states', {})
+                self._domain_knowledge = registry_data.get('domain_knowledge', {})
+                self._isolation_metadata = registry_data.get('isolation_metadata', {})
+                self._domain_access_logs = registry_data.get('domain_access_logs', {})
+                
+                self._total_registrations = registry_data.get('total_registrations', 0)
+                self._total_removals = registry_data.get('total_removals', 0)
+                
+                if 'registry_created' in registry_data:
+                    self._registry_created = datetime.fromisoformat(registry_data['registry_created'])
+            
+            self.logger.info(f"Registry loaded from {self._persistence_path}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load registry: {e}")
+            return False
+    
     def _generate_domain_registration_template(self, domain_name: str, ieee_features: bool) -> str:
         """Generate domain registration template content."""
         return f'''"""

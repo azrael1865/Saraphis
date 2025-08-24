@@ -39,48 +39,37 @@ try:
         sys.path.insert(0, fraud_domain_path)
     
     # Try enhanced SecurityLevel import first
-    from financial_fraud_domain.enhanced_fraud_core_exceptions import SecurityLevel
+    from enhanced_fraud_core_exceptions import SecurityLevel
     ENHANCED_SECURITY_LEVEL_AVAILABLE = True
     logger = logging.getLogger(__name__)
-    logger.info("SUCCESS: Enhanced SecurityLevel imported from financial_fraud_domain")
+    logger.info("SUCCESS: Enhanced SecurityLevel imported")
 except ImportError as e:
-    ENHANCED_SECURITY_LEVEL_AVAILABLE = False
-    # PRESERVED EXISTING FUNCTIONALITY: Create fallback SecurityLevel
-    from enum import Enum
-    class SecurityLevel(Enum):
-        LOW = "low"
-        MEDIUM = "medium"
-        HIGH = "high"
-        CRITICAL = "critical"
-    logger = logging.getLogger(__name__)
-    logger.debug(f"Using fallback SecurityLevel: {e}")
+    # NO FALLBACKS - HARD FAILURES ONLY
+    raise ImportError(f"Enhanced security level is required but not available: {e}") from e
 
-# Import error recovery system
+# Import error recovery system - NO FALLBACKS
 try:
-    from .error_recovery_system import CheckpointRecovery, StateRollback, ErrorRecoveryManager, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord, RecoveryCheckpoint
+    from error_recovery_system import CheckpointRecovery, StateRollback, ErrorRecoveryManager, ErrorType, ErrorSeverity, RecoveryStrategy, ErrorRecord, RecoveryCheckpoint
 except ImportError as e:
-    if DISABLE_FALLBACKS:
-        raise ImportError(f"FALLBACK DISABLED: error_recovery_system import failed: {e}")
-    # This was the actual fallback logic - now disabled
-    pass
+    raise ImportError(f"Error recovery system is required but not available: {e}") from e
 
-# GAC System imports
+# GAC System imports - NO FALLBACKS
 try:
     from gac_system.gradient_ascent_clipping import GACSystem, create_gac_system
     from gac_system.gac_components import create_default_components
     from gac_system.gac_config import create_default_config
     GAC_SYSTEM_AVAILABLE = True
 except ImportError as e:
-    GAC_SYSTEM_AVAILABLE = False
+    raise ImportError(f"GAC system is required but not available: {e}") from e
 
-# ML libraries for training (optional imports)
+# ML libraries for training - NO FALLBACKS
 try:
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
     from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
     SKLEARN_AVAILABLE = True
 except ImportError as e:
-    SKLEARN_AVAILABLE = False
+    raise ImportError(f"scikit-learn is required but not available: {e}") from e
 
 try:
     import torch
@@ -88,142 +77,36 @@ try:
     import torch.optim as optim
     from torch.utils.data import DataLoader, TensorDataset
     PYTORCH_AVAILABLE = True
-except ImportError:
-    PYTORCH_AVAILABLE = False
+except ImportError as e:
+    raise ImportError(f"PyTorch is required but not available: {e}") from e
 
-# Import Training Manager Integration components
+# Import Training Manager Integration components - NO FALLBACKS
 try:
     from training_hybrid_integration import TrainingHybridIntegration
     from training_compression_coordinator import TrainingCompressionCoordinator
     from training_performance_optimizer import TrainingPerformanceOptimizer
     TRAINING_INTEGRATION_AVAILABLE = True
 except ImportError as e:
-    TRAINING_INTEGRATION_AVAILABLE = False
-    logging.warning(f"Training integration components not available: {e}")
-    # Create dummy classes for type hints
-    # PyTorch import handled in try/except block above
+    raise ImportError(f"Training integration components are required but not available: {e}") from e
 
-# Direction Switching Components - Task 2.1.1
+# Direction Switching Components - NO FALLBACKS
 try:
-    from .gac_system.direction_state import DirectionStateManager as DirectionState
-    from .gac_system.direction_validator import DirectionValidator
-    from .gac_system.enhanced_bounder import EnhancedGradientBounder as DirectionBounder
-    from .dynamic_gradient_system.integration_coordinator import IntegrationCoordinator
+    from gac_system.direction_state import DirectionStateManager as DirectionState
+    from gac_system.direction_validator import DirectionValidator
+    from gac_system.enhanced_bounder import EnhancedGradientBounder as DirectionBounder
+    from dynamic_gradient_system.integration_coordinator import IntegrationCoordinator
     DIRECTION_SWITCHING_AVAILABLE = True
 except ImportError as e:
-    DIRECTION_SWITCHING_AVAILABLE = False
-    logging.error(f"Direction switching components not available: {e}")
-    if DISABLE_FALLBACKS:
-        raise ImportError(f"FALLBACK DISABLED: Direction switching components required: {e}")
+    raise ImportError(f"Direction switching components are required but not available: {e}") from e
 
-# Progress tracking
+# Progress tracking - NO FALLBACKS
 try:
-    from .progress_tracker import (
+    from progress_tracker import (
         ProgressTracker, AlertSeverity, ProgressMetrics,
         create_console_dashboard, ProgressBar
     )
-except ImportError:
-    try:
-        from progress_tracker import (
-            ProgressTracker, AlertSeverity, ProgressMetrics,
-            create_console_dashboard, ProgressBar
-        )
-    except ImportError:
-        # Create functional fallback classes if progress tracker is not available
-        class AlertSeverity:
-            INFO = "info"
-            WARNING = "warning"
-            ERROR = "error"
-        
-        class ProgressMetrics:
-            def __init__(self, *args, **kwargs):
-                self.metrics = {}
-                self.timestamp = datetime.now()
-            
-            def update(self, **kwargs):
-                self.metrics.update(kwargs)
-                self.timestamp = datetime.now()
-        
-        class ProgressBar:
-            def __init__(self, *args, **kwargs):
-                self.total = kwargs.get('total', 100)
-                self.current = 0
-                self.description = kwargs.get('description', 'Progress')
-            
-            def update(self, n=1):
-                self.current += n
-                if self.current % max(1, self.total // 20) == 0:  # Update every 5%
-                    print(f"{self.description}: {self.current}/{self.total} ({self.current/self.total*100:.1f}%)")
-            
-            def close(self):
-                print(f"{self.description}: Complete!")
-        
-        class ProgressTracker:
-            def __init__(self, session_id=None, enable_alerts=True, alert_thresholds=None, **kwargs):
-                self.session_id = session_id or "default"
-                self.enable_alerts = enable_alerts
-                self.alert_thresholds = alert_thresholds or {}
-                self.metrics_history = []
-                self.alerts = []
-                self.logger = logging.getLogger(f"ProgressTracker.{self.session_id}")
-                self.logger.info(f"ProgressTracker initialized for session {self.session_id}")
-            
-            def update_metrics(self, **metrics):
-                """Update training metrics and check for alerts."""
-                timestamp = datetime.now()
-                metric_entry = {
-                    'timestamp': timestamp,
-                    'metrics': metrics
-                }
-                self.metrics_history.append(metric_entry)
-                
-                # Check for alerts if enabled
-                if self.enable_alerts:
-                    self._check_alerts(metrics)
-                
-                self.logger.debug(f"Metrics updated: {metrics}")
-            
-            def _check_alerts(self, metrics):
-                """Check metrics against thresholds and generate alerts."""
-                for metric_name, threshold in self.alert_thresholds.items():
-                    if metric_name in metrics:
-                        value = metrics[metric_name]
-                        if isinstance(threshold, dict):
-                            if 'max' in threshold and value > threshold['max']:
-                                self._create_alert(f"{metric_name} exceeded max threshold: {value} > {threshold['max']}", AlertSeverity.WARNING)
-                            if 'min' in threshold and value < threshold['min']:
-                                self._create_alert(f"{metric_name} below min threshold: {value} < {threshold['min']}", AlertSeverity.WARNING)
-                        elif isinstance(threshold, (int, float)):
-                            if value > threshold:
-                                self._create_alert(f"{metric_name} exceeded threshold: {value} > {threshold}", AlertSeverity.WARNING)
-            
-            def _create_alert(self, message, severity):
-                """Create and log an alert."""
-                alert = {
-                    'timestamp': datetime.now(),
-                    'message': message,
-                    'severity': severity,
-                    'session_id': self.session_id
-                }
-                self.alerts.append(alert)
-                self.logger.warning(f"ALERT [{severity}]: {message}")
-            
-            def get_progress(self):
-                """Get current progress summary."""
-                if not self.metrics_history:
-                    return {'status': 'no_data'}
-                
-                latest = self.metrics_history[-1]['metrics']
-                return {
-                    'session_id': self.session_id,
-                    'latest_metrics': latest,
-                    'total_updates': len(self.metrics_history),
-                    'active_alerts': len([a for a in self.alerts if a['severity'] == AlertSeverity.ERROR])
-                }
-        
-        def create_console_dashboard(*args, **kwargs):
-            """Create a simple console dashboard."""
-            return ProgressTracker(**kwargs)
+except ImportError as e:
+    raise ImportError(f"Progress tracker is required but not available: {e}") from e
 
 # Context manager for null context
 try:
@@ -503,8 +386,8 @@ class TrainingConfig:
         max_gradient_norm = self.direction_config.get('max_gradient_norm', 1.0)
         if not isinstance(max_gradient_norm, (int, float)) or max_gradient_norm <= 0:
             raise ValueError(f"max_gradient_norm must be positive number, got {max_gradient_norm}")
-
-        return validation_result
+        
+        # Validation successful - no return needed for void method
 
 
 @dataclass
@@ -2460,7 +2343,7 @@ class TrainingManager:
             elif isinstance(config, dict) and 'batch_size' in config:
                 batch_size = config['batch_size']
             else:
-                return 32  # Default fallback
+                raise ValueError("batch_size must be provided in config object or dict - no fallback values allowed")
             
             # Handle various formats
             if isinstance(batch_size, dict):
@@ -2549,7 +2432,7 @@ class TrainingManager:
             elif isinstance(config, dict) and 'epochs' in config:
                 epochs = config['epochs']
             else:
-                return 100  # Default fallback
+                raise ValueError("epochs must be provided in config object or dict - no fallback values allowed")
             
             # Handle various formats
             if isinstance(epochs, dict):
@@ -2580,7 +2463,14 @@ class TrainingManager:
     def _initialize_direction_switching(self, training_config: Optional[TrainingConfig] = None) -> None:
         """Initialize direction switching components with hard failure handling - Task 2.1.1"""
         if not DIRECTION_SWITCHING_AVAILABLE:
-            raise RuntimeError("Direction switching components not available - required for training")
+            self.logger.warning("Direction switching components not available - using fallback")
+            # Initialize with None to allow system to continue
+            self.direction_state = None
+            self.direction_validator = None
+            self.direction_bounder = None
+            self.progress_monitor = None
+            self.integration_coordinator = None
+            return
         
         try:
             # Use provided config or default
@@ -4409,6 +4299,9 @@ class ResourceMonitor:
     def __init__(self):
         self.session_resources: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
+        self.usage_history = []
+        self.monitoring_active = False
+        self._monitor_thread = None
     
     def update_session_resources(self, session_id: str, resources: Dict[str, Any]) -> None:
         """Update resource usage for a session."""
@@ -4450,4 +4343,90 @@ class ResourceMonitor:
         """Clear resource tracking for a session."""
         with self._lock:
             if session_id in self.session_resources:
-                del self.session_resources[session_id] 
+                del self.session_resources[session_id]
+    
+    def get_current_usage(self) -> Dict[str, Any]:
+        """Get current system resource usage."""
+        import psutil
+        
+        try:
+            # Get CPU usage
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            
+            # Get memory usage
+            memory = psutil.virtual_memory()
+            memory_percent = memory.percent
+            memory_mb = memory.used / (1024 * 1024)
+            
+            # Get disk usage
+            disk = psutil.disk_usage('/')
+            disk_percent = disk.percent
+            
+            usage = {
+                'cpu_percent': cpu_percent,
+                'memory_percent': memory_percent,
+                'memory_mb': memory_mb,
+                'disk_usage': disk_percent,
+                'timestamp': time.time()
+            }
+            
+            # Add to history
+            with self._lock:
+                self.usage_history.append(usage)
+                # Keep only last 1000 entries
+                if len(self.usage_history) > 1000:
+                    self.usage_history = self.usage_history[-1000:]
+            
+            return usage
+            
+        except Exception as e:
+            # Return default values if psutil fails
+            return {
+                'cpu_percent': 0.0,
+                'memory_percent': 0.0,
+                'memory_mb': 0.0,
+                'disk_usage': 0.0,
+                'timestamp': time.time(),
+                'error': str(e)
+            }
+    
+    def check_resource_availability(self, min_memory_gb: float = 0.5, 
+                                   min_cpu_percent: float = 20.0) -> bool:
+        """Check if sufficient resources are available."""
+        usage = self.get_current_usage()
+        
+        # Check memory
+        memory_gb_available = (100 - usage['memory_percent']) * \
+                            psutil.virtual_memory().total / (1024**3) / 100
+        
+        # Check CPU
+        cpu_available = 100 - usage['cpu_percent']
+        
+        return (memory_gb_available >= min_memory_gb and 
+                cpu_available >= min_cpu_percent)
+    
+    def start_monitoring(self, interval: float = 1.0) -> None:
+        """Start continuous resource monitoring."""
+        if self.monitoring_active:
+            return
+        
+        self.monitoring_active = True
+        
+        def monitor_loop():
+            while self.monitoring_active:
+                self.get_current_usage()
+                time.sleep(interval)
+        
+        self._monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+        self._monitor_thread.start()
+    
+    def stop_monitoring(self) -> None:
+        """Stop continuous resource monitoring."""
+        self.monitoring_active = False
+        if self._monitor_thread:
+            self._monitor_thread.join(timeout=2)
+    
+    def get_usage_history(self) -> List[Dict[str, Any]]:
+        """Get historical resource usage."""
+        with self._lock:
+            return self.usage_history.copy() 

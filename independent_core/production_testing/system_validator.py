@@ -106,11 +106,7 @@ class SystemValidator:
             
         except Exception as e:
             self.logger.error(f"System integration validation failed: {e}")
-            return {
-                'success': False,
-                'error': f'System validation failed: {str(e)}',
-                'traceback': traceback.format_exc()
-            }
+            raise RuntimeError(f"System integration validation failed: {e}") from e
     
     def _initialize_integration_tests(self) -> Dict[str, Dict[str, Any]]:
         """Initialize integration test definitions"""
@@ -329,19 +325,16 @@ class SystemValidator:
                 'overall_error_rate': 0.001
             }
             
-            # Determine overall status
+            # Hard failure for debugging - no soft failures allowed
             if communication_results['issues_found'] > 0:
-                communication_results['overall_status'] = 'failed'
+                self.logger.error(f"Cross-component communication validation found {communication_results['issues_found']} issues")
+                raise RuntimeError(f"Cross-component communication validation failed with {communication_results['issues_found']} issues - hard failure for debugging")
             
             return communication_results
             
         except Exception as e:
             self.logger.error(f"Cross-component communication validation failed: {e}")
-            return {
-                'test_name': 'cross_component_communication',
-                'overall_status': 'failed',
-                'error': str(e)
-            }
+            raise RuntimeError(f"Cross-component communication validation failed: {e}") from e
     
     def _validate_data_flow_integrity(self) -> Dict[str, Any]:
         """Validate data flow integrity across system"""
@@ -393,19 +386,16 @@ class SystemValidator:
                 }
             ]
             
-            # Determine overall status
+            # Hard failure for debugging - no soft failures allowed
             if data_flow_results['issues_found'] > 0:
-                data_flow_results['overall_status'] = 'failed'
+                self.logger.error(f"Data flow integrity validation found {data_flow_results['issues_found']} issues")
+                raise RuntimeError(f"Data flow integrity validation failed with {data_flow_results['issues_found']} issues - hard failure for debugging")
             
             return data_flow_results
             
         except Exception as e:
             self.logger.error(f"Data flow integrity validation failed: {e}")
-            return {
-                'test_name': 'data_flow_integrity',
-                'overall_status': 'failed',
-                'error': str(e)
-            }
+            raise RuntimeError(f"Data flow integrity validation failed: {e}") from e
     
     def _validate_system_resilience(self) -> Dict[str, Any]:
         """Validate system resilience and fault tolerance"""
@@ -467,19 +457,16 @@ class SystemValidator:
                 'geographic_redundancy': 'partial'
             }
             
-            # Determine overall status
+            # Hard failure for debugging - no soft failures allowed
             if resilience_results['issues_found'] > 0:
-                resilience_results['overall_status'] = 'failed'
+                self.logger.error(f"System resilience validation found {resilience_results['issues_found']} issues")
+                raise RuntimeError(f"System resilience validation failed with {resilience_results['issues_found']} issues - hard failure for debugging")
             
             return resilience_results
             
         except Exception as e:
             self.logger.error(f"System resilience validation failed: {e}")
-            return {
-                'test_name': 'system_resilience',
-                'overall_status': 'failed',
-                'error': str(e)
-            }
+            raise RuntimeError(f"System resilience validation failed: {e}") from e
     
     def _validate_integration_patterns(self) -> Dict[str, Any]:
         """Validate integration patterns and best practices"""
@@ -529,19 +516,19 @@ class SystemValidator:
             total_patterns = len(pattern_results['pattern_compliance'])
             pattern_results['best_practices_score'] = implemented_patterns / total_patterns
             
-            # Determine overall status
-            if pattern_results['issues_found'] > 0 or pattern_results['best_practices_score'] < 0.8:
-                pattern_results['overall_status'] = 'failed'
+            # Hard failure for debugging - no soft failures allowed
+            if pattern_results['issues_found'] > 0:
+                self.logger.error(f"Integration patterns validation found {pattern_results['issues_found']} issues")
+                raise RuntimeError(f"Integration patterns validation failed with {pattern_results['issues_found']} issues - hard failure for debugging")
+            if pattern_results['best_practices_score'] < 0.8:
+                self.logger.error(f"Integration patterns best practices score too low: {pattern_results['best_practices_score']}")
+                raise RuntimeError(f"Integration patterns validation failed - best practices score {pattern_results['best_practices_score']} below 0.8 threshold - hard failure for debugging")
             
             return pattern_results
             
         except Exception as e:
             self.logger.error(f"Integration patterns validation failed: {e}")
-            return {
-                'test_name': 'integration_patterns',
-                'overall_status': 'failed',
-                'error': str(e)
-            }
+            raise RuntimeError(f"Integration patterns validation failed: {e}") from e
     
     def _validate_end_to_end_workflows(self) -> Dict[str, Any]:
         """Validate end-to-end workflows"""
@@ -604,19 +591,16 @@ class SystemValidator:
                 ]
             }
             
-            # Determine overall status
+            # Hard failure for debugging - no soft failures allowed
             if workflow_results['issues_found'] > 0:
-                workflow_results['overall_status'] = 'failed'
+                self.logger.error(f"End-to-end workflow validation found {workflow_results['issues_found']} issues")
+                raise RuntimeError(f"End-to-end workflow validation failed with {workflow_results['issues_found']} issues - hard failure for debugging")
             
             return workflow_results
             
         except Exception as e:
             self.logger.error(f"End-to-end workflow validation failed: {e}")
-            return {
-                'test_name': 'end_to_end_workflows',
-                'overall_status': 'failed',
-                'error': str(e)
-            }
+            raise RuntimeError(f"End-to-end workflow validation failed: {e}") from e
     
     def _test_component_communication(self, source: str, target: str, 
                                     test_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -636,21 +620,17 @@ class SystemValidator:
                 'error_count': 0
             }
             
-            # Simulate occasional failures
+            # Hard failure for debugging - no soft failures allowed
             import random
             if random.random() < 0.05:  # 5% failure rate
-                test_result['status'] = 'failed'
-                test_result['error_count'] = 1
-                test_result['error_message'] = 'Communication timeout'
+                self.logger.error(f"Component communication test {source} to {target} failed: Communication timeout")
+                raise RuntimeError(f"Component communication test {source} to {target} failed: Communication timeout - hard failure for debugging")
             
             return test_result
             
         except Exception as e:
-            return {
-                'test_name': f'{source}_to_{target}_communication',
-                'status': 'failed',
-                'error': str(e)
-            }
+            self.logger.error(f"Component communication test failed: {e}")
+            raise RuntimeError(f"Component communication test {source} to {target} failed: {e}") from e
     
     def _test_data_flow(self, flow_name: str) -> Dict[str, Any]:
         """Test a specific data flow"""
@@ -676,11 +656,8 @@ class SystemValidator:
             return test_result
             
         except Exception as e:
-            return {
-                'test_name': f'{flow_name}_test',
-                'status': 'failed',
-                'error': str(e)
-            }
+            self.logger.error(f"Data flow test failed: {e}")
+            raise RuntimeError(f"Data flow test {flow_name} failed: {e}") from e
     
     def _test_component_failure_recovery(self, component: str) -> Dict[str, Any]:
         """Test component failure and recovery"""
@@ -699,11 +676,8 @@ class SystemValidator:
             return test_result
             
         except Exception as e:
-            return {
-                'test_name': f'{component}_failure_recovery',
-                'status': 'failed',
-                'error': str(e)
-            }
+            self.logger.error(f"Component failure recovery test failed: {e}")
+            raise RuntimeError(f"Component failure recovery test for {component} failed: {e}") from e
     
     def _test_cascading_failure_handling(self) -> Dict[str, Any]:
         """Test cascading failure handling"""
@@ -721,11 +695,8 @@ class SystemValidator:
             return test_result
             
         except Exception as e:
-            return {
-                'test_name': 'cascading_failure_handling',
-                'status': 'failed',
-                'error': str(e)
-            }
+            self.logger.error(f"Cascading failure handling test failed: {e}")
+            raise RuntimeError(f"Cascading failure handling test failed: {e}") from e
     
     def _test_sync_async_patterns(self) -> Dict[str, Any]:
         """Test synchronous vs asynchronous patterns"""
@@ -856,7 +827,7 @@ class SystemValidator:
             
         except Exception as e:
             self.logger.error(f"Result aggregation failed: {e}")
-            return {'error': str(e)}
+            raise RuntimeError(f"Result aggregation failed: {e}") from e
     
     def _count_validation_tests(self, validation_results: Dict[str, Any]) -> Dict[str, Any]:
         """Count validation tests by status"""
@@ -926,3 +897,25 @@ class SystemValidator:
                     metrics['average_test_time'] = (
                         (current_avg * (total_tests - 1) + new_time) / total_tests
                     )
+    
+    def cleanup_resources(self):
+        """Cleanup system validator resources including thread pool"""
+        try:
+            self.logger.info("Cleaning up SystemValidator resources...")
+            
+            # Shutdown thread pool executor
+            if hasattr(self, 'executor_pool') and self.executor_pool:
+                self.executor_pool.shutdown(wait=True)
+                self.logger.info("Thread pool executor shutdown completed")
+            
+            # Clear validation history and metrics to free memory
+            with self._lock:
+                self.validation_history.clear()
+                self.integration_metrics.clear()
+                self.logger.info("Validation history and metrics cleared")
+            
+            self.logger.info("SystemValidator resource cleanup completed")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup SystemValidator resources: {e}")
+            raise RuntimeError(f"SystemValidator resource cleanup failed: {e}") from e

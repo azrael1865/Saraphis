@@ -21,7 +21,7 @@ from gac_system.gac_types import DirectionState, DirectionType
 from gac_system.direction_state import DirectionStateManager, DirectionHistory
 
 # Import hybrid bounding components
-from hybrid_bounding_engine import HybridBoundingStrategy, BoundingOperationType, HybridBoundingResult
+from .hybrid_bounding_engine import HybridBoundingStrategy, BoundingOperationType, HybridBoundingResult
 
 
 class OptimizationType(Enum):

@@ -7,9 +7,11 @@ NO FALLBACKS - HARD FAILURES ONLY
 import time
 import logging
 import zlib
+from typing import Dict, List, Any, Optional
+
+# Required imports - NO FALLBACKS
 import lz4.frame
 import brotli
-from typing import Dict, List, Any, Optional
 from collections import defaultdict, deque
 from datetime import datetime
 
@@ -24,7 +26,7 @@ class CompressionManager:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.compression_history = deque(maxlen=10000)
         
-        # Compression configuration
+        # Compression configuration - NO FALLBACKS
         self.default_algorithm = config.get('compression_algorithm', 'LZ4')
         self.compression_level = config.get('compression_level', 6)
         self.adaptive_compression = config.get('adaptive_compression', True)

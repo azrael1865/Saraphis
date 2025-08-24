@@ -119,6 +119,7 @@ class BrainOrchestrator:
         self._worker_pool = None
         self._max_workers = self.config.get('max_workers', 8)
         self._worker_timeout = self.config.get('worker_timeout', 30.0)
+        self._auto_process_tasks = self.config.get('auto_process_tasks', True)
         
         # Emergency handling
         self._emergency_handlers: Dict[str, Callable] = {}
@@ -241,8 +242,10 @@ class BrainOrchestrator:
                 # Update metrics
                 self._metrics.task_count += 1
                 
-                # Trigger task processing
-                self._process_next_task()
+                # Trigger task processing if auto-processing is enabled
+                # and workers are available
+                if self._auto_process_tasks and self._worker_pool and len(self._active_tasks) < self._max_workers:
+                    self._process_next_task()
                 
                 logger.debug(f"Task {task.task_id} submitted")
                 return True
@@ -747,7 +750,9 @@ class BrainOrchestrator:
             
             # Shutdown worker pool
             if self._worker_pool:
-                self._worker_pool.shutdown(wait=True, timeout=timeout)
+                # ThreadPoolExecutor.shutdown doesn't support timeout parameter
+                # Use wait=True to wait for completion
+                self._worker_pool.shutdown(wait=True)
             
             # Clear active tasks
             with self._task_lock:

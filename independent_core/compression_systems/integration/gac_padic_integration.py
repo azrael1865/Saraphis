@@ -10,7 +10,10 @@ import time
 
 from ..padic.padic_gradient import PadicGradientCompressor
 from ..services.compression_service import CompressionService
-from ...gac_system.gac_components import GradientCompressionComponent
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from gac_system.gac_components import GradientCompressionComponent
 
 
 class PadicGradientCompressionComponent(GradientCompressionComponent):

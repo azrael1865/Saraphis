@@ -166,6 +166,11 @@ class GACConfig:
     integration: IntegrationConfig = field(default_factory=IntegrationConfig)
     components: Dict[str, ComponentConfig] = field(default_factory=dict)
     custom_settings: Dict[str, Any] = field(default_factory=dict)
+    
+    @property
+    def mode(self):
+        """Convenience property to access system mode"""
+        return self.system.mode
 
 class GACConfigManager:
     def __init__(self, config_path: Optional[str] = None, auto_load: bool = True):
@@ -200,7 +205,7 @@ class GACConfigManager:
             
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
             
-            config_dict = asdict(self.config)
+            config_dict = self._config_to_dict()
             with open(self.config_path, 'w') as f:
                 json.dump(config_dict, f, indent=2, default=str)
             
@@ -210,6 +215,23 @@ class GACConfigManager:
         except Exception as e:
             logger.error(f"Failed to save configuration: {e}")
             return False
+    
+    def _config_to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary with proper enum handling"""
+        config_dict = asdict(self.config)
+        
+        # Convert enums to their values for JSON serialization
+        if "system" in config_dict and "mode" in config_dict["system"]:
+            if isinstance(config_dict["system"]["mode"], GACMode):
+                config_dict["system"]["mode"] = config_dict["system"]["mode"].value
+        
+        # Convert component priorities
+        if "components" in config_dict:
+            for comp_id, comp_data in config_dict["components"].items():
+                if "priority" in comp_data and isinstance(comp_data["priority"], ComponentPriority):
+                    comp_data["priority"] = comp_data["priority"].value
+        
+        return config_dict
     
     def _load_from_dict(self, config_data: Dict[str, Any]):
         if "system" in config_data:
@@ -235,7 +257,14 @@ class GACConfigManager:
         for key, value in data.items():
             if hasattr(self.config.system, key):
                 if key == "mode" and isinstance(value, str):
-                    setattr(self.config.system, key, GACMode(value))
+                    try:
+                        # Handle enum strings like "GACMode.BALANCED" or just "balanced"
+                        if value.startswith("GACMode."):
+                            value = value.replace("GACMode.", "").lower()
+                        setattr(self.config.system, key, GACMode(value))
+                    except ValueError:
+                        logger.error(f"Invalid GACMode value: {value}, using BALANCED")
+                        setattr(self.config.system, key, GACMode.BALANCED)
                 else:
                     setattr(self.config.system, key, value)
     
@@ -275,7 +304,19 @@ class GACConfigManager:
             for key, value in component_data.items():
                 if hasattr(component_config, key):
                     if key == "priority" and isinstance(value, str):
-                        setattr(component_config, key, ComponentPriority(value))
+                        # Handle priority enum - try as value first, then as int
+                        try:
+                            setattr(component_config, key, ComponentPriority(value))
+                        except ValueError:
+                            # Try to match by name (case-insensitive)
+                            for priority in ComponentPriority:
+                                if priority.name == value.upper():
+                                    setattr(component_config, key, priority)
+                                    break
+                            else:
+                                # Default to MEDIUM if invalid
+                                logger.warning(f"Invalid priority '{value}' for component {component_id}, using MEDIUM")
+                                setattr(component_config, key, ComponentPriority.MEDIUM)
                     else:
                         setattr(component_config, key, value)
             self.config.components[component_id] = component_config

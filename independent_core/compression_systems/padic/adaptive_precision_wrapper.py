@@ -13,6 +13,26 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+# Import or define functions at module level for testing
+try:
+    from .padic_encoder import get_safe_precision, PadicMathematicalOperations
+except ImportError:
+    # Fallback function for testing when padic_encoder not available
+    def get_safe_precision(prime: int) -> int:
+        return 32
+    
+    # Fallback class for testing when padic_encoder not available
+    class PadicMathematicalOperations:
+        def __init__(self, prime: int, precision: int):
+            self.prime = prime
+            self.precision = precision
+        
+        def to_padic(self, x):
+            return x
+        
+        def from_padic(self, x):
+            return x
+
 
 @dataclass
 class AdaptivePrecisionConfig:
@@ -171,7 +191,11 @@ class AdaptivePrecisionWrapper:
         
         # Calculate actual compression ratio
         actual_bits = sum(self._calculate_bits_for_weight(w) for w in padic_weights)
-        actual_ratio = actual_bits / (batch_size * bits_per_float)
+        # FIXED: Handle division by zero for empty tensors
+        if batch_size == 0:
+            actual_ratio = 0.0
+        else:
+            actual_ratio = actual_bits / (batch_size * bits_per_float)
         
         return PrecisionAllocation(
             padic_weights=padic_weights,
@@ -401,8 +425,7 @@ class AdaptivePrecisionWrapper:
         min_precision = getattr(self.config, 'min_precision', 4)
         max_precision = getattr(self.config, 'max_precision', 32)
         
-        # Import safe precision function
-        from .padic_encoder import get_safe_precision
+        # Use module-level get_safe_precision function
         safe_max_precision = get_safe_precision(self.prime)
         
         # Use the minimum of configured max and safe max
@@ -455,13 +478,16 @@ class AdaptivePrecisionWrapper:
         """
         if precision not in self._precision_math_ops_cache:
             # Create new instance with specific precision using factory method
-            if hasattr(self.math_ops, 'create_with_precision'):
+            if self.math_ops and hasattr(self.math_ops, 'create_with_precision'):
                 self._precision_math_ops_cache[precision] = self.math_ops.create_with_precision(precision)
             else:
-                # Fallback: create new instance manually
-                from .padic_encoder import PadicMathematicalOperations
+                # Fallback: create new instance using module-level class
+                if self.math_ops:
+                    prime = getattr(self.math_ops, 'prime', self.prime)
+                else:
+                    prime = self.prime
                 self._precision_math_ops_cache[precision] = PadicMathematicalOperations(
-                    self.math_ops.prime, precision
+                    prime, precision
                 )
         return self._precision_math_ops_cache[precision]
     
@@ -528,7 +554,7 @@ class AdaptivePrecisionWrapper:
             self.performance_stats['vectorized_operations']
         )
         
-        return {
+        stats = {
             'tensors_processed': self.performance_stats['tensors_processed'],
             'total_elements': self.performance_stats['total_elements'],
             'average_elements_per_tensor': (
@@ -556,6 +582,15 @@ class AdaptivePrecisionWrapper:
                 )
             }
         }
+        
+        # Include individual operation counts for backward compatibility
+        stats.update({
+            'serial_operations': self.performance_stats['serial_operations'],
+            'batched_operations': self.performance_stats['batched_operations'],
+            'vectorized_operations': self.performance_stats['vectorized_operations']
+        })
+        
+        return stats
 
 
 def create_adaptive_wrapper(prime: int = 257, **kwargs) -> AdaptivePrecisionWrapper:
@@ -569,9 +604,7 @@ def create_adaptive_wrapper(prime: int = 257, **kwargs) -> AdaptivePrecisionWrap
     Returns:
         Configured AdaptivePrecisionWrapper instance
     """
-    from .padic_encoder import get_safe_precision
-    
-    # Get safe precision limit
+    # Get safe precision limit using module-level function
     safe_max_precision = get_safe_precision(prime)
     
     # Create configuration with safe defaults

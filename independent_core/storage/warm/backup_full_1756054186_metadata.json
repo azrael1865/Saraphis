@@ -1,0 +1,12 @@
+{
+  "backup_id": "backup_full_1756054186",
+  "backup_type": "full",
+  "timestamp": 1756054186.9387882,
+  "size_bytes": 727,
+  "compression_ratio": 1.086696562032885,
+  "encryption_status": "encrypted",
+  "checksum": "4c981d6005e014452d6e08ad2e4bbd4f3b6ff316eac42f33e1ab745364b7e9af",
+  "version": "1.0.0",
+  "retention_days": 30,
+  "verification_required": true
+}

@@ -159,7 +159,8 @@ class DashboardMetricsCollector:
                     })
                     
         except Exception as e:
-            self.logger.error(f"Dashboard render recording failed: {e}")
+            self.logger.error(f"CRITICAL FAILURE: Dashboard render recording failed: {e}")
+            raise RuntimeError(f"Dashboard render recording failed - metrics system compromised: {e}") from e
     
     def record_component_performance(self, component_id: str, component_type: str,
                                    operation: str, duration: float, success: bool = True):
@@ -185,7 +186,8 @@ class DashboardMetricsCollector:
                     metrics['error_count'] += 1
                     
         except Exception as e:
-            self.logger.error(f"Component performance recording failed: {e}")
+            self.logger.error(f"CRITICAL FAILURE: Component performance recording failed: {e}")
+            raise RuntimeError(f"Component performance recording failed - metrics system compromised: {e}") from e
     
     def record_user_interaction(self, user_id: str, interaction_type: str, 
                               processing_time: float, dashboard_type: Optional[str] = None):
@@ -207,7 +209,8 @@ class DashboardMetricsCollector:
                 })
                 
         except Exception as e:
-            self.logger.error(f"User interaction recording failed: {e}")
+            self.logger.error(f"CRITICAL FAILURE: User interaction recording failed: {e}")
+            raise RuntimeError(f"User interaction recording failed - metrics system compromised: {e}") from e
     
     def record_websocket_metrics(self, metric_type: str, value: Any):
         """Record WebSocket-related metrics"""
@@ -236,7 +239,8 @@ class DashboardMetricsCollector:
                     })
                     
         except Exception as e:
-            self.logger.error(f"WebSocket metrics recording failed: {e}")
+            self.logger.error(f"CRITICAL FAILURE: WebSocket metrics recording failed: {e}")
+            raise RuntimeError(f"WebSocket metrics recording failed - metrics system compromised: {e}") from e
     
     def record_resource_usage(self, memory_mb: float, cpu_percent: float,
                             active_dashboards: int, active_components: int):
@@ -279,7 +283,8 @@ class DashboardMetricsCollector:
                     })
                     
         except Exception as e:
-            self.logger.error(f"Resource usage recording failed: {e}")
+            self.logger.error(f"CRITICAL FAILURE: Resource usage recording failed: {e}")
+            raise RuntimeError(f"Resource usage recording failed - metrics system compromised: {e}") from e
     
     def record_dashboard_error(self, user_id: str, dashboard_type: str, 
                              error_message: str, error_type: str = 'unknown'):
@@ -396,8 +401,8 @@ class DashboardMetricsCollector:
                 }
                 
         except Exception as e:
-            self.logger.error(f"Dashboard metrics retrieval failed: {e}")
-            return {'error': str(e)}
+            self.logger.error(f"CRITICAL FAILURE: Dashboard metrics retrieval failed: {e}")
+            raise RuntimeError(f"Dashboard metrics retrieval failed - cannot provide metrics: {e}") from e
     
     def aggregate_metrics(self):
         """Aggregate metrics at different time intervals"""
@@ -491,8 +496,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"Summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Summary calculation failed: {e}")
+            raise RuntimeError(f"Summary calculation failed - cannot generate metrics: {e}") from e
     
     def _format_dashboard_metrics(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
         """Format dashboard-specific metrics"""
@@ -522,8 +527,8 @@ class DashboardMetricsCollector:
             return formatted
             
         except Exception as e:
-            self.logger.error(f"Dashboard metrics formatting failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Dashboard metrics formatting failed: {e}")
+            raise RuntimeError(f"Dashboard metrics formatting failed: {e}") from e
     
     def _calculate_component_summary(self) -> Dict[str, Any]:
         """Calculate component metrics summary"""
@@ -559,8 +564,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"Component summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Component summary calculation failed: {e}")
+            raise RuntimeError(f"Component summary calculation failed: {e}") from e
     
     def _calculate_user_summary(self) -> Dict[str, Any]:
         """Calculate user activity summary"""
@@ -599,8 +604,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"User summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: User summary calculation failed: {e}")
+            raise RuntimeError(f"User summary calculation failed: {e}") from e
     
     def _calculate_realtime_summary(self) -> Dict[str, Any]:
         """Calculate real-time metrics summary"""
@@ -647,8 +652,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"Real-time summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Real-time summary calculation failed: {e}")
+            raise RuntimeError(f"Real-time summary calculation failed: {e}") from e
     
     def _calculate_resource_summary(self) -> Dict[str, Any]:
         """Calculate resource usage summary"""
@@ -688,8 +693,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"Resource summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Resource summary calculation failed: {e}")
+            raise RuntimeError(f"Resource summary calculation failed: {e}") from e
     
     def _calculate_error_summary(self) -> Dict[str, Any]:
         """Calculate error metrics summary"""
@@ -729,8 +734,8 @@ class DashboardMetricsCollector:
             }
             
         except Exception as e:
-            self.logger.error(f"Error summary calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Error summary calculation failed: {e}")
+            raise RuntimeError(f"Error summary calculation failed: {e}") from e
     
     def _calculate_percentiles(self, values: List[float]) -> Dict[str, float]:
         """Calculate percentiles for given values"""
@@ -750,8 +755,8 @@ class DashboardMetricsCollector:
             return result
             
         except Exception as e:
-            self.logger.error(f"Percentile calculation failed: {e}")
-            return {}
+            self.logger.error(f"CRITICAL FAILURE: Percentile calculation failed: {e}")
+            raise RuntimeError(f"Percentile calculation failed: {e}") from e
     
     def _check_error_rate_alert(self, dashboard_type: str):
         """Check if error rate exceeds threshold"""
@@ -828,8 +833,8 @@ class DashboardMetricsCollector:
                 time.sleep(60)  # Run every minute
                 self.aggregate_metrics()
             except Exception as e:
-                self.logger.error(f"Aggregation loop error: {e}")
-                time.sleep(300)  # 5 minutes on error
+                self.logger.error(f"CRITICAL FAILURE: Aggregation loop error: {e}")
+                raise RuntimeError(f"Aggregation loop failed critically - terminating: {e}") from e
     
     def _cleanup_loop(self):
         """Periodically clean up old metrics"""
@@ -838,5 +843,5 @@ class DashboardMetricsCollector:
                 time.sleep(3600)  # Run every hour
                 self.cleanup_old_metrics()
             except Exception as e:
-                self.logger.error(f"Cleanup loop error: {e}")
-                time.sleep(7200)  # 2 hours on error
+                self.logger.error(f"CRITICAL FAILURE: Cleanup loop error: {e}")
+                raise RuntimeError(f"Cleanup loop failed critically - terminating: {e}") from e

@@ -23,8 +23,8 @@ from gac_system.enhanced_bounder import EnhancedGradientBounder
 from performance_optimizer import PerformanceOptimizer
 
 # Import hybrid p-adic compression system
-from hybrid_padic_compressor import HybridPadicCompressionSystem, HybridPadicIntegrationManager
-from hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
+from .hybrid_padic_compressor import HybridPadicCompressionSystem, HybridPadicIntegrationManager
+from .hybrid_padic_structures import HybridPadicWeight, HybridPadicManager
 
 
 class CompressionMode(Enum):

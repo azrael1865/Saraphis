@@ -592,17 +592,201 @@ class DataManager:
         
         return recommendations
     
+    # ======================== BACKUP MANAGEMENT METHODS ========================
+    
+    def create_backup(self, data: Any, backup_id: str) -> Dict[str, Any]:
+        """Create a backup of data"""
+        try:
+            result = self.backup_manager.create_backup(data, backup_id)
+            
+            # Record backup history
+            backup_record = {
+                'timestamp': time.time(),
+                'backup_id': backup_id,
+                'result': result
+            }
+            self.backup_history.append(backup_record)
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Failed to create backup {backup_id}: {e}")
+            raise
+    
+    def restore_backup(self, backup_id: str) -> Any:
+        """Restore data from backup"""
+        try:
+            return self.backup_manager.restore_backup(backup_id)
+        except Exception as e:
+            self.logger.error(f"Failed to restore backup {backup_id}: {e}")
+            raise
+    
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """List available backups"""
+        try:
+            return self.backup_manager.list_backups()
+        except Exception as e:
+            self.logger.error(f"Failed to list backups: {e}")
+            raise
+    
+    # ======================== ENCRYPTION MANAGEMENT METHODS ========================
+    
+    def encrypt_data(self, data: bytes) -> bytes:
+        """Encrypt data"""
+        try:
+            return self.encryption_manager.encrypt_data(data)
+        except Exception as e:
+            self.logger.error(f"Failed to encrypt data: {e}")
+            raise
+    
+    def decrypt_data(self, encrypted_data: bytes) -> bytes:
+        """Decrypt data"""
+        try:
+            return self.encryption_manager.decrypt_data(encrypted_data)
+        except Exception as e:
+            self.logger.error(f"Failed to decrypt data: {e}")
+            raise
+    
+    def rotate_encryption_keys(self) -> Dict[str, Any]:
+        """Rotate encryption keys"""
+        try:
+            return self.encryption_manager.rotate_keys()
+        except Exception as e:
+            self.logger.error(f"Failed to rotate encryption keys: {e}")
+            raise
+    
+    # ======================== DATA STORAGE METHODS ========================
+    
+    def store_data(self, data: Any, data_id: str) -> Dict[str, Any]:
+        """Store data"""
+        try:
+            return self.storage_manager.store_data(data, data_id)
+        except Exception as e:
+            self.logger.error(f"Failed to store data {data_id}: {e}")
+            raise
+    
+    def retrieve_data(self, data_id: str) -> Any:
+        """Retrieve data"""
+        try:
+            return self.storage_manager.retrieve_data(data_id)
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve data {data_id}: {e}")
+            raise
+    
+    def delete_data(self, data_id: str) -> Dict[str, Any]:
+        """Delete data"""
+        try:
+            return self.storage_manager.delete_data(data_id)
+        except Exception as e:
+            self.logger.error(f"Failed to delete data {data_id}: {e}")
+            raise
+    
+    # ======================== COMPRESSION METHODS ========================
+    
+    def compress_data(self, data: bytes) -> bytes:
+        """Compress data"""
+        try:
+            return self.compression_manager.compress_data(data)
+        except Exception as e:
+            self.logger.error(f"Failed to compress data: {e}")
+            raise
+    
+    def decompress_data(self, compressed_data: bytes) -> bytes:
+        """Decompress data"""
+        try:
+            return self.compression_manager.decompress_data(compressed_data)
+        except Exception as e:
+            self.logger.error(f"Failed to decompress data: {e}")
+            raise
+    
+    # ======================== METRICS METHODS ========================
+    
+    def get_data_metrics(self) -> Dict[str, Any]:
+        """Get current data metrics"""
+        try:
+            return self.data_metrics_collector.get_current_metrics()
+        except Exception as e:
+            self.logger.error(f"Failed to get data metrics: {e}")
+            raise
+    
+    def get_historical_metrics(self, start_time: float, end_time: float) -> List[Dict[str, Any]]:
+        """Get historical metrics"""
+        try:
+            return self.data_metrics_collector.get_historical_metrics(start_time, end_time)
+        except Exception as e:
+            self.logger.error(f"Failed to get historical metrics: {e}")
+            raise
+    
+    # ======================== REPLICATION METHODS ========================
+    
+    def sync_replicas(self) -> Dict[str, Any]:
+        """Synchronize replicas"""
+        try:
+            return self.replication_manager.sync_replicas()
+        except Exception as e:
+            self.logger.error(f"Failed to sync replicas: {e}")
+            raise
+    
+    def check_replica_health(self) -> Dict[str, Any]:
+        """Check replica health"""
+        try:
+            return self.replication_manager.check_replica_health()
+        except Exception as e:
+            self.logger.error(f"Failed to check replica health: {e}")
+            raise
+    
+    # ======================== RESOURCE MANAGEMENT METHODS ========================
+    
+    def cleanup_resources(self) -> Dict[str, Any]:
+        """Clean up resources"""
+        try:
+            resources_freed = 0
+            
+            # Clean up old data history entries
+            if len(self.data_history) > 5000:
+                old_count = len(self.data_history)
+                # Keep only the most recent 5000 entries
+                self.data_history = deque(list(self.data_history)[-5000:], maxlen=10000)
+                resources_freed += old_count - len(self.data_history)
+            
+            # Clean up old backup history entries
+            if len(self.backup_history) > 2500:
+                old_count = len(self.backup_history)
+                # Keep only the most recent 2500 entries
+                self.backup_history = deque(list(self.backup_history)[-2500:], maxlen=5000)
+                resources_freed += old_count - len(self.backup_history)
+            
+            # Clean up storage if available
+            if hasattr(self.storage_manager, 'cleanup_storage'):
+                storage_cleanup = self.storage_manager.cleanup_storage()
+                resources_freed += storage_cleanup.get('freed_resources', 0)
+            
+            return {
+                'status': 'cleaned',
+                'resources_freed': resources_freed,
+                'data_history_entries': len(self.data_history),
+                'backup_history_entries': len(self.backup_history)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup resources: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'resources_freed': 0
+            }
+    
     def shutdown(self):
         """Shutdown data manager"""
         self.logger.info("Shutting down Data Manager")
         self.is_running = False
         
-        # Generate final report
+        # Generate final report - NO SILENT FAILURES
         try:
             final_report = self.generate_data_report()
             self.logger.info(f"Final data report generated: {final_report.get('report_id')}")
-        except:
-            pass
+        except Exception as e:
+            self.logger.error(f"CRITICAL: Final report generation failed during shutdown: {e}")
+            raise RuntimeError(f"DataManager shutdown failed: {e}") from e
 
 
 def create_data_manager(config: Dict[str, Any]) -> DataManager:

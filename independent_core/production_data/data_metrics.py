@@ -122,6 +122,22 @@ class DataMetricsCollector:
             self.logger.error(f"Failed to get current metrics: {e}")
             return {}
     
+    def collect_all_metrics(self) -> Dict[str, Any]:
+        """Collect all metrics (alias for get_current_metrics)"""
+        return self.get_current_metrics()
+    
+    def get_historical_metrics(self, start_time: float, end_time: float) -> List[Dict[str, Any]]:
+        """Get historical metrics within time range"""
+        try:
+            historical = []
+            for record in self.metric_history:
+                if start_time <= record['timestamp'] <= end_time:
+                    historical.append(record)
+            return historical
+        except Exception as e:
+            self.logger.error(f"Failed to get historical metrics: {e}")
+            return []
+    
     def analyze_metrics(self) -> Dict[str, Any]:
         """Analyze metrics and generate insights"""
         try:
@@ -1014,6 +1030,48 @@ class DataMetricsCollector:
                     
         except Exception as e:
             self.logger.error(f"Alert clearing failed: {e}")
+    
+    def generate_metrics_report(self) -> Dict[str, Any]:
+        """Generate comprehensive metrics report"""
+        try:
+            current_metrics = self.get_current_metrics()
+            alert_summary = self._generate_alert_summary()
+            
+            return {
+                'report_id': f"metrics_report_{int(time.time())}",
+                'timestamp': time.time(),
+                'current_metrics': current_metrics,
+                'alert_summary': alert_summary,
+                'system_health': current_metrics.get('system_health', {}),
+                'recommendations': self._generate_metrics_recommendations(current_metrics)
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to generate metrics report: {e}")
+            return {
+                'report_id': f"error_report_{int(time.time())}",
+                'timestamp': time.time(),
+                'error': str(e)
+            }
+    
+    def _generate_metrics_recommendations(self, metrics: Dict[str, Any]) -> List[str]:
+        """Generate recommendations based on metrics"""
+        recommendations = []
+        
+        try:
+            system_health = metrics.get('system_health', {})
+            health_score = system_health.get('health_score', 0)
+            
+            if health_score < 0.7:
+                recommendations.append("System health is below optimal - investigate alerts")
+            
+            if system_health.get('active_alerts', 0) > 5:
+                recommendations.append("High number of active alerts - prioritize resolution")
+            
+            return recommendations
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate recommendations: {e}")
+            return []
     
     def shutdown(self):
         """Shutdown metrics collector"""

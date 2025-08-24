@@ -12,7 +12,7 @@ import json
 from fractions import Fraction
 from math import gcd
 
-from padic_encoder import PadicWeight, PadicValidation
+from .padic_encoder import PadicWeight, PadicValidation
 
 
 @dataclass

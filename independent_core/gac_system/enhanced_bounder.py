@@ -68,6 +68,16 @@ class EnhancedGradientBounder:
                 'max_norm': config.get('oscillating_max_norm', 1.0),
                 'clip_value': config.get('oscillating_clip_value', 8.0),
                 'scaling_factor': config.get('oscillating_scaling', 0.7)
+            },
+            DirectionType.POSITIVE: {
+                'max_norm': config.get('positive_max_norm', 1.8),
+                'clip_value': config.get('positive_clip_value', 10.0),
+                'scaling_factor': config.get('positive_scaling', 1.0)
+            },
+            DirectionType.NEGATIVE: {
+                'max_norm': config.get('negative_max_norm', 1.8),
+                'clip_value': config.get('negative_clip_value', 10.0),
+                'scaling_factor': config.get('negative_scaling', 1.0)
             }
         }
         
@@ -355,10 +365,13 @@ class EnhancedGradientBounder:
         """Apply momentum-based gradient adjustments"""
         momentum_applied = False
         momentum_factor = 1.0
+        previous_momentum = self.momentum_gradients is not None
         
         # Update momentum gradients
         if self.momentum_gradients is None:
             self.momentum_gradients = gradients.clone()
+            # On first call, no momentum adjustment is applied yet
+            adjusted_gradients = gradients
         else:
             # Exponential moving average
             self.momentum_gradients = (
@@ -368,9 +381,8 @@ class EnhancedGradientBounder:
             
             # Apply momentum decay
             self.momentum_gradients *= (1 - self.momentum_decay_rate)
-        
-        # Calculate momentum influence
-        if self.momentum_gradients is not None:
+            
+            # Calculate momentum influence
             # Cosine similarity between current and momentum gradients
             grad_norm = torch.norm(gradients)
             momentum_norm = torch.norm(self.momentum_gradients)
@@ -388,17 +400,17 @@ class EnhancedGradientBounder:
                     momentum_factor = 1.0 - 0.2 * abs(cosine_sim)
                 
                 momentum_applied = abs(momentum_factor - 1.0) > 0.01
-        
-        adjusted_gradients = gradients * momentum_factor
+            
+            adjusted_gradients = gradients * momentum_factor
         
         return {
             'gradients': adjusted_gradients,
             'factors': {
                 'momentum_factor': momentum_factor,
-                'momentum_norm': momentum_norm.item() if 'momentum_norm' in locals() else 0.0,
+                'momentum_norm': torch.norm(self.momentum_gradients).item() if self.momentum_gradients is not None else 0.0,
                 'cosine_similarity': cosine_sim if 'cosine_sim' in locals() else 0.0
             },
-            'applied': momentum_applied,
+            'applied': momentum_applied and previous_momentum,  # Only applied if there was previous momentum
             'momentum_available': self.momentum_gradients is not None
         }
     
@@ -418,8 +430,13 @@ class EnhancedGradientBounder:
         recent_confidences = [h.confidence for h in history[-5:]]
         
         # Predict future behavior
-        magnitude_trend = np.polyfit(range(len(recent_magnitudes)), recent_magnitudes, 1)[0]
-        confidence_trend = np.polyfit(range(len(recent_confidences)), recent_confidences, 1)[0]
+        try:
+            magnitude_trend = np.polyfit(range(len(recent_magnitudes)), recent_magnitudes, 1)[0]
+            confidence_trend = np.polyfit(range(len(recent_confidences)), recent_confidences, 1)[0]
+        except (np.linalg.LinAlgError, ValueError):
+            # Handle edge cases where polyfit might fail
+            magnitude_trend = 0.0
+            confidence_trend = 0.0
         
         # Apply predictive adjustments
         predictive_factor = 1.0
@@ -440,7 +457,7 @@ class EnhancedGradientBounder:
             # Oscillations tend to amplify, so dampen proactively
             predictive_factor *= 0.85
             prediction_applied = True
-        elif direction_state.direction == DirectionType.ASCENT and magnitude_trend > 0.5:
+        elif direction_state.direction == DirectionType.ASCENT and magnitude_trend > 0.3:  # Lower threshold for ascending trends
             # Ascending gradients with increasing magnitude
             predictive_factor *= 0.9
             prediction_applied = True

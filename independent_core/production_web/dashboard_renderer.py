@@ -656,6 +656,12 @@ class DashboardRenderer:
             layout = data.get('layout', 'auto')
             highlights = data.get('highlights', [])
             
+            # Handle None values
+            if grid_metrics is None:
+                grid_metrics = {}
+            if highlights is None:
+                highlights = []
+            
             # Process metrics into grid format
             metric_items = []
             for key, value in grid_metrics.items():
@@ -697,6 +703,12 @@ class DashboardRenderer:
         try:
             alerts = data.get('alerts', [])
             severity_levels = data.get('severity_levels', ['critical', 'warning', 'info'])
+            
+            # Handle None values
+            if alerts is None:
+                alerts = []
+            if severity_levels is None:
+                severity_levels = ['critical', 'warning', 'info']
             
             # Process alerts
             processed_alerts = []
@@ -1008,3 +1020,402 @@ class DashboardRenderer:
             layout['reduce_columns'] = True
         
         return layout
+    
+    # Missing layout generation methods
+    def _generate_flexible_layout(self, template: Dict[str, Any], components: Dict[str, Any], 
+                                screen_size: str) -> Dict[str, Any]:
+        """Generate flexible layout"""
+        layout_items = []
+        for component_id, component in components.items():
+            position = component['position'].copy()
+            
+            # Flexible layout adjusts based on content and screen size
+            if screen_size == 'mobile':
+                position['width'] = 12  # Full width on mobile
+                position['col'] = 0
+            elif screen_size == 'tablet':
+                position['width'] = min(8, position['width'])
+                
+            layout_items.append({
+                'component_id': component_id,
+                'position': position,
+                'priority': component.get('priority', 'medium'),
+                'flexible': True
+            })
+            
+        # Sort by priority
+        layout_items.sort(key=lambda x: (
+            {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}[x['priority']],
+            x['position']['row']
+        ))
+        
+        return {
+            'type': 'flexible',
+            'items': layout_items,
+            'flow_direction': 'column' if screen_size == 'mobile' else 'row',
+            'responsive': True
+        }
+    
+    def _generate_timeline_layout(self, template: Dict[str, Any], components: Dict[str, Any], 
+                                screen_size: str) -> Dict[str, Any]:
+        """Generate timeline-based layout"""
+        layout_items = []
+        for component_id, component in components.items():
+            position = component['position'].copy()
+            
+            # Timeline layout organizes components chronologically
+            if screen_size == 'mobile':
+                position['width'] = 12
+                position['col'] = 0
+            
+            layout_items.append({
+                'component_id': component_id,
+                'position': position,
+                'priority': component.get('priority', 'medium'),
+                'timeline_order': position.get('row', 0)
+            })
+            
+        # Sort by timeline order (row position)
+        layout_items.sort(key=lambda x: x['timeline_order'])
+        
+        return {
+            'type': 'timeline',
+            'items': layout_items,
+            'orientation': 'vertical' if screen_size == 'mobile' else 'horizontal',
+            'responsive': True
+        }
+    
+    def _generate_dashboard_layout(self, template: Dict[str, Any], components: Dict[str, Any], 
+                                 screen_size: str) -> Dict[str, Any]:
+        """Generate dashboard-style layout"""
+        layout_items = []
+        for component_id, component in components.items():
+            position = component['position'].copy()
+            
+            # Dashboard layout optimizes for monitoring
+            if screen_size == 'mobile':
+                # Stack components vertically on mobile
+                position['width'] = 12
+                position['col'] = 0
+            elif screen_size == 'tablet':
+                # Adjust for tablet
+                position['width'] = min(8, position['width'])
+                
+            layout_items.append({
+                'component_id': component_id,
+                'position': position,
+                'priority': component.get('priority', 'medium'),
+                'dashboard_section': self._get_dashboard_section(component_id)
+            })
+            
+        # Sort by priority and section
+        layout_items.sort(key=lambda x: (
+            {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}[x['priority']],
+            x['dashboard_section'],
+            x['position']['row']
+        ))
+        
+        return {
+            'type': 'dashboard',
+            'items': layout_items,
+            'sections': ['primary', 'secondary', 'tertiary'],
+            'responsive': True
+        }
+    
+    def _get_dashboard_section(self, component_id: str) -> str:
+        """Get dashboard section for component"""
+        primary_components = ['system_health', 'performance_metrics', 'system_metrics']
+        secondary_components = ['active_sessions', 'api_performance', 'security_alerts']
+        
+        if component_id in primary_components:
+            return 'primary'
+        elif component_id in secondary_components:
+            return 'secondary'
+        else:
+            return 'tertiary'
+    
+    # Missing render methods - implementing all component types
+    def _render_distribution_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render distribution chart component"""
+        try:
+            distribution_data = data.get('distribution_data', [])
+            statistics = data.get('statistics', {})
+            thresholds = data.get('thresholds', [])
+            
+            return {
+                'type': 'distribution_chart',
+                'distribution_data': distribution_data,
+                'statistics': statistics,
+                'thresholds': thresholds,
+                'chart_config': {
+                    'chart_type': 'histogram',
+                    'bins': 20,
+                    'smooth': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Distribution chart rendering failed: {e}")
+            raise
+    
+    def _render_performance_table(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render performance table component"""
+        try:
+            table_data = data.get('table_data', [])
+            columns = data.get('columns', [])
+            sorting = data.get('sorting', {})
+            
+            return {
+                'type': 'performance_table',
+                'table_data': table_data,
+                'columns': columns,
+                'sorting': sorting,
+                'table_config': {
+                    'sortable': True,
+                    'filterable': True,
+                    'paginated': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Performance table rendering failed: {e}")
+            raise
+    
+    def _render_propagation_map(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render propagation map component"""
+        try:
+            propagation_data = data.get('propagation_data', {})
+            connections = data.get('connections', [])
+            flow_rates = data.get('flow_rates', {})
+            
+            return {
+                'type': 'propagation_map',
+                'propagation_data': propagation_data,
+                'connections': connections,
+                'flow_rates': flow_rates,
+                'map_config': {
+                    'interactive': True,
+                    'zoom_enabled': True,
+                    'legend': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Propagation map rendering failed: {e}")
+            raise
+    
+    def _render_progress_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render progress chart component"""
+        try:
+            progress = data.get('progress', 0)
+            milestones = data.get('milestones', [])
+            eta = data.get('eta', None)
+            
+            return {
+                'type': 'progress_chart',
+                'progress': progress,
+                'milestones': milestones,
+                'eta': eta,
+                'progress_config': {
+                    'show_percentage': True,
+                    'show_eta': True,
+                    'animated': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Progress chart rendering failed: {e}")
+            raise
+    
+    def _render_line_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render line chart component"""
+        try:
+            series_data = data.get('series_data', [])
+            axes = data.get('axes', {})
+            legends = data.get('legends', [])
+            
+            return {
+                'type': 'line_chart',
+                'series_data': series_data,
+                'axes': axes,
+                'legends': legends,
+                'chart_config': {
+                    'smooth': True,
+                    'points': True,
+                    'grid': True,
+                    'animation': True
+                },
+                'theme_colors': theme.get('colors', {}).get('chart_colors', []),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Line chart rendering failed: {e}")
+            raise
+    
+    def _render_gradient_visualization(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render gradient visualization component"""
+        try:
+            gradient_data = data.get('gradient_data', {})
+            layers = data.get('layers', [])
+            magnitudes = data.get('magnitudes', [])
+            
+            return {
+                'type': 'gradient_visualization',
+                'gradient_data': gradient_data,
+                'layers': layers,
+                'magnitudes': magnitudes,
+                'visualization_config': {
+                    'heatmap': True,
+                    'color_scale': 'viridis',
+                    'interactive': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Gradient visualization rendering failed: {e}")
+            raise
+    
+    def _render_metrics_display(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render metrics display component"""
+        try:
+            metrics = data.get('metrics', {})
+            comparisons = data.get('comparisons', {})
+            targets = data.get('targets', {})
+            
+            # Handle None values
+            if metrics is None:
+                metrics = {}
+            if comparisons is None:
+                comparisons = {}
+            if targets is None:
+                targets = {}
+            
+            # Process metrics into display format
+            display_metrics = []
+            for key, value in metrics.items():
+                display_metrics.append({
+                    'name': key.replace('_', ' ').title(),
+                    'value': self._format_metric_value(value),
+                    'unit': self._get_unit_for_metric(key),
+                    'comparison': comparisons.get(key),
+                    'target': targets.get(key),
+                    'status': self._get_metric_status(value, targets.get(key))
+                })
+            
+            return {
+                'type': 'metrics_display',
+                'metrics': display_metrics,
+                'comparisons': comparisons,
+                'targets': targets,
+                'display_config': {
+                    'layout': 'cards',
+                    'show_trends': True,
+                    'show_targets': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Metrics display rendering failed: {e}")
+            raise
+    
+    def _render_api_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render API chart component"""
+        try:
+            api_data = data.get('api_data', [])
+            endpoints = data.get('endpoints', [])
+            response_times = data.get('response_times', {})
+            
+            return {
+                'type': 'api_chart',
+                'api_data': api_data,
+                'endpoints': endpoints,
+                'response_times': response_times,
+                'chart_config': {
+                    'chart_type': 'bar',
+                    'show_errors': True,
+                    'group_by_endpoint': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"API chart rendering failed: {e}")
+            raise
+    
+    def _render_resource_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render resource chart component"""
+        try:
+            resource_data = data.get('resource_data', [])
+            limits = data.get('limits', {})
+            predictions = data.get('predictions', [])
+            
+            return {
+                'type': 'resource_chart',
+                'resource_data': resource_data,
+                'limits': limits,
+                'predictions': predictions,
+                'chart_config': {
+                    'chart_type': 'area',
+                    'stacked': True,
+                    'show_limits': True,
+                    'show_predictions': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Resource chart rendering failed: {e}")
+            raise
+    
+    def _render_data_flow_chart(self, data: Dict[str, Any], theme: Dict[str, Any]) -> Dict[str, Any]:
+        """Render data flow chart component"""
+        try:
+            flow_data = data.get('flow_data', {})
+            nodes = data.get('nodes', [])
+            edges = data.get('edges', [])
+            
+            return {
+                'type': 'data_flow_chart',
+                'flow_data': flow_data,
+                'nodes': nodes,
+                'edges': edges,
+                'flow_config': {
+                    'layout': 'hierarchical',
+                    'animated_flows': True,
+                    'interactive': True,
+                    'show_metrics': True
+                },
+                'theme_colors': theme.get('colors', {}),
+                'last_updated': time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Data flow chart rendering failed: {e}")
+            raise
+    
+    def _get_metric_status(self, value: float, target: Optional[float]) -> str:
+        """Get status based on metric value vs target"""
+        if target is None:
+            return 'unknown'
+        
+        if value >= target * 0.95:
+            return 'good'
+        elif value >= target * 0.8:
+            return 'warning'
+        else:
+            return 'critical'

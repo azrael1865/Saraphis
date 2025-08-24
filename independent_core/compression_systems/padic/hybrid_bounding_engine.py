@@ -21,8 +21,8 @@ from gac_system.direction_state import DirectionStateManager, DirectionHistory
 from gac_system.enhanced_bounder import EnhancedGradientBounder, EnhancedBoundingResult
 
 # Import direction system components
-from direction_manager import DirectionManager
-from dynamic_switching_manager import DynamicSwitchingManager
+from .direction_manager import DirectionManager
+from .dynamic_switching_manager import DynamicSwitchingManager
 
 
 class HybridBoundingStrategy(Enum):

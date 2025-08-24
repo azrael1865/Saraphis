@@ -1,0 +1,228 @@
+{
+  "report_id": "orchestration_1756055910",
+  "timestamp": "2025-08-24T13:18:30.071064",
+  "executive_summary": {
+    "overall_health": 0.7600000000000001,
+    "critical_issues": 1,
+    "total_operations": 0,
+    "success_rate": 0,
+    "emergency_responses": 0,
+    "predictive_actions": 0
+  },
+  "component_reports": {
+    "scaling": {
+      "report_id": "scaling_1756055910",
+      "timestamp": "2025-08-24T13:18:30.071090",
+      "summary": {
+        "total_operations": 0,
+        "successful_operations": 0,
+        "total_time": 0,
+        "success": false
+      },
+      "operations": [],
+      "current_state": {
+        "system_instances": {
+          "compression_system": 3,
+          "training_system": 2,
+          "brain_core": 2
+        },
+        "agent_instances": {
+          "pattern_agent": 5
+        }
+      },
+      "performance_metrics": {
+        "timestamp": "2025-08-24 13:18:30.071094",
+        "metrics": {
+          "systems": {
+            "total_operations": 2,
+            "success_rate": 1.0,
+            "average_scaling_time": 4.010080099105835,
+            "scale_up_ratio": 1.0,
+            "scale_down_ratio": 0.0
+          }
+        },
+        "overall_efficiency": 1.0,
+        "recommendations": [
+          "Frequent scale-ups for systems - consider increasing base capacity"
+        ]
+      },
+      "recommendations": [
+        "Scaling operation failed - review error logs and retry"
+      ]
+    },
+    "recovery": {
+      "report_id": "recovery_1756055910",
+      "timestamp": "2025-08-24T13:18:30.071105",
+      "summary": {
+        "total_recoveries": 0,
+        "successful_recoveries": 0,
+        "failed_recoveries": 0,
+        "total_time": 0,
+        "success": false
+      },
+      "details": {
+        "is_running": false,
+        "active_recoveries": {
+          "brain_core": {
+            "type": "system",
+            "status": "initiated",
+            "attempts": 3,
+            "elapsed_time": 27.03581690788269
+          }
+        },
+        "performance": {
+          "success_rate": 0.0,
+          "average_time": 0.0,
+          "total_recoveries": 0
+        },
+        "recent_recoveries": []
+      },
+      "performance_metrics": {
+        "timestamp": "2025-08-24 13:18:30.071107",
+        "overall": {
+          "success_rate": 0.0,
+          "average_time": 0.0,
+          "total_recoveries": 0
+        },
+        "by_component_type": {},
+        "by_strategy": {},
+        "recent_failures": []
+      },
+      "recommendations": [
+        "Success rate below target: 0.0% < 99%"
+      ]
+    },
+    "load_balancing": {
+      "report_id": "balancing_1756055910",
+      "timestamp": "2025-08-24T13:18:30.071409",
+      "summary": {
+        "current_efficiency": 0.5207228501333334,
+        "meets_threshold": false,
+        "total_operations": 3,
+        "success_rate": 1.0,
+        "rebalance_operations": 2
+      },
+      "distribution_analysis": {
+        "timestamp": "2025-08-24 13:18:30.071115",
+        "system_distribution": {
+          "brain_core": {
+            "load_score": 42.02,
+            "cpu": 45,
+            "memory": 60,
+            "throughput": 100,
+            "instances": 2
+          },
+          "compression_system": {
+            "load_score": 72.016,
+            "cpu": 90,
+            "memory": 90,
+            "throughput": 80,
+            "instances": 3
+          },
+          "training_system": {
+            "load_score": 72.012,
+            "cpu": 85,
+            "memory": 95,
+            "throughput": 60,
+            "instances": 2
+          }
+        },
+        "agent_distribution": {
+          "reasoning_agent": {
+            "load_score": 62.0,
+            "active_tasks": 5,
+            "response_time": 120,
+            "instances": 1
+          },
+          "pattern_agent": {
+            "load_score": 98.0,
+            "active_tasks": 8,
+            "response_time": 180,
+            "instances": 5
+          },
+          "optimization_agent": {
+            "load_score": 39.0,
+            "active_tasks": 3,
+            "response_time": 90,
+            "instances": 1
+          }
+        },
+        "overall_efficiency": 0.5207228501333334,
+        "load_variance": 479.27714986666666,
+        "hotspots": [
+          {
+            "type": "agent",
+            "name": "pattern_agent",
+            "load": 98.0
+          }
+        ],
+        "underutilized": [],
+        "average_load": 64.17466666666667
+      },
+      "routing_table": {
+        "systems": {
+          "brain_core": 0.4444444444444444,
+          "compression_system": 0.3333333333333333,
+          "training_system": 0.2222222222222222
+        },
+        "agents": {
+          "reasoning_agent": 0.4166666666666667,
+          "pattern_agent": 0.16666666666666669,
+          "optimization_agent": 0.4166666666666667
+        }
+      },
+      "performance_metrics": {
+        "timestamp": "2025-08-24 13:18:30.071420",
+        "metrics": {
+          "total_distributions": 3,
+          "successful_distributions": 3,
+          "failed_distributions": 0,
+          "average_efficiency": 0.95,
+          "rebalance_operations": 2,
+          "strategy_switches": 0
+        },
+        "current_efficiency": 0.5207228501333334,
+        "routing_table": {
+          "systems": {
+            "brain_core": 0.4444444444444444,
+            "compression_system": 0.3333333333333333,
+            "training_system": 0.2222222222222222
+          },
+          "agents": {
+            "reasoning_agent": 0.4166666666666667,
+            "pattern_agent": 0.16666666666666669,
+            "optimization_agent": 0.4166666666666667
+          }
+        },
+        "active_strategy": "performance_based",
+        "recommendations": [
+          "Efficiency below threshold: 52.1% < 95.0%",
+          "Consider switching load balancing strategy",
+          "High rebalance rate: 66.7% - system may be unstable"
+        ],
+        "success_rate": 1.0
+      },
+      "recommendations": [
+        "Efficiency below target: 52.1% < 95.0%",
+        "Persistent hotspots detected: 1 components overloaded"
+      ]
+    },
+    "predictions": {
+      "timestamp": "2025-08-24 13:18:30.071481",
+      "overall_accuracy": 0.0,
+      "component_accuracy": {},
+      "meets_threshold": false
+    }
+  },
+  "metrics": {
+    "total_operations": 0,
+    "successful_operations": 0,
+    "failed_operations": 0,
+    "emergency_responses": 0,
+    "predictive_actions": 0
+  },
+  "recommendations": [
+    "Overall system health is low (76.00%) - review component health",
+    "Prediction accuracy below threshold (0.0%) - retrain models"
+  ]
+}
